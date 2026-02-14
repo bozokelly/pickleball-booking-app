@@ -6,7 +6,9 @@ import { useAuthStore } from '@/stores/authStore';
 import { Button, Input, Card } from '@/components/ui';
 import { useToast } from '@/components/ui/Toast';
 import { uploadAvatar } from '@/utils/imageUpload';
-import { User, LogOut, Camera, Star } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { Club } from '@/types/database';
+import { User, LogOut, Camera, Star, Users, MapPin } from 'lucide-react';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -18,6 +20,7 @@ export default function ProfilePage() {
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [duprRating, setDuprRating] = useState('');
   const [saving, setSaving] = useState(false);
+  const [myClubs, setMyClubs] = useState<Club[]>([]);
 
   useEffect(() => {
     if (profile) {
@@ -25,6 +28,18 @@ export default function ProfilePage() {
       setPhone(profile.phone || '');
       setDateOfBirth(profile.date_of_birth || '');
       setDuprRating(profile.dupr_rating?.toString() || '');
+
+      // Fetch clubs the user belongs to
+      supabase
+        .from('club_members')
+        .select('club:clubs!club_members_club_id_fkey(*)')
+        .eq('user_id', profile.id)
+        .eq('status', 'approved')
+        .then(({ data }) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const clubs = (data || []).map((row: any) => row.club).filter(Boolean);
+          setMyClubs(clubs);
+        });
     }
   }, [profile]);
 
@@ -101,6 +116,40 @@ export default function ProfilePage() {
           <p className="text-3xl font-bold text-text-primary mt-1">{profile.dupr_rating.toFixed(2)}</p>
         </Card>
       )}
+
+      {/* My Clubs */}
+      <Card className="p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <Users className="h-5 w-5 text-primary" />
+          <h3 className="text-lg font-semibold text-text-primary">My Clubs</h3>
+        </div>
+        {myClubs.length === 0 ? (
+          <p className="text-sm text-text-secondary">You haven&apos;t joined any clubs yet. Find one from the Home page!</p>
+        ) : (
+          <div className="space-y-2">
+            {myClubs.map((club) => (
+              <div key={club.id} className="flex items-center gap-3 p-3 rounded-xl bg-background">
+                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {club.image_url ? (
+                    <img src={club.image_url} alt="" className="h-10 w-10 rounded-xl object-cover" />
+                  ) : (
+                    <Users className="h-5 w-5 text-primary" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-text-primary truncate">{club.name}</p>
+                  {club.location && (
+                    <p className="text-xs text-text-secondary flex items-center gap-1 mt-0.5">
+                      <MapPin className="h-3 w-3 flex-shrink-0" />
+                      <span className="truncate">{club.location}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       {/* Edit form */}
       <Card className="p-6 space-y-4">

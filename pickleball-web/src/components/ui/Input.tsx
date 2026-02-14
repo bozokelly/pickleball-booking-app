@@ -38,7 +38,7 @@ export function Input({
         )}
         <input
           type={isPassword ? (showPassword ? 'text' : 'password') : type}
-          className={`w-full px-4 py-3 bg-background border border-border rounded-xl text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors ${icon ? 'pl-10' : ''} ${isPassword ? 'pr-10' : ''} ${error ? 'border-error focus:ring-error/30 focus:border-error' : ''} ${className}`}
+          className={`w-full px-4 py-3 bg-white border border-border rounded-xl text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all ${icon ? 'pl-10' : ''} ${isPassword ? 'pr-10' : ''} ${error ? 'border-error focus:ring-error/20 focus:border-error' : ''} ${className}`}
           {...props}
         />
         {isPassword && (

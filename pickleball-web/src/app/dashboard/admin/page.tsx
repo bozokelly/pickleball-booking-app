@@ -7,12 +7,17 @@ import { useClubStore } from '@/stores/clubStore';
 import { supabase } from '@/lib/supabase';
 import { Game } from '@/types/database';
 import { Card, Button, Badge } from '@/components/ui';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { useToast } from '@/components/ui/Toast';
 import { SKILL_LEVEL_LABELS, SKILL_LEVEL_COLORS, GAME_FORMAT_LABELS } from '@/constants/theme';
-import { Plus, MapPin, Users, Pencil, Clock } from 'lucide-react';
+import { Plus, MapPin, Users, Pencil, Clock, Trash2, LayoutGrid } from 'lucide-react';
 
 export default function AdminPage() {
-  const { myAdminClubs, fetchMyAdminClubs } = useClubStore();
+  const { myAdminClubs, fetchMyAdminClubs, deleteClub } = useClubStore();
+  const { showToast } = useToast();
   const [clubGames, setClubGames] = useState<Record<string, Game[]>>({});
+  const [deleteClubId, setDeleteClubId] = useState<string | null>(null);
+  const [deletingClub, setDeletingClub] = useState(false);
 
   useEffect(() => {
     fetchMyAdminClubs();
@@ -33,6 +38,26 @@ export default function AdminPage() {
     }
     if (myAdminClubs.length > 0) loadGames();
   }, [myAdminClubs]);
+
+  const handleDeleteClub = async () => {
+    if (!deleteClubId) return;
+    setDeletingClub(true);
+    try {
+      await deleteClub(deleteClubId);
+      setClubGames((prev) => {
+        const next = { ...prev };
+        delete next[deleteClubId];
+        return next;
+      });
+      showToast('Club deleted', 'success');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to delete club';
+      showToast(message, 'error');
+    } finally {
+      setDeletingClub(false);
+      setDeleteClubId(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -60,7 +85,7 @@ export default function AdminPage() {
               <div key={club.id} className="space-y-3">
                 {/* Club header */}
                 <Card className="p-5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <h3 className="font-semibold text-text-primary">{club.name}</h3>
                       {club.location && (
@@ -69,7 +94,7 @@ export default function AdminPage() {
                         </p>
                       )}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Link href={`/dashboard/admin/club/${club.id}/members`}>
                         <Button variant="outline" size="sm" icon={<Users className="h-4 w-4" />}>
                           Members
@@ -80,6 +105,14 @@ export default function AdminPage() {
                           New Game
                         </Button>
                       </Link>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        icon={<Trash2 className="h-4 w-4" />}
+                        onClick={() => setDeleteClubId(club.id)}
+                      >
+                        Delete
+                      </Button>
                     </div>
                   </div>
                 </Card>
@@ -123,11 +156,18 @@ export default function AdminPage() {
                                 <Badge label={GAME_FORMAT_LABELS[game.game_format] || game.game_format} color="#5856D6" />
                               </div>
                             </div>
-                            <Link href={`/dashboard/admin/edit-game/${game.id}`}>
-                              <Button variant="outline" size="sm" icon={<Pencil className="h-4 w-4" />}>
-                                Edit
-                              </Button>
-                            </Link>
+                            <div className="flex gap-2 flex-shrink-0">
+                              <Link href={`/dashboard/admin/schedule-game/${game.id}`}>
+                                <Button variant="outline" size="sm" icon={<LayoutGrid className="h-4 w-4" />}>
+                                  Schedule
+                                </Button>
+                              </Link>
+                              <Link href={`/dashboard/admin/edit-game/${game.id}`}>
+                                <Button variant="outline" size="sm" icon={<Pencil className="h-4 w-4" />}>
+                                  Edit
+                                </Button>
+                              </Link>
+                            </div>
                           </div>
                         </Card>
                       );
@@ -139,6 +179,16 @@ export default function AdminPage() {
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteClubId}
+        title="Delete Club"
+        message="Are you sure you want to delete this club? All games under this club will also be deleted. This action cannot be undone."
+        confirmLabel="Delete Club"
+        variant="danger"
+        onConfirm={handleDeleteClub}
+        onCancel={() => setDeleteClubId(null)}
+      />
     </div>
   );
 }

@@ -179,7 +179,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
       {/* Booking status + actions */}
       {isBooked ? (
         <Card className="p-5 space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <p className="font-semibold text-text-primary">
                 {userBooking.status === 'confirmed' ? 'You\'re booked!' : 'You\'re on the waitlist'}
@@ -193,7 +193,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
               color={userBooking.status === 'confirmed' ? '#34C759' : '#FF9500'}
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               size="sm"

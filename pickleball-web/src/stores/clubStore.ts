@@ -8,6 +8,7 @@ interface ClubState {
   fetchMyAdminClubs: () => Promise<void>;
   createClub: (club: Pick<Club, 'name' | 'description' | 'location'>) => Promise<Club>;
   updateClub: (clubId: string, updates: Partial<Club>) => Promise<void>;
+  deleteClub: (clubId: string) => Promise<void>;
   addAdmin: (clubId: string, userId: string, role?: ClubAdmin['role']) => Promise<void>;
   isClubAdmin: (clubId: string) => boolean;
 }
@@ -50,6 +51,12 @@ export const useClubStore = create<ClubState>((set, get) => ({
 
   updateClub: async (clubId, updates) => {
     const { error } = await supabase.from('clubs').update(updates).eq('id', clubId);
+    if (error) throw new Error(error.message);
+    await get().fetchMyAdminClubs();
+  },
+
+  deleteClub: async (clubId) => {
+    const { error } = await supabase.from('clubs').delete().eq('id', clubId);
     if (error) throw new Error(error.message);
     await get().fetchMyAdminClubs();
   },

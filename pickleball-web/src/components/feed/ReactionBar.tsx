@@ -19,7 +19,7 @@ export default function ReactionBar({ counts, userReaction, onToggle }: Reaction
   const types: ReactionType[] = ['like', 'love', 'fire', 'laugh'];
 
   return (
-    <div className="flex gap-1.5">
+    <div className="flex gap-1 sm:gap-1.5 flex-wrap">
       {types.map((type) => {
         const count = counts[type] || 0;
         const active = userReaction === type;
@@ -27,7 +27,7 @@ export default function ReactionBar({ counts, userReaction, onToggle }: Reaction
           <button
             key={type}
             onClick={() => onToggle(type)}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-sm transition-colors ${
+            className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-full text-sm transition-colors ${
               active
                 ? 'bg-primary/15 ring-1 ring-primary/30'
                 : 'bg-background hover:bg-background/80'

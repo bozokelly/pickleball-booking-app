@@ -3,11 +3,12 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { Button, Input, Card } from '@/components/ui';
+import { Button, Input, Card, AddressAutocomplete } from '@/components/ui';
 import { useToast } from '@/components/ui/Toast';
 import { Game, SkillLevel, GameFormat } from '@/types/database';
 import { SKILL_LEVEL_LABELS, SKILL_LEVEL_COLORS, GAME_FORMAT_LABELS } from '@/constants/theme';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ArrowLeft, Loader2, Trash2 } from 'lucide-react';
 
 const skillLevels: SkillLevel[] = ['all', 'beginner', 'intermediate', 'advanced', 'pro'];
 const gameFormats: GameFormat[] = ['singles', 'doubles', 'mixed_doubles', 'round_robin', 'open_play'];
@@ -19,6 +20,8 @@ export default function EditGamePage({ params }: { params: Promise<{ id: string 
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
@@ -97,6 +100,22 @@ export default function EditGamePage({ params }: { params: Promise<{ id: string 
     }
   };
 
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      const { error } = await supabase.from('games').delete().eq('id', gameId);
+      if (error) throw new Error(error.message);
+      showToast('Game deleted', 'success');
+      router.push('/dashboard/admin');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to delete game';
+      showToast(message, 'error');
+    } finally {
+      setDeleting(false);
+      setShowDeleteDialog(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -116,20 +135,20 @@ export default function EditGamePage({ params }: { params: Promise<{ id: string 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1.5">Date</label>
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-                className="w-full px-4 py-3 bg-background border border-border rounded-xl text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+                className="w-full px-4 py-3 bg-white border border-border rounded-xl text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all" />
             </div>
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1.5">Time</label>
               <input type="time" value={time} onChange={(e) => setTime(e.target.value)}
-                className="w-full px-4 py-3 bg-background border border-border rounded-xl text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+                className="w-full px-4 py-3 bg-white border border-border rounded-xl text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all" />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="Duration (min)" type="number" value={duration} onChange={(e) => setDuration(e.target.value)} />
             <Input label="Max Spots" type="number" value={maxSpots} onChange={(e) => setMaxSpots(e.target.value)} />
           </div>
@@ -163,14 +182,14 @@ export default function EditGamePage({ params }: { params: Promise<{ id: string 
             </div>
           </div>
 
-          <Input label="Location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Court address" />
+          <AddressAutocomplete label="Location" value={location} onChange={setLocation} placeholder="Court address" />
           <Input label="Fee ($)" type="number" value={feeAmount} onChange={(e) => setFeeAmount(e.target.value)} placeholder="0.00 (free)" hint="Leave empty for free games" />
 
           {/* Status */}
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1.5">Status</label>
             <select value={status} onChange={(e) => setStatus(e.target.value)}
-              className="w-full px-4 py-3 bg-background border border-border rounded-xl text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+              className="w-full px-4 py-3 bg-white border border-border rounded-xl text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all">
               <option value="upcoming">Upcoming</option>
               <option value="in_progress">In Progress</option>
               <option value="completed">Completed</option>
@@ -181,14 +200,14 @@ export default function EditGamePage({ params }: { params: Promise<{ id: string 
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1.5">Description</label>
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3}
-              className="w-full px-4 py-3 bg-background border border-border rounded-xl text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
+              className="w-full px-4 py-3 bg-white border border-border rounded-xl text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 resize-none transition-all"
               placeholder="Describe the game..." />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1.5">Notes</label>
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
-              className="w-full px-4 py-3 bg-background border border-border rounded-xl text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
+              className="w-full px-4 py-3 bg-white border border-border rounded-xl text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 resize-none transition-all"
               placeholder="Any additional notes..." />
           </div>
 
@@ -197,6 +216,33 @@ export default function EditGamePage({ params }: { params: Promise<{ id: string 
           </Button>
         </form>
       </Card>
+
+      {/* Danger zone */}
+      <Card className="p-6 border-error/30">
+        <h3 className="text-sm font-semibold text-error mb-2">Danger Zone</h3>
+        <p className="text-sm text-text-secondary mb-4">
+          Permanently delete this game and all associated bookings. This cannot be undone.
+        </p>
+        <Button
+          variant="danger"
+          size="sm"
+          icon={<Trash2 className="h-4 w-4" />}
+          loading={deleting}
+          onClick={() => setShowDeleteDialog(true)}
+        >
+          Delete Game
+        </Button>
+      </Card>
+
+      <ConfirmDialog
+        open={showDeleteDialog}
+        title="Delete Game"
+        message="Are you sure you want to delete this game? All bookings will be removed. This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDelete}
+        onCancel={() => setShowDeleteDialog(false)}
+      />
     </div>
   );
 }

@@ -4,3 +4,4 @@ export { Card } from './Card';
 export { Badge } from './Badge';
 export { ConfirmDialog } from './ConfirmDialog';
 export { ToastProvider, useToast } from './Toast';
+export { AddressAutocomplete } from './AddressAutocomplete';

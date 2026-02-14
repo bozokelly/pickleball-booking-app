@@ -5,12 +5,12 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { useClubStore } from '@/stores/clubStore';
-import { Home, Calendar, User, Shield, Bell, MessageSquare } from 'lucide-react';
+import { Home, Search, Calendar, User, Shield, Bell } from 'lucide-react';
 import { useNotificationStore } from '@/stores/notificationStore';
 
 const navItems = [
   { href: '/dashboard', label: 'Home', icon: Home },
-  { href: '/dashboard/feed', label: 'Feed', icon: MessageSquare },
+  { href: '/dashboard/games', label: 'Find a Game', icon: Search },
   { href: '/dashboard/calendar', label: 'Calendar', icon: Calendar },
   { href: '/dashboard/profile', label: 'Profile', icon: User },
 ];
@@ -52,7 +52,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen bg-background flex">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col w-64 bg-surface border-r border-border h-screen sticky top-0">
+      <aside className="hidden md:flex flex-col w-64 bg-white/80 backdrop-blur-xl border-r border-border/50 h-screen sticky top-0">
         <div className="p-6">
           <h1 className="text-xl font-bold text-primary">Pickleball</h1>
           <p className="text-xs text-text-tertiary">Booking</p>
@@ -90,14 +90,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 pb-20 md:pb-0">
+      <main className="flex-1 min-w-0 pb-20 md:pb-0 overflow-x-hidden">
         <div className="max-w-4xl mx-auto p-4 md:p-8">
           {children}
         </div>
       </main>
 
       {/* Mobile Bottom Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border flex justify-around py-2 z-50">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-border/50 flex justify-around py-2 z-50">
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
           return (

@@ -16,6 +16,9 @@ interface MembershipState {
   requestMembership: (clubId: string) => Promise<void>;
   approveMember: (memberId: string) => Promise<void>;
   rejectMember: (memberId: string) => Promise<void>;
+  removeMember: (memberId: string) => Promise<void>;
+  promoteToAdmin: (clubId: string, userId: string) => Promise<void>;
+  removeAdmin: (clubId: string, userId: string) => Promise<void>;
   getMembershipStatus: (clubId: string) => MembershipStatus | null;
 }
 
@@ -26,7 +29,7 @@ export const useMembershipStore = create<MembershipState>((set, get) => ({
     set({ loading: true });
     try {
       const { data, error } = await supabase.from('club_members')
-        .select('*, profile:profiles(full_name, email, avatar_url, dupr_rating)')
+        .select('*, profile:profiles!club_members_user_id_fkey(full_name, email, avatar_url, dupr_rating)')
         .eq('club_id', clubId).order('requested_at', { ascending: false });
       if (error) throw new Error(error.message);
       set({ members: data || [] });
@@ -65,6 +68,21 @@ export const useMembershipStore = create<MembershipState>((set, get) => ({
     const userId = user.id;
     const { error } = await supabase.from('club_members')
       .update({ status: 'rejected', responded_at: new Date().toISOString(), responded_by: userId }).eq('id', memberId);
+    if (error) throw new Error(error.message);
+  },
+
+  removeMember: async (memberId) => {
+    const { error } = await supabase.from('club_members').delete().eq('id', memberId);
+    if (error) throw new Error(error.message);
+  },
+
+  promoteToAdmin: async (clubId, userId) => {
+    const { error } = await supabase.from('club_admins').insert({ club_id: clubId, user_id: userId, role: 'admin' });
+    if (error) throw new Error(error.message);
+  },
+
+  removeAdmin: async (clubId, userId) => {
+    const { error } = await supabase.from('club_admins').delete().eq('club_id', clubId).eq('user_id', userId);
     if (error) throw new Error(error.message);
   },
 

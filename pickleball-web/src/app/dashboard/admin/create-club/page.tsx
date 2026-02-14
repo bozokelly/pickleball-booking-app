@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useClubStore } from '@/stores/clubStore';
-import { Button, Input, Card } from '@/components/ui';
+import { Button, Input, Card, AddressAutocomplete } from '@/components/ui';
 import { useToast } from '@/components/ui/Toast';
 import { ArrowLeft } from 'lucide-react';
 
@@ -55,11 +55,11 @@ export default function CreateClubPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
-          <Input
+          <AddressAutocomplete
             label="Location"
             placeholder="e.g. 123 Main St, City"
             value={location}
-            onChange={(e) => setLocation(e.target.value)}
+            onChange={setLocation}
           />
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1.5">Description</label>

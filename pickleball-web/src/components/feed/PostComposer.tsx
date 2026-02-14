@@ -54,8 +54,8 @@ export default function PostComposer() {
   };
 
   return (
-    <div className="bg-surface border border-border rounded-2xl p-4 space-y-3">
-      <div className="flex gap-3">
+    <div className="bg-white rounded-2xl p-4 space-y-3 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)] border border-border/30">
+      <div className="flex gap-3 min-w-0">
         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
           {profile?.avatar_url ? (
             <img src={profile.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
@@ -70,7 +70,7 @@ export default function PostComposer() {
           onChange={(e) => setContent(e.target.value)}
           placeholder="What's on your mind?"
           rows={3}
-          className="flex-1 bg-background border border-border rounded-xl px-4 py-3 text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none text-sm"
+          className="flex-1 min-w-0 bg-background/60 border border-border rounded-xl px-4 py-3 text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 resize-none transition-all"
         />
       </div>
 

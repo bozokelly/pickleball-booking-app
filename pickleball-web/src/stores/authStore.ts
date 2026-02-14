@@ -20,8 +20,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initialize: async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      set({ session, initialized: true });
-      if (session) await get().fetchProfile();
+      if (session) {
+        // Validate the session is still valid (user may have been deleted)
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error || !user) {
+          await supabase.auth.signOut();
+          set({ session: null, profile: null, initialized: true });
+        } else {
+          set({ session, initialized: true });
+          await get().fetchProfile();
+        }
+      } else {
+        set({ initialized: true });
+      }
       supabase.auth.onAuthStateChange(async (_event, session) => {
         set({ session });
         if (session) await get().fetchProfile();

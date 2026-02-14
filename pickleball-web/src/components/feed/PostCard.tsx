@@ -69,10 +69,10 @@ export default function PostCard({ post }: PostCardProps) {
   };
 
   return (
-    <div className="bg-surface border border-border rounded-2xl p-4 space-y-3">
+    <div className="bg-white rounded-2xl p-4 space-y-3 overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)] border border-border/30">
       {/* Header */}
       <div className="flex items-start justify-between">
-        <div className="flex gap-3">
+        <div className="flex gap-3 min-w-0">
           <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
             {post.profile?.avatar_url ? (
               <img src={post.profile.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
@@ -129,7 +129,7 @@ export default function PostCard({ post }: PostCardProps) {
       )}
 
       {/* Reactions + Comment toggle */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <ReactionBar
           counts={post.reaction_counts || { like: 0, love: 0, fire: 0, laugh: 0 }}
           userReaction={post.user_reaction || null}

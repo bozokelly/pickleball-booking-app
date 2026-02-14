@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useClubStore } from '@/stores/clubStore';
-import { Button, Input, Card } from '@/components/ui';
+import { Button, Input, Card, AddressAutocomplete } from '@/components/ui';
 import { useToast } from '@/components/ui/Toast';
 import { SkillLevel, GameFormat } from '@/types/database';
 import { SKILL_LEVEL_LABELS, SKILL_LEVEL_COLORS, GAME_FORMAT_LABELS } from '@/constants/theme';
@@ -151,7 +151,7 @@ function CreateGameForm() {
             </div>
           </div>
 
-          <Input label="Location" placeholder="Court address" value={location} onChange={(e) => setLocation(e.target.value)} />
+          <AddressAutocomplete label="Location" placeholder="Court address" value={location} onChange={setLocation} />
           <Input label="Fee ($)" type="number" placeholder="0.00 (free)" value={feeAmount} onChange={(e) => setFeeAmount(e.target.value)} hint="Leave empty for free games" />
 
           <div>

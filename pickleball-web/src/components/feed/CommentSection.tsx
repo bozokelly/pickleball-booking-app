@@ -57,18 +57,18 @@ export default function CommentSection({ comments, onAddComment }: CommentSectio
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="flex gap-2">
+      <form onSubmit={handleSubmit} className="flex gap-2 min-w-0">
         <input
           type="text"
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Write a comment..."
-          className="flex-1 px-3 py-2 bg-background border border-border rounded-xl text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          className="flex-1 min-w-0 px-3 py-2 bg-background/60 border border-border rounded-xl text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
         />
         <button
           type="submit"
           disabled={!text.trim() || sending}
-          className="p-2 text-primary disabled:opacity-40 hover:bg-primary/10 rounded-xl transition-colors"
+          className="p-2 text-primary disabled:opacity-40 hover:bg-primary/10 rounded-xl transition-colors flex-shrink-0"
         >
           <Send className="h-4 w-4" />
         </button>
