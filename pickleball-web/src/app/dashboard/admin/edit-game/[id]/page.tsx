@@ -30,6 +30,9 @@ export default function EditGamePage({ params }: { params: Promise<{ id: string 
   const [skillLevel, setSkillLevel] = useState<SkillLevel>('all');
   const [gameFormat, setGameFormat] = useState<GameFormat>('doubles');
   const [location, setLocation] = useState('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [feeCurrency, setFeeCurrency] = useState('usd');
   const [feeAmount, setFeeAmount] = useState('');
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
@@ -56,6 +59,9 @@ export default function EditGamePage({ params }: { params: Promise<{ id: string 
       setSkillLevel(data.skill_level);
       setGameFormat(data.game_format);
       setLocation(data.location || '');
+      setLatitude(data.latitude ?? null);
+      setLongitude(data.longitude ?? null);
+      setFeeCurrency(data.fee_currency || 'usd');
       setFeeAmount(data.fee_amount > 0 ? data.fee_amount.toString() : '');
       setDescription(data.description || '');
       setNotes(data.notes || '');
@@ -83,7 +89,10 @@ export default function EditGamePage({ params }: { params: Promise<{ id: string 
         skill_level: skillLevel,
         game_format: gameFormat,
         location: location.trim() || null,
+        latitude,
+        longitude,
         fee_amount: feeAmount ? parseFloat(feeAmount) : 0,
+        fee_currency: feeCurrency,
         description: description.trim() || null,
         notes: notes.trim() || null,
         status,
@@ -182,8 +191,8 @@ export default function EditGamePage({ params }: { params: Promise<{ id: string 
             </div>
           </div>
 
-          <AddressAutocomplete label="Location" value={location} onChange={setLocation} placeholder="Court address" />
-          <Input label="Fee ($)" type="number" value={feeAmount} onChange={(e) => setFeeAmount(e.target.value)} placeholder="0.00 (free)" hint="Leave empty for free games" />
+          <AddressAutocomplete label="Location" value={location} onChange={(val, coords) => { setLocation(val); if (coords) { setLatitude(coords.lat); setLongitude(coords.lng); } }} placeholder="Court address" />
+          <Input label="Fee" type="number" value={feeAmount} onChange={(e) => setFeeAmount(e.target.value)} placeholder="0.00 (free)" hint="Leave empty for free games" />
 
           {/* Status */}
           <div>

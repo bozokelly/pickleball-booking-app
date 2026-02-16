@@ -7,7 +7,7 @@ import { useClubStore } from '@/stores/clubStore';
 import { supabase } from '@/lib/supabase';
 import { Game } from '@/types/database';
 import { Card, Button, Badge } from '@/components/ui';
-import { Plus, MapPin, Users, Pencil, Clock, LayoutGrid, ChevronDown, ChevronUp, CalendarDays } from 'lucide-react';
+import { Plus, MapPin, Users, Pencil, Clock, LayoutGrid, ChevronDown, ChevronUp, CalendarDays, MessageSquare } from 'lucide-react';
 
 export default function AdminPage() {
   const { myAdminClubs, fetchMyAdminClubs } = useClubStore();
@@ -84,7 +84,9 @@ export default function AdminPage() {
             const games = clubGames[club.id] || [];
             const memberCount = clubMemberCounts[club.id] ?? 0;
             const isExpanded = expandedClubs.has(club.id);
-            const upcomingGames = games.filter((g) => !isPast(new Date(g.date_time)) && g.status !== 'completed' && g.status !== 'cancelled');
+            const upcomingGames = games
+              .filter((g) => !isPast(new Date(g.date_time)) && g.status !== 'completed' && g.status !== 'cancelled')
+              .sort((a, b) => new Date(a.date_time).getTime() - new Date(b.date_time).getTime());
             const pastGames = games.filter((g) => isPast(new Date(g.date_time)) || g.status === 'completed' || g.status === 'cancelled');
 
             return (
@@ -127,6 +129,11 @@ export default function AdminPage() {
                       <Link href={`/dashboard/admin/club/${club.id}/members`}>
                         <Button variant="outline" size="sm" icon={<Users className="h-4 w-4" />}>
                           Members
+                        </Button>
+                      </Link>
+                      <Link href={`/dashboard/admin/club/${club.id}/messages`}>
+                        <Button variant="outline" size="sm" icon={<MessageSquare className="h-4 w-4" />}>
+                          Messages
                         </Button>
                       </Link>
                       <Link href={`/dashboard/admin/create-game?clubId=${club.id}`}>

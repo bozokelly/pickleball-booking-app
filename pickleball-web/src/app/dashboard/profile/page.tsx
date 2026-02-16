@@ -2,25 +2,33 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { Button, Input, Card } from '@/components/ui';
 import { useToast } from '@/components/ui/Toast';
 import { uploadAvatar } from '@/utils/imageUpload';
 import { supabase } from '@/lib/supabase';
 import { Club } from '@/types/database';
-import { User, LogOut, Camera, Star, Users, MapPin } from 'lucide-react';
+import { User, LogOut, Camera, Star, Users, MapPin, Shield, Lock } from 'lucide-react';
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { profile, signOut, updateProfile, loading } = useAuthStore();
+  const { profile, signOut, updateProfile, updatePassword, loading } = useAuthStore();
   const { showToast } = useToast();
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [duprRating, setDuprRating] = useState('');
+  const [emergencyName, setEmergencyName] = useState('');
+  const [emergencyPhone, setEmergencyPhone] = useState('');
   const [saving, setSaving] = useState(false);
   const [myClubs, setMyClubs] = useState<Club[]>([]);
+
+  // Password change
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -28,18 +36,40 @@ export default function ProfilePage() {
       setPhone(profile.phone || '');
       setDateOfBirth(profile.date_of_birth || '');
       setDuprRating(profile.dupr_rating?.toString() || '');
+      setEmergencyName(profile.emergency_contact_name || '');
+      setEmergencyPhone(profile.emergency_contact_phone || '');
 
-      // Fetch clubs the user belongs to
-      supabase
-        .from('club_members')
-        .select('club:clubs!club_members_club_id_fkey(*)')
-        .eq('user_id', profile.id)
-        .eq('status', 'approved')
-        .then(({ data }) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const clubs = (data || []).map((row: any) => row.club).filter(Boolean);
-          setMyClubs(clubs);
-        });
+      // Fetch clubs: both member and admin clubs
+      async function loadClubs() {
+        const [memberResult, adminResult] = await Promise.all([
+          supabase
+            .from('club_members')
+            .select('club_id')
+            .eq('user_id', profile!.id)
+            .eq('status', 'approved'),
+          supabase
+            .from('club_admins')
+            .select('club_id')
+            .eq('user_id', profile!.id),
+        ]);
+
+        const memberIds = (memberResult.data || []).map((r) => r.club_id);
+        const adminIds = (adminResult.data || []).map((r) => r.club_id);
+        const allIds = [...new Set([...memberIds, ...adminIds])];
+
+        if (allIds.length === 0) {
+          setMyClubs([]);
+          return;
+        }
+
+        const { data } = await supabase
+          .from('clubs')
+          .select('*')
+          .in('id', allIds)
+          .order('name');
+        setMyClubs(data || []);
+      }
+      loadClubs();
     }
   }, [profile]);
 
@@ -51,6 +81,8 @@ export default function ProfilePage() {
         phone: phone || null,
         date_of_birth: dateOfBirth || null,
         dupr_rating: duprRating ? parseFloat(duprRating) : null,
+        emergency_contact_name: emergencyName || null,
+        emergency_contact_phone: emergencyPhone || null,
       });
       showToast('Profile updated', 'success');
     } catch (err: unknown) {
@@ -71,6 +103,33 @@ export default function ProfilePage() {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to upload avatar';
       showToast(message, 'error');
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!newPassword || !confirmPassword) {
+      showToast('Please fill in both password fields', 'error');
+      return;
+    }
+    if (newPassword.length < 6) {
+      showToast('Password must be at least 6 characters', 'error');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      showToast('Passwords do not match', 'error');
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      await updatePassword(newPassword);
+      showToast('Password updated successfully', 'success');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to update password';
+      showToast(message, 'error');
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -113,7 +172,7 @@ export default function ProfilePage() {
             <Star className="h-5 w-5 text-warning" />
             <span className="text-sm font-medium text-text-secondary">DUPR Rating</span>
           </div>
-          <p className="text-3xl font-bold text-text-primary mt-1">{profile.dupr_rating.toFixed(2)}</p>
+          <p className="text-3xl font-bold text-text-primary mt-1">{profile.dupr_rating.toFixed(3)}</p>
         </Card>
       )}
 
@@ -128,30 +187,32 @@ export default function ProfilePage() {
         ) : (
           <div className="space-y-2">
             {myClubs.map((club) => (
-              <div key={club.id} className="flex items-center gap-3 p-3 rounded-xl bg-background">
-                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden flex-shrink-0">
-                  {club.image_url ? (
-                    <img src={club.image_url} alt="" className="h-10 w-10 rounded-xl object-cover" />
-                  ) : (
-                    <Users className="h-5 w-5 text-primary" />
-                  )}
+              <Link key={club.id} href={`/dashboard/club/${club.id}`}>
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-background hover:bg-primary/5 transition-colors cursor-pointer">
+                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {club.image_url ? (
+                      <img src={club.image_url} alt="" className="h-10 w-10 rounded-xl object-cover" />
+                    ) : (
+                      <Users className="h-5 w-5 text-primary" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-text-primary truncate">{club.name}</p>
+                    {club.location && (
+                      <p className="text-xs text-text-secondary flex items-center gap-1 mt-0.5">
+                        <MapPin className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">{club.location}</span>
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-text-primary truncate">{club.name}</p>
-                  {club.location && (
-                    <p className="text-xs text-text-secondary flex items-center gap-1 mt-0.5">
-                      <MapPin className="h-3 w-3 flex-shrink-0" />
-                      <span className="truncate">{club.location}</span>
-                    </p>
-                  )}
-                </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}
       </Card>
 
-      {/* Edit form */}
+      {/* Personal Info */}
       <Card className="p-6 space-y-4">
         <h3 className="text-lg font-semibold text-text-primary">Personal Info</h3>
         <Input
@@ -181,11 +242,61 @@ export default function ProfilePage() {
           type="number"
           value={duprRating}
           onChange={(e) => setDuprRating(e.target.value)}
-          placeholder="e.g. 3.5"
+          placeholder="e.g. 3.500"
           hint="Your official DUPR rating"
         />
         <Button onClick={handleSave} loading={saving} className="w-full">
           Save Changes
+        </Button>
+      </Card>
+
+      {/* Emergency Contact */}
+      <Card className="p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Shield className="h-5 w-5 text-red-500" />
+          <h3 className="text-lg font-semibold text-text-primary">Emergency Contact</h3>
+        </div>
+        <p className="text-xs text-text-tertiary">This information will be available to club admins in case of an emergency.</p>
+        <Input
+          label="Contact Name"
+          value={emergencyName}
+          onChange={(e) => setEmergencyName(e.target.value)}
+          placeholder="e.g. John Smith"
+        />
+        <Input
+          label="Contact Phone"
+          type="tel"
+          value={emergencyPhone}
+          onChange={(e) => setEmergencyPhone(e.target.value)}
+          placeholder="Phone number"
+        />
+        <Button onClick={handleSave} loading={saving} className="w-full">
+          Save Emergency Contact
+        </Button>
+      </Card>
+
+      {/* Change Password */}
+      <Card className="p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Lock className="h-5 w-5 text-text-tertiary" />
+          <h3 className="text-lg font-semibold text-text-primary">Change Password</h3>
+        </div>
+        <Input
+          label="New Password"
+          type="password"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          placeholder="Enter new password"
+        />
+        <Input
+          label="Confirm Password"
+          type="password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          placeholder="Confirm new password"
+        />
+        <Button onClick={handleChangePassword} loading={changingPassword} className="w-full">
+          Update Password
         </Button>
       </Card>
 

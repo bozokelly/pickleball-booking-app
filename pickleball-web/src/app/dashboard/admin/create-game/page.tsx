@@ -8,10 +8,25 @@ import { Button, Input, Card, AddressAutocomplete } from '@/components/ui';
 import { useToast } from '@/components/ui/Toast';
 import { SkillLevel, GameFormat } from '@/types/database';
 import { SKILL_LEVEL_LABELS, SKILL_LEVEL_COLORS, GAME_FORMAT_LABELS } from '@/constants/theme';
+import { getDefaultCurrency } from '@/utils/currency';
 import { ArrowLeft } from 'lucide-react';
 
 const skillLevels: SkillLevel[] = ['all', 'beginner', 'intermediate', 'advanced', 'pro'];
 const gameFormats: GameFormat[] = ['singles', 'doubles', 'mixed_doubles', 'round_robin', 'open_play'];
+
+const DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+function calculateVisibleFrom(gameDate: string, gameTime: string, goLiveDay: number, goLiveTime: string): string {
+  const gameDateTime = new Date(`${gameDate}T${gameTime}`);
+  const gameDay = gameDateTime.getDay();
+  let daysBack = gameDay - goLiveDay;
+  if (daysBack <= 0) daysBack += 7;
+  const visibleDate = new Date(gameDateTime);
+  visibleDate.setDate(visibleDate.getDate() - daysBack);
+  const [goH, goM] = goLiveTime.split(':').map(Number);
+  visibleDate.setHours(goH, goM, 0, 0);
+  return visibleDate.toISOString();
+}
 
 function CreateGameForm() {
   const router = useRouter();
@@ -29,14 +44,26 @@ function CreateGameForm() {
   const [skillLevel, setSkillLevel] = useState<SkillLevel>('all');
   const [gameFormat, setGameFormat] = useState<GameFormat>('doubles');
   const [location, setLocation] = useState('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [feeCurrency] = useState(() => getDefaultCurrency());
   const [feeAmount, setFeeAmount] = useState('');
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
+  const [requiresDupr, setRequiresDupr] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Recurring game state
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [repeatWeeks, setRepeatWeeks] = useState('4');
+  const [goLiveDay, setGoLiveDay] = useState('0');
+  const [goLiveTime, setGoLiveTime] = useState('19:00');
 
   useEffect(() => {
     fetchMyAdminClubs();
   }, [fetchMyAdminClubs]);
+
+  const totalGames = isRecurring ? Math.max(1, parseInt(repeatWeeks) || 1) : 1;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,28 +74,72 @@ function CreateGameForm() {
 
     setLoading(true);
     try {
-      const dateTime = new Date(`${date}T${time}`).toISOString();
       const userId = (await supabase.auth.getUser()).data.user!.id;
 
-      const { error } = await supabase.from('games').insert({
+      const baseGame = {
         club_id: clubId,
         title: title.trim(),
-        date_time: dateTime,
         duration_minutes: parseInt(duration),
         max_spots: parseInt(maxSpots),
         skill_level: skillLevel,
         game_format: gameFormat,
         location: location.trim() || null,
+        latitude,
+        longitude,
         fee_amount: feeAmount ? parseFloat(feeAmount) : 0,
-        fee_currency: 'usd',
+        fee_currency: feeCurrency,
         description: description.trim() || null,
         notes: notes.trim() || null,
+        requires_dupr: requiresDupr,
         created_by: userId,
-        status: 'upcoming',
-      });
-      if (error) throw error;
+        status: 'upcoming' as const,
+      };
 
-      showToast('Game created!', 'success');
+      if (!isRecurring) {
+        const dateTime = new Date(`${date}T${time}`).toISOString();
+        const { error } = await supabase.from('games').insert({
+          ...baseGame,
+          date_time: dateTime,
+          visible_from: null,
+          recurrence_group_id: null,
+        });
+        if (error) throw error;
+      } else {
+        const recurrenceGroupId = crypto.randomUUID();
+        const weeks = Math.max(1, parseInt(repeatWeeks) || 1);
+        const games = [];
+
+        for (let i = 0; i < weeks; i++) {
+          const gameDate = new Date(`${date}T${time}`);
+          gameDate.setDate(gameDate.getDate() + i * 7);
+          const gameDateStr = gameDate.toISOString().split('T')[0];
+          const visibleFrom = calculateVisibleFrom(gameDateStr, time, parseInt(goLiveDay), goLiveTime);
+
+          games.push({
+            ...baseGame,
+            date_time: gameDate.toISOString(),
+            visible_from: visibleFrom,
+            recurrence_group_id: recurrenceGroupId,
+          });
+        }
+
+        const { error } = await supabase.from('games').insert(games);
+        if (error) throw error;
+      }
+
+      // Notify club members about new game(s)
+      await supabase.rpc('notify_club_members', {
+        p_club_id: clubId,
+        p_title: 'New game available',
+        p_body: isRecurring
+          ? `${totalGames} new ${title.trim()} games have been posted`
+          : `${title.trim()} has been posted`,
+        p_type: 'new_game_available',
+        p_reference_id: clubId,
+        p_exclude_user_id: userId,
+      });
+
+      showToast(isRecurring ? `${totalGames} games created!` : 'Game created!', 'success');
       router.push('/dashboard/admin');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create game';
@@ -151,8 +222,8 @@ function CreateGameForm() {
             </div>
           </div>
 
-          <AddressAutocomplete label="Location" placeholder="Court address" value={location} onChange={setLocation} />
-          <Input label="Fee ($)" type="number" placeholder="0.00 (free)" value={feeAmount} onChange={(e) => setFeeAmount(e.target.value)} hint="Leave empty for free games" />
+          <AddressAutocomplete label="Location" placeholder="Court address" value={location} onChange={(val, coords) => { setLocation(val); if (coords) { setLatitude(coords.lat); setLongitude(coords.lng); } }} />
+          <Input label="Fee" type="number" placeholder="0.00 (free)" value={feeAmount} onChange={(e) => setFeeAmount(e.target.value)} hint="Leave empty for free games" />
 
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1.5">Description</label>
@@ -168,8 +239,75 @@ function CreateGameForm() {
               placeholder="Any additional notes..." />
           </div>
 
+          {/* DUPR Toggle */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-text-primary">DUPR Game</p>
+              <p className="text-xs text-text-tertiary">Players must confirm their DUPR is up to date before booking</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setRequiresDupr(!requiresDupr)}
+              className={`relative w-11 h-6 rounded-full transition-colors ${requiresDupr ? 'bg-primary' : 'bg-border'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${requiresDupr ? 'translate-x-5' : ''}`} />
+            </button>
+          </div>
+
+          {/* Recurring Game Toggle */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-text-primary">Recurring Game</p>
+              <p className="text-xs text-text-tertiary">Create multiple weekly games at once</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsRecurring(!isRecurring)}
+              className={`relative w-11 h-6 rounded-full transition-colors ${isRecurring ? 'bg-primary' : 'bg-border'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${isRecurring ? 'translate-x-5' : ''}`} />
+            </button>
+          </div>
+
+          {/* Recurring options */}
+          {isRecurring && (
+            <div className="border border-border rounded-xl p-4 space-y-4">
+              <Input
+                label="Number of Weeks"
+                type="number"
+                value={repeatWeeks}
+                onChange={(e) => setRepeatWeeks(e.target.value)}
+                hint={`Will create ${totalGames} game${totalGames !== 1 ? 's' : ''}, each 7 days apart`}
+              />
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1.5">Go-Live Day</label>
+                <select
+                  value={goLiveDay}
+                  onChange={(e) => setGoLiveDay(e.target.value)}
+                  className="w-full px-4 py-3 bg-background border border-border rounded-xl text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                >
+                  {DAY_LABELS.map((label, i) => (
+                    <option key={i} value={i}>{label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-1.5">Go-Live Time</label>
+                <input
+                  type="time"
+                  value={goLiveTime}
+                  onChange={(e) => setGoLiveTime(e.target.value)}
+                  className="w-full px-4 py-3 bg-background border border-border rounded-xl text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                />
+              </div>
+              <p className="text-xs text-text-tertiary">
+                Each game becomes bookable on this day/time of the preceding week
+              </p>
+            </div>
+          )}
+
           <Button type="submit" loading={loading} className="w-full">
-            Create Game
+            {isRecurring ? `Create ${totalGames} Game${totalGames !== 1 ? 's' : ''}` : 'Create Game'}
           </Button>
         </form>
       </Card>

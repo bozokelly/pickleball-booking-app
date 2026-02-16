@@ -6,15 +6,22 @@ import { useAuthStore } from '@/stores/authStore';
 import { useFeedStore } from '@/stores/feedStore';
 import { uploadFeedImage } from '@/utils/imageUpload';
 import { useToast } from '@/components/ui/Toast';
-import { ImagePlus, X } from 'lucide-react';
+import { Club } from '@/types/database';
+import { ImagePlus, X, Users } from 'lucide-react';
 
-export default function PostComposer() {
+interface PostComposerProps {
+  clubs: Club[];
+  fixedClubId?: string;
+}
+
+export default function PostComposer({ clubs, fixedClubId }: PostComposerProps) {
   const { profile } = useAuthStore();
   const { createPost } = useFeedStore();
   const { showToast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [content, setContent] = useState('');
+  const [clubId, setClubId] = useState(fixedClubId || '');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
@@ -34,14 +41,19 @@ export default function PostComposer() {
   };
 
   const handleSubmit = async () => {
+    const targetClubId = fixedClubId || clubId;
     if (!content.trim() && !imageFile) return;
+    if (!targetClubId) {
+      showToast('Please select a club', 'error');
+      return;
+    }
     setPosting(true);
     try {
       let imageUrl: string | null = null;
       if (imageFile && profile) {
         imageUrl = await uploadFeedImage(imageFile, profile.id);
       }
-      await createPost(content, imageUrl);
+      await createPost(content, imageUrl, targetClubId);
       setContent('');
       removeImage();
       showToast('Post created!', 'success');
@@ -55,6 +67,23 @@ export default function PostComposer() {
 
   return (
     <div className="bg-white rounded-2xl p-4 space-y-3 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)] border border-border/30">
+      {/* Club selector (only if not fixed to a club) */}
+      {!fixedClubId && (
+        <div className="flex items-center gap-2">
+          <Users className="h-4 w-4 text-text-tertiary" />
+          <select
+            value={clubId}
+            onChange={(e) => setClubId(e.target.value)}
+            className="flex-1 px-3 py-2 bg-background/60 border border-border rounded-xl text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40"
+          >
+            <option value="">Post to a club...</option>
+            {clubs.map((club) => (
+              <option key={club.id} value={club.id}>{club.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="flex gap-3 min-w-0">
         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
           {profile?.avatar_url ? (

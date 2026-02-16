@@ -5,8 +5,9 @@ import { Club, ClubAdmin } from '@/types/database';
 interface ClubState {
   clubs: Club[]; myAdminClubs: Club[]; loading: boolean;
   fetchClubs: () => Promise<void>;
+  fetchClubById: (id: string) => Promise<Club>;
   fetchMyAdminClubs: () => Promise<void>;
-  createClub: (club: Pick<Club, 'name' | 'description' | 'location'>) => Promise<Club>;
+  createClub: (club: Pick<Club, 'name' | 'description' | 'location'> & { latitude?: number | null; longitude?: number | null; contact_email?: string | null; contact_phone?: string | null; website?: string | null }) => Promise<Club>;
   updateClub: (clubId: string, updates: Partial<Club>) => Promise<void>;
   deleteClub: (clubId: string) => Promise<void>;
   addAdmin: (clubId: string, userId: string, role?: ClubAdmin['role']) => Promise<void>;
@@ -23,6 +24,12 @@ export const useClubStore = create<ClubState>((set, get) => ({
       if (error) throw new Error(error.message);
       set({ clubs: data || [] });
     } finally { set({ loading: false }); }
+  },
+
+  fetchClubById: async (id) => {
+    const { data, error } = await supabase.from('clubs').select('*').eq('id', id).single();
+    if (error) throw new Error(error.message);
+    return data;
   },
 
   fetchMyAdminClubs: async () => {

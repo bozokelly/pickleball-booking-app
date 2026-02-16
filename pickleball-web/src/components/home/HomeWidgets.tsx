@@ -4,56 +4,39 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { useAuthStore } from '@/stores/authStore';
+import { useMembershipStore } from '@/stores/membershipStore';
+import { useClubStore } from '@/stores/clubStore';
 import { supabase } from '@/lib/supabase';
-import { Card, Button, Badge } from '@/components/ui';
-import { useToast } from '@/components/ui/Toast';
-import { Club } from '@/types/database';
-import { Trophy, CalendarClock, Hash, Search, MapPin, Users } from 'lucide-react';
+import { Card, Button } from '@/components/ui';
+import { Club, Game } from '@/types/database';
+import { Trophy, CheckCircle, Hash, MapPin, Clock, Users } from 'lucide-react';
 
-interface NextGame {
-  id: string;
-  title: string;
-  date_time: string;
-  location: string | null;
-}
-
-interface MembershipInfo {
-  club_id: string;
-  status: string;
-}
-
-export default function HomeWidgets() {
+export default function HomeWidgets({ onClubsLoaded }: { onClubsLoaded?: (clubs: Club[]) => void }) {
   const { profile, session } = useAuthStore();
-  const { showToast } = useToast();
-  const [nextGame, setNextGame] = useState<NextGame | null>(null);
+  const { myMemberships } = useMembershipStore();
+  const { myAdminClubs } = useClubStore();
+  const [gamesPlayed, setGamesPlayed] = useState(0);
   const [totalBooked, setTotalBooked] = useState(0);
-  const [clubSearch, setClubSearch] = useState('');
-  const [clubResults, setClubResults] = useState<Club[]>([]);
-  const [searchingClubs, setSearchingClubs] = useState(false);
-  const [memberships, setMemberships] = useState<MembershipInfo[]>([]);
-  const [joiningClub, setJoiningClub] = useState<string | null>(null);
+  const [upcomingGames, setUpcomingGames] = useState<(Game & { club?: Club; confirmed_count?: number })[]>([]);
+  const [myClubs, setMyClubs] = useState<Club[]>([]);
 
   useEffect(() => {
     if (!session) return;
     const userId = session.user.id;
+    const now = new Date().toISOString();
 
-    // Fetch next upcoming game
+    // Fetch games played — confirmed bookings where game date_time has passed
     supabase
       .from('bookings')
-      .select('game:games(id, title, date_time, location)')
+      .select('id, game:games!inner(date_time)')
       .eq('user_id', userId)
       .eq('status', 'confirmed')
+      .lt('game.date_time', now)
       .then(({ data }) => {
-        if (!data) return;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const upcoming = data
-          .map((b: any) => b.game)
-          .filter((g: NextGame | null) => g && new Date(g.date_time) > new Date())
-          .sort((a: NextGame, b: NextGame) => new Date(a.date_time).getTime() - new Date(b.date_time).getTime());
-        if (upcoming.length > 0) setNextGame(upcoming[0]);
+        setGamesPlayed(data?.length || 0);
       });
 
-    // Fetch total bookings count
+    // Fetch total active bookings count
     supabase
       .from('bookings')
       .select('*', { count: 'exact', head: true })
@@ -62,91 +45,106 @@ export default function HomeWidgets() {
       .then(({ count }) => {
         setTotalBooked(count || 0);
       });
-
-    // Fetch user's club memberships
-    supabase
-      .from('club_members')
-      .select('club_id, status')
-      .eq('user_id', userId)
-      .then(({ data }) => {
-        setMemberships(data || []);
-      });
   }, [session]);
 
+  // Fetch upcoming games from user's clubs (member + admin)
   useEffect(() => {
-    if (!clubSearch.trim()) {
-      setClubResults([]);
-      return;
+    async function loadUpcomingGames() {
+      const memberIds = myMemberships
+        .filter((m) => m.status === 'approved')
+        .map((m) => m.club_id);
+      const adminIds = myAdminClubs.map((c) => c.id);
+      const allIds = [...new Set([...memberIds, ...adminIds])];
+      if (allIds.length === 0) {
+        setUpcomingGames([]);
+        return;
+      }
+      const now = new Date().toISOString();
+      const { data } = await supabase
+        .from('games')
+        .select('*, club:clubs(*)')
+        .in('club_id', allIds)
+        .eq('status', 'upcoming')
+        .gte('date_time', now)
+        .or(`visible_from.is.null,visible_from.lte.${now}`)
+        .order('date_time', { ascending: true })
+        .limit(5);
+
+      if (!data || data.length === 0) {
+        setUpcomingGames([]);
+        return;
+      }
+
+      // Fetch confirmed counts
+      const gameIds = data.map((g) => g.id);
+      const { data: countData } = await supabase
+        .from('bookings')
+        .select('game_id')
+        .in('game_id', gameIds)
+        .eq('status', 'confirmed');
+      const countMap: Record<string, number> = {};
+      (countData || []).forEach((b) => {
+        countMap[b.game_id] = (countMap[b.game_id] || 0) + 1;
+      });
+
+      setUpcomingGames(data.map((g) => ({ ...g, confirmed_count: countMap[g.id] || 0 })));
     }
-    const timeout = setTimeout(async () => {
-      setSearchingClubs(true);
+    loadUpcomingGames();
+  }, [myMemberships, myAdminClubs]);
+
+  // Fetch user's clubs (member + admin)
+  useEffect(() => {
+    async function loadMyClubs() {
+      const memberIds = myMemberships
+        .filter((m) => m.status === 'approved')
+        .map((m) => m.club_id);
+      const adminIds = myAdminClubs.map((c) => c.id);
+      const allIds = [...new Set([...memberIds, ...adminIds])];
+      if (allIds.length === 0) {
+        setMyClubs([]);
+        onClubsLoaded?.([]);
+        return;
+      }
       const { data } = await supabase
         .from('clubs')
         .select('*')
-        .or(`name.ilike.%${clubSearch}%,location.ilike.%${clubSearch}%`)
-        .limit(5);
-      setClubResults(data || []);
-      setSearchingClubs(false);
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [clubSearch]);
-
-  const getMembershipStatus = (clubId: string) => {
-    return memberships.find((m) => m.club_id === clubId)?.status || null;
-  };
-
-  const handleJoinClub = async (clubId: string) => {
-    if (!session) return;
-    setJoiningClub(clubId);
-    try {
-      const { error } = await supabase.from('club_members').insert({
-        club_id: clubId,
-        user_id: session.user.id,
-        status: 'pending',
-      });
-      if (error) throw new Error(error.message);
-      setMemberships([...memberships, { club_id: clubId, status: 'pending' }]);
-      showToast('Join request sent!', 'success');
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to join club';
-      showToast(message, 'error');
-    } finally {
-      setJoiningClub(null);
+        .in('id', allIds)
+        .order('name');
+      const clubs = data || [];
+      setMyClubs(clubs);
+      onClubsLoaded?.(clubs);
     }
-  };
+    loadMyClubs();
+  }, [myMemberships, myAdminClubs]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const greeting = getGreeting();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Greeting */}
+      <div>
+        <h1 className="text-2xl font-bold text-text-primary">
+          {greeting}, {profile?.full_name?.split(' ')[0] || 'there'}
+        </h1>
+        <p className="text-sm text-text-tertiary mt-0.5">Here&apos;s what&apos;s happening across your clubs</p>
+      </div>
+
       {/* Stat cards row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {/* DUPR Rating */}
+      <div className="grid grid-cols-3 gap-3">
         <Card className="p-4 text-center">
           <Trophy className="h-5 w-5 text-warning mx-auto mb-1.5" />
           <p className="text-2xl font-bold text-text-primary">
-            {profile?.dupr_rating ? profile.dupr_rating.toFixed(2) : '--'}
+            {profile?.dupr_rating ? profile.dupr_rating.toFixed(3) : '--'}
           </p>
           <p className="text-xs text-text-tertiary mt-0.5">DUPR Rating</p>
         </Card>
 
-        {/* Next Game */}
         <Card className="p-4 text-center">
-          <CalendarClock className="h-5 w-5 text-primary mx-auto mb-1.5" />
-          {nextGame ? (
-            <Link href={`/dashboard/game/${nextGame.id}`} className="block hover:opacity-80">
-              <p className="text-sm font-semibold text-text-primary truncate">{nextGame.title}</p>
-              <p className="text-xs text-text-secondary mt-0.5">
-                {format(new Date(nextGame.date_time), 'MMM d, h:mm a')}
-              </p>
-            </Link>
-          ) : (
-            <>
-              <p className="text-sm font-semibold text-text-secondary">None</p>
-              <p className="text-xs text-text-tertiary mt-0.5">Next Game</p>
-            </>
-          )}
+          <CheckCircle className="h-5 w-5 text-primary mx-auto mb-1.5" />
+          <p className="text-2xl font-bold text-text-primary">{gamesPlayed}</p>
+          <p className="text-xs text-text-tertiary mt-0.5">Games Played</p>
         </Card>
 
-        {/* Games Booked */}
         <Card className="p-4 text-center">
           <Hash className="h-5 w-5 text-success mx-auto mb-1.5" />
           <p className="text-2xl font-bold text-text-primary">{totalBooked}</p>
@@ -154,69 +152,66 @@ export default function HomeWidgets() {
         </Card>
       </div>
 
-      {/* Find a Club */}
-      <Card className="p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Users className="h-5 w-5 text-primary" />
-          <h3 className="text-sm font-semibold text-text-primary">Find a Club</h3>
-        </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
-          <input
-            type="text"
-            value={clubSearch}
-            onChange={(e) => setClubSearch(e.target.value)}
-            placeholder="Search by name or location..."
-            className="w-full pl-9 pr-4 py-2.5 bg-white border border-border rounded-xl text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all"
-          />
-        </div>
-        {searchingClubs && (
-          <div className="flex justify-center py-3">
-            <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
-          </div>
-        )}
-        {clubResults.length > 0 && (
-          <div className="mt-2 space-y-1">
-            {clubResults.map((club) => {
-              const status = getMembershipStatus(club.id);
+      {/* Upcoming Games from My Clubs */}
+      {upcomingGames.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold text-text-primary mb-3">Upcoming Games</h2>
+          <div className="space-y-2">
+            {upcomingGames.map((game) => {
+              const isFull = (game.confirmed_count || 0) >= game.max_spots;
               return (
-                <div
-                  key={club.id}
-                  className="flex items-center justify-between p-2.5 rounded-xl hover:bg-background transition-colors"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-text-primary truncate">{club.name}</p>
-                    {club.location && (
-                      <p className="text-xs text-text-secondary flex items-center gap-1 mt-0.5">
-                        <MapPin className="h-3 w-3 flex-shrink-0" />
-                        <span className="truncate">{club.location}</span>
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex-shrink-0 ml-2">
-                    {status === 'approved' ? (
-                      <Badge label="Member" color="#34C759" />
-                    ) : status === 'pending' ? (
-                      <Badge label="Pending" color="#FF9500" />
-                    ) : (
-                      <Button
-                        size="sm"
-                        onClick={() => handleJoinClub(club.id)}
-                        loading={joiningClub === club.id}
-                      >
-                        Join
+                <Card key={game.id} className="p-4 hover:shadow-sm transition-shadow">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <Link href={`/dashboard/game/${game.id}`}>
+                        <p className="text-sm font-semibold text-text-primary truncate hover:text-primary transition-colors">{game.title}</p>
+                      </Link>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
+                        {game.club && (
+                          <span className="text-xs text-primary font-medium">{(game.club as Club).name}</span>
+                        )}
+                        <span className="text-xs text-text-secondary flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {format(new Date(game.date_time), 'EEE, MMM d · h:mm a')}
+                        </span>
+                        {game.location && (
+                          <span className="text-xs text-text-secondary flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            <span className="truncate max-w-[150px]">{game.location}</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <Link href={`/dashboard/game/${game.id}`} className="flex-shrink-0">
+                      <Button size="sm" variant={isFull ? 'outline' : 'primary'}>
+                        {isFull ? 'Waitlist' : 'Book'}
                       </Button>
-                    )}
+                    </Link>
                   </div>
-                </div>
+                </Card>
               );
             })}
           </div>
-        )}
-        {clubSearch.trim() && !searchingClubs && clubResults.length === 0 && (
-          <p className="text-xs text-text-tertiary text-center mt-3">No clubs found</p>
-        )}
-      </Card>
+        </div>
+      )}
+
+      {/* Empty state if no clubs */}
+      {myClubs.length === 0 && upcomingGames.length === 0 && (
+        <Card className="p-6 text-center">
+          <Users className="h-8 w-8 text-text-tertiary mx-auto mb-2" />
+          <p className="text-sm text-text-secondary">You haven&apos;t joined any clubs yet</p>
+          <Link href="/dashboard/games" className="text-sm text-primary hover:underline mt-1 inline-block">
+            Find a club to join
+          </Link>
+        </Card>
+      )}
     </div>
   );
+}
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
 }

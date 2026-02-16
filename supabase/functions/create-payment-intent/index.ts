@@ -30,7 +30,8 @@ serve(async (req) => {
   }
 
   try {
-    const { bookingId } = await req.json();
+    const body = await req.json();
+    const bookingId = body.bookingId || body.booking_id;
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,

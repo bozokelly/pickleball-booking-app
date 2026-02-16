@@ -51,6 +51,15 @@ export const useMembershipStore = create<MembershipState>((set, get) => ({
     const { error } = await supabase.from('club_members').insert({ club_id: clubId, user_id: userId, status: 'pending' });
     if (error) throw new Error(error.message);
     await get().fetchMyMemberships();
+
+    // Notify club admins
+    await supabase.rpc('notify_club_admins', {
+      p_club_id: clubId,
+      p_title: 'New membership request',
+      p_body: 'Someone has requested to join your club',
+      p_type: 'membership_request',
+      p_reference_id: clubId,
+    });
   },
 
   approveMember: async (memberId) => {

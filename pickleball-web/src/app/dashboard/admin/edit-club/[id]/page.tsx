@@ -24,6 +24,9 @@ export default function EditClubPage({ params }: { params: Promise<{ id: string 
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [description, setDescription] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [website, setWebsite] = useState('');
   const [membersOnly, setMembersOnly] = useState(false);
 
   useEffect(() => {
@@ -43,6 +46,9 @@ export default function EditClubPage({ params }: { params: Promise<{ id: string 
       setLatitude(data.latitude ?? null);
       setLongitude(data.longitude ?? null);
       setDescription(data.description || '');
+      setContactEmail(data.contact_email || '');
+      setContactPhone(data.contact_phone || '');
+      setWebsite(data.website || '');
       setMembersOnly(data.members_only);
       setLoading(false);
     }
@@ -64,6 +70,9 @@ export default function EditClubPage({ params }: { params: Promise<{ id: string 
         latitude,
         longitude,
         description: description.trim() || null,
+        contact_email: contactEmail.trim() || null,
+        contact_phone: contactPhone.trim() || null,
+        website: website.trim() || null,
         members_only: membersOnly,
       }).eq('id', clubId);
 
@@ -137,6 +146,34 @@ export default function EditClubPage({ params }: { params: Promise<{ id: string 
               rows={4}
               className="w-full px-4 py-3 bg-white border border-border rounded-xl text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 resize-none transition-all"
             />
+          </div>
+
+          {/* Contact Information */}
+          <div className="pt-2">
+            <h3 className="text-sm font-semibold text-text-secondary mb-3">Contact Information</h3>
+            <div className="space-y-4">
+              <Input
+                label="Email"
+                type="email"
+                placeholder="club@example.com"
+                value={contactEmail}
+                onChange={(e) => setContactEmail(e.target.value)}
+              />
+              <Input
+                label="Phone"
+                type="tel"
+                placeholder="+1 (555) 123-4567"
+                value={contactPhone}
+                onChange={(e) => setContactPhone(e.target.value)}
+              />
+              <Input
+                label="Website"
+                type="url"
+                placeholder="https://yourclub.com"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+              />
+            </div>
           </div>
 
           {/* Members only toggle */}

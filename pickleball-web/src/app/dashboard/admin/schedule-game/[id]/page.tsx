@@ -286,7 +286,7 @@ export default function ScheduleGamePage({ params }: { params: Promise<{ id: str
                   </div>
                   {p.profile.dupr_rating && (
                     <Badge
-                      label={p.profile.dupr_rating.toFixed(1)}
+                      label={p.profile.dupr_rating.toFixed(3)}
                       color="#FF9500"
                       className="flex-shrink-0"
                     />

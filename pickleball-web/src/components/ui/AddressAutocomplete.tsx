@@ -2,41 +2,14 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { MapPin } from 'lucide-react';
+import { loadGoogleMapsScript } from '@/utils/googleMaps';
 
 interface AddressAutocompleteProps {
   label?: string;
   value: string;
-  onChange: (value: string) => void;
+  onChange: (value: string, coords?: { lat: number; lng: number }) => void;
   placeholder?: string;
   hint?: string;
-}
-
-let googleScriptLoaded = false;
-let googleScriptPromise: Promise<void> | null = null;
-
-function loadGoogleMapsScript(): Promise<void> {
-  if (googleScriptLoaded) return Promise.resolve();
-  if (googleScriptPromise) return googleScriptPromise;
-
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  if (!apiKey || apiKey === 'your-google-maps-api-key-here') {
-    return Promise.reject(new Error('Google Maps API key not configured'));
-  }
-
-  googleScriptPromise = new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      googleScriptLoaded = true;
-      resolve();
-    };
-    script.onerror = () => reject(new Error('Failed to load Google Maps'));
-    document.head.appendChild(script);
-  });
-
-  return googleScriptPromise;
 }
 
 export function AddressAutocomplete({
@@ -53,10 +26,16 @@ export function AddressAutocomplete({
 
   const handlePlaceSelect = useCallback(() => {
     const place = autocompleteRef.current?.getPlace();
-    if (place?.formatted_address) {
-      onChange(place.formatted_address);
-    } else if (place?.name) {
-      onChange(place.name);
+    const address = place?.formatted_address || place?.name || '';
+    let coords: { lat: number; lng: number } | undefined;
+    if (place?.geometry?.location) {
+      coords = {
+        lat: place.geometry.location.lat(),
+        lng: place.geometry.location.lng(),
+      };
+    }
+    if (address) {
+      onChange(address, coords);
     }
   }, [onChange]);
 
@@ -70,7 +49,7 @@ export function AddressAutocomplete({
     if (!loaded || !inputRef.current || autocompleteRef.current) return;
 
     const autocomplete = new google.maps.places.Autocomplete(inputRef.current, {
-      types: ['address'],
+      types: ['establishment', 'geocode'],
       fields: ['formatted_address', 'name', 'geometry'],
     });
 
@@ -82,7 +61,6 @@ export function AddressAutocomplete({
     };
   }, [loaded, handlePlaceSelect]);
 
-  // Prevent form submission when selecting from dropdown with Enter
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       const pacContainer = document.querySelector('.pac-container');

@@ -14,7 +14,12 @@ export default function CreateClubPage() {
 
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [description, setDescription] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [website, setWebsite] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -29,6 +34,11 @@ export default function CreateClubPage() {
         name: name.trim(),
         description: description.trim() || null,
         location: location.trim() || null,
+        latitude,
+        longitude,
+        contact_email: contactEmail.trim() || null,
+        contact_phone: contactPhone.trim() || null,
+        website: website.trim() || null,
       });
       showToast('Club created!', 'success');
       router.push('/dashboard/admin');
@@ -59,7 +69,7 @@ export default function CreateClubPage() {
             label="Location"
             placeholder="e.g. 123 Main St, City"
             value={location}
-            onChange={setLocation}
+            onChange={(val, coords) => { setLocation(val); if (coords) { setLatitude(coords.lat); setLongitude(coords.lng); } }}
           />
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1.5">Description</label>
@@ -71,6 +81,34 @@ export default function CreateClubPage() {
               className="w-full px-4 py-3 bg-background border border-border rounded-xl text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
             />
           </div>
+          {/* Contact Information */}
+          <div className="pt-2">
+            <h3 className="text-sm font-semibold text-text-secondary mb-3">Contact Information</h3>
+            <div className="space-y-4">
+              <Input
+                label="Email"
+                type="email"
+                placeholder="club@example.com"
+                value={contactEmail}
+                onChange={(e) => setContactEmail(e.target.value)}
+              />
+              <Input
+                label="Phone"
+                type="tel"
+                placeholder="+1 (555) 123-4567"
+                value={contactPhone}
+                onChange={(e) => setContactPhone(e.target.value)}
+              />
+              <Input
+                label="Website"
+                type="url"
+                placeholder="https://yourclub.com"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+              />
+            </div>
+          </div>
+
           <Button type="submit" loading={loading} className="w-full">
             Create Club
           </Button>

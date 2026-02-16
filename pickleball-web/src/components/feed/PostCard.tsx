@@ -9,7 +9,9 @@ import { ConfirmDialog } from '@/components/ui';
 import ReactionBar from './ReactionBar';
 import CommentSection from './CommentSection';
 import { formatDistanceToNow } from 'date-fns';
-import { MessageCircle, Trash2, MoreHorizontal } from 'lucide-react';
+import Link from 'next/link';
+import { Club } from '@/types/database';
+import { MessageCircle, Trash2, MoreHorizontal, Users } from 'lucide-react';
 
 interface PostCardProps {
   post: FeedPost;
@@ -42,9 +44,9 @@ export default function PostCard({ post }: PostCardProps) {
     setShowComments(!showComments);
   };
 
-  const handleAddComment = async (content: string) => {
+  const handleAddComment = async (content: string, parentId?: string | null) => {
     try {
-      await addComment(post.id, content);
+      await addComment(post.id, content, parentId);
     } catch {
       showToast('Failed to add comment', 'error');
     }
@@ -86,9 +88,21 @@ export default function PostCard({ post }: PostCardProps) {
             <p className="text-sm font-semibold text-text-primary">
               {post.profile?.full_name || 'Unknown'}
             </p>
-            <p className="text-xs text-text-tertiary">
-              {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
-            </p>
+            <div className="flex items-center gap-2 mt-0.5">
+              {post.club && (
+                <Link
+                  href={`/dashboard/club/${(post.club as Club).id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/8 text-primary text-[11px] font-medium rounded-full hover:bg-primary/15 transition-colors"
+                >
+                  <Users className="h-3 w-3" />
+                  {(post.club as Club).name}
+                </Link>
+              )}
+              <p className="text-xs text-text-tertiary">
+                {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
+              </p>
+            </div>
           </div>
         </div>
         {isOwner && (

@@ -17,8 +17,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   fetchUpcomingGames: async (clubId) => {
     set({ loading: true });
     try {
+      const now = new Date().toISOString();
       let query = supabase.from('games').select('*, club:clubs(*)')
-        .eq('status', 'upcoming').gte('date_time', new Date().toISOString())
+        .eq('status', 'upcoming').gte('date_time', now)
+        .or(`visible_from.is.null,visible_from.lte.${now}`)
         .order('date_time', { ascending: true });
       if (clubId) query = query.eq('club_id', clubId);
       const { data, error } = await query;

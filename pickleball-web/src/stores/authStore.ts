@@ -12,6 +12,7 @@ interface AuthState {
   resetPassword: (email: string) => Promise<void>;
   fetchProfile: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
+  updatePassword: (newPassword: string) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -83,5 +84,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { data, error } = await supabase.from('profiles').update(updates).eq('id', userId).select().single();
     if (error) throw new Error(error.message);
     set({ profile: data });
+  },
+
+  updatePassword: async (newPassword) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw new Error(error.message);
   },
 }));

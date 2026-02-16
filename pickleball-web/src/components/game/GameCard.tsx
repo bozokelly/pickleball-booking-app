@@ -55,7 +55,7 @@ export function GameCard({ game }: GameCardProps) {
               {game.fee_amount > 0 && (
                 <span className="flex items-center gap-1">
                   <DollarSign className="h-3.5 w-3.5" />
-                  ${game.fee_amount.toFixed(2)}
+                  {game.fee_amount.toFixed(2)}
                 </span>
               )}
             </div>

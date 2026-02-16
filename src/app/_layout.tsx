@@ -3,15 +3,13 @@ import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import { StripeProvider } from '@stripe/stripe-react-native';
+import StripeProviderWrapper from '@/components/StripeProviderWrapper';
 import { useAuthStore } from '@/stores/authStore';
 import { registerForPushNotifications } from '@/utils/notifications';
 import { colors } from '@/constants/theme';
 
 // Keep splash screen visible while loading
 SplashScreen.preventAutoHideAsync();
-
-const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
 
 export default function RootLayout() {
   const { session, initialized, initialize } = useAuthStore();
@@ -59,7 +57,7 @@ export default function RootLayout() {
   }
 
   return (
-    <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
+    <StripeProviderWrapper>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(auth)" />
@@ -67,7 +65,7 @@ export default function RootLayout() {
         <Stack.Screen name="game/[id]" />
         <Stack.Screen name="admin" />
       </Stack>
-    </StripeProvider>
+    </StripeProviderWrapper>
   );
 }
 

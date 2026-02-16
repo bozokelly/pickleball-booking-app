@@ -54,7 +54,7 @@ export default function GameChatPage({ params }: { params: Promise<{ id: string 
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      try { supabase.removeChannel(channel); } catch { /* ignore AbortError from StrictMode */ }
     };
   }, [gameId]);
 

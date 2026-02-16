@@ -7,12 +7,13 @@ interface FeedState {
   loading: boolean;
   hasMore: boolean;
   comments: Record<string, FeedComment[]>;
-  fetchPosts: (reset?: boolean) => Promise<void>;
-  createPost: (content: string, imageUrl: string | null) => Promise<void>;
+  currentClubId: string | null;
+  fetchPosts: (reset?: boolean, clubId?: string | null) => Promise<void>;
+  createPost: (content: string, imageUrl: string | null, clubId: string) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
   toggleReaction: (postId: string, reactionType: ReactionType) => Promise<void>;
   fetchComments: (postId: string) => Promise<void>;
-  addComment: (postId: string, content: string) => Promise<void>;
+  addComment: (postId: string, content: string, parentId?: string | null) => Promise<void>;
   prependPost: (post: FeedPost) => void;
 }
 
@@ -23,20 +24,27 @@ export const useFeedStore = create<FeedState>((set, get) => ({
   loading: false,
   hasMore: true,
   comments: {},
+  currentClubId: null,
 
-  fetchPosts: async (reset = false) => {
+  fetchPosts: async (reset = false, clubId = null) => {
     const { posts, loading } = get();
     if (loading) return;
-    set({ loading: true });
+    set({ loading: true, currentClubId: clubId });
     try {
       const user = (await supabase.auth.getUser()).data.user;
       const offset = reset ? 0 : posts.length;
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('feed_posts')
-        .select('*, profile:profiles!feed_posts_user_id_fkey(full_name, avatar_url)')
+        .select('*, profile:profiles!feed_posts_user_id_fkey(full_name, avatar_url), club:clubs!feed_posts_club_id_fkey(id, name, image_url)')
         .order('created_at', { ascending: false })
         .range(offset, offset + PAGE_SIZE - 1);
+
+      if (clubId) {
+        query = query.eq('club_id', clubId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw new Error(error.message);
 
@@ -66,11 +74,12 @@ export const useFeedStore = create<FeedState>((set, get) => ({
           userReaction = myReaction?.reaction_type as ReactionType | null;
         }
 
-        // Fetch comment count
+        // Fetch comment count (top-level only)
         const { count } = await supabase
           .from('feed_comments')
           .select('*', { count: 'exact', head: true })
-          .eq('post_id', post.id);
+          .eq('post_id', post.id)
+          .is('parent_id', null);
 
         postsWithMeta.push({
           ...post,
@@ -89,19 +98,20 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     }
   },
 
-  createPost: async (content, imageUrl) => {
+  createPost: async (content, imageUrl, clubId) => {
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) throw new Error('Not authenticated');
 
     const { error } = await supabase.from('feed_posts').insert({
       user_id: user.id,
+      club_id: clubId,
       content: content.trim(),
       image_url: imageUrl,
     });
     if (error) throw new Error(error.message);
 
-    // Refresh to get the new post with profile data
-    await get().fetchPosts(true);
+    // Refresh to get the new post with profile + club data
+    await get().fetchPosts(true, get().currentClubId);
   },
 
   deletePost: async (postId) => {
@@ -122,9 +132,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     const currentReaction = post.user_reaction;
     const counts = { ...(post.reaction_counts || { like: 0, love: 0, fire: 0, laugh: 0 }) };
 
-    // Optimistic update
     if (currentReaction === reactionType) {
-      // Remove reaction
       counts[reactionType] = Math.max(0, counts[reactionType] - 1);
       const updated = [...posts];
       updated[postIndex] = { ...post, user_reaction: null, reaction_counts: counts };
@@ -136,7 +144,6 @@ export const useFeedStore = create<FeedState>((set, get) => ({
         .eq('post_id', postId)
         .eq('user_id', user.id);
     } else {
-      // Remove old reaction count if switching
       if (currentReaction) {
         counts[currentReaction] = Math.max(0, counts[currentReaction] - 1);
       }
@@ -145,7 +152,6 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       updated[postIndex] = { ...post, user_reaction: reactionType, reaction_counts: counts };
       set({ posts: updated });
 
-      // Delete existing then insert new
       await supabase
         .from('feed_reactions')
         .delete()
@@ -161,6 +167,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
   },
 
   fetchComments: async (postId) => {
+    // Fetch all comments (top-level and replies) for this post
     const { data, error } = await supabase
       .from('feed_comments')
       .select('*, profile:profiles!feed_comments_user_id_fkey(full_name, avatar_url)')
@@ -168,10 +175,30 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       .order('created_at', { ascending: true });
 
     if (error) throw new Error(error.message);
-    set({ comments: { ...get().comments, [postId]: data || [] } });
+
+    // Build threaded structure
+    const allComments = data || [];
+    const topLevel: FeedComment[] = [];
+    const repliesMap: Record<string, FeedComment[]> = {};
+
+    for (const c of allComments) {
+      if (c.parent_id) {
+        if (!repliesMap[c.parent_id]) repliesMap[c.parent_id] = [];
+        repliesMap[c.parent_id].push(c);
+      } else {
+        topLevel.push({ ...c, replies: [] });
+      }
+    }
+
+    // Attach replies to their parent
+    for (const comment of topLevel) {
+      comment.replies = repliesMap[comment.id] || [];
+    }
+
+    set({ comments: { ...get().comments, [postId]: topLevel } });
   },
 
-  addComment: async (postId, content) => {
+  addComment: async (postId, content, parentId = null) => {
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) throw new Error('Not authenticated');
 
@@ -181,6 +208,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
         post_id: postId,
         user_id: user.id,
         content: content.trim(),
+        parent_id: parentId,
       })
       .select('*, profile:profiles!feed_comments_user_id_fkey(full_name, avatar_url)')
       .single();
@@ -188,25 +216,40 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     if (error) throw new Error(error.message);
 
     const comments = get().comments;
-    const postComments = comments[postId] || [];
-    set({ comments: { ...comments, [postId]: [...postComments, data] } });
+    const postComments = [...(comments[postId] || [])];
 
-    // Update comment count on the post
-    const posts = get().posts;
-    const postIndex = posts.findIndex((p) => p.id === postId);
-    if (postIndex !== -1) {
-      const updated = [...posts];
-      updated[postIndex] = {
-        ...updated[postIndex],
-        comment_count: (updated[postIndex].comment_count || 0) + 1,
-      };
-      set({ posts: updated });
+    if (parentId) {
+      // Add as reply to parent
+      const parentIndex = postComments.findIndex((c) => c.id === parentId);
+      if (parentIndex !== -1) {
+        const parent = { ...postComments[parentIndex] };
+        parent.replies = [...(parent.replies || []), data];
+        postComments[parentIndex] = parent;
+      }
+    } else {
+      // Add as top-level comment
+      postComments.push({ ...data, replies: [] });
+    }
+
+    set({ comments: { ...comments, [postId]: postComments } });
+
+    // Update comment count on the post (only for top-level)
+    if (!parentId) {
+      const posts = get().posts;
+      const postIndex = posts.findIndex((p) => p.id === postId);
+      if (postIndex !== -1) {
+        const updated = [...posts];
+        updated[postIndex] = {
+          ...updated[postIndex],
+          comment_count: (updated[postIndex].comment_count || 0) + 1,
+        };
+        set({ posts: updated });
+      }
     }
   },
 
   prependPost: (post) => {
     const { posts } = get();
-    // Don't add if already exists
     if (posts.some((p) => p.id === post.id)) return;
     set({ posts: [post, ...posts] });
   },
