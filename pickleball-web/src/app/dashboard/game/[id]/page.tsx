@@ -21,7 +21,7 @@ import {
 } from '@/constants/theme';
 import {
   ArrowLeft, Clock, MapPin, Users, DollarSign, CalendarPlus,
-  MessageCircle, XCircle, CheckCircle2, Home, Trophy, AlertTriangle,
+  XCircle, CheckCircle2, Home, Trophy, AlertTriangle,
   CreditCard, Pencil, UserPlus, Search, X, Loader2,
 } from 'lucide-react';
 
@@ -371,11 +371,6 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                   Add to Calendar
                 </Button>
               )}
-              <Link href={`/dashboard/game/${game.id}/chat`}>
-                <Button variant="outline" size="sm" icon={<MessageCircle className="h-4 w-4" />}>
-                  Chat
-                </Button>
-              </Link>
               <Button
                 variant="danger"
                 size="sm"

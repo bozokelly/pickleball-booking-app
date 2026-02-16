@@ -7,13 +7,14 @@ import { useClubStore } from '@/stores/clubStore';
 import { supabase } from '@/lib/supabase';
 import { Game } from '@/types/database';
 import { Card, Button, Badge } from '@/components/ui';
-import { Plus, MapPin, Users, Pencil, Clock, LayoutGrid, ChevronDown, ChevronUp, CalendarDays, MessageSquare } from 'lucide-react';
+import { Plus, MapPin, Users, Pencil, Clock, LayoutGrid, ChevronDown, ChevronUp, CalendarDays, MessageSquare, MoreHorizontal, Copy } from 'lucide-react';
 
 export default function AdminPage() {
   const { myAdminClubs, fetchMyAdminClubs } = useClubStore();
   const [clubGames, setClubGames] = useState<Record<string, Game[]>>({});
   const [clubMemberCounts, setClubMemberCounts] = useState<Record<string, number>>({});
   const [expandedClubs, setExpandedClubs] = useState<Set<string>>(new Set());
+  const [openMenuClubId, setOpenMenuClubId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMyAdminClubs();
@@ -84,6 +85,7 @@ export default function AdminPage() {
             const games = clubGames[club.id] || [];
             const memberCount = clubMemberCounts[club.id] ?? 0;
             const isExpanded = expandedClubs.has(club.id);
+            const isMenuOpen = openMenuClubId === club.id;
             const upcomingGames = games
               .filter((g) => !isPast(new Date(g.date_time)) && g.status !== 'completed' && g.status !== 'cancelled')
               .sort((a, b) => new Date(a.date_time).getTime() - new Date(b.date_time).getTime());
@@ -92,7 +94,7 @@ export default function AdminPage() {
             return (
               <div key={club.id}>
                 <Card className="p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <button
                         onClick={() => toggleClub(club.id)}
@@ -120,27 +122,49 @@ export default function AdminPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-2 pl-9 sm:pl-0">
-                      <Link href={`/dashboard/admin/edit-club/${club.id}`}>
-                        <Button variant="outline" size="sm" icon={<Pencil className="h-4 w-4" />}>
-                          Edit
-                        </Button>
-                      </Link>
-                      <Link href={`/dashboard/admin/club/${club.id}/members`}>
-                        <Button variant="outline" size="sm" icon={<Users className="h-4 w-4" />}>
-                          Members
-                        </Button>
-                      </Link>
-                      <Link href={`/dashboard/admin/club/${club.id}/messages`}>
-                        <Button variant="outline" size="sm" icon={<MessageSquare className="h-4 w-4" />}>
-                          Messages
-                        </Button>
-                      </Link>
-                      <Link href={`/dashboard/admin/create-game?clubId=${club.id}`}>
-                        <Button variant="secondary" size="sm" icon={<Plus className="h-4 w-4" />}>
-                          New Game
-                        </Button>
-                      </Link>
+                    <div className="relative flex-shrink-0">
+                      <button
+                        onClick={() => setOpenMenuClubId(isMenuOpen ? null : club.id)}
+                        className="p-2 rounded-lg hover:bg-background transition-colors text-text-tertiary hover:text-text-primary"
+                      >
+                        <MoreHorizontal className="h-5 w-5" />
+                      </button>
+                      {isMenuOpen && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setOpenMenuClubId(null)} />
+                          <div className="absolute right-0 top-10 z-20 bg-surface border border-border rounded-xl shadow-lg py-1 min-w-[160px]">
+                            <Link
+                              href={`/dashboard/admin/edit-club/${club.id}`}
+                              onClick={() => setOpenMenuClubId(null)}
+                              className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-text-primary hover:bg-background transition-colors"
+                            >
+                              <Pencil className="h-4 w-4 text-text-tertiary" /> Edit Club
+                            </Link>
+                            <Link
+                              href={`/dashboard/admin/club/${club.id}/members`}
+                              onClick={() => setOpenMenuClubId(null)}
+                              className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-text-primary hover:bg-background transition-colors"
+                            >
+                              <Users className="h-4 w-4 text-text-tertiary" /> Members
+                            </Link>
+                            <Link
+                              href={`/dashboard/admin/club/${club.id}/messages`}
+                              onClick={() => setOpenMenuClubId(null)}
+                              className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-text-primary hover:bg-background transition-colors"
+                            >
+                              <MessageSquare className="h-4 w-4 text-text-tertiary" /> Messages
+                            </Link>
+                            <div className="border-t border-border my-1" />
+                            <Link
+                              href={`/dashboard/admin/create-game?clubId=${club.id}`}
+                              onClick={() => setOpenMenuClubId(null)}
+                              className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-primary font-medium hover:bg-background transition-colors"
+                            >
+                              <Plus className="h-4 w-4" /> New Game
+                            </Link>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </Card>
@@ -157,7 +181,7 @@ export default function AdminPage() {
                           <div className="space-y-1.5">
                             <p className="text-xs font-semibold text-text-tertiary uppercase tracking-wider pl-1">Upcoming</p>
                             {upcomingGames.map((game) => (
-                              <GameRow key={game.id} game={game} />
+                              <GameRow key={game.id} game={game} clubId={club.id} />
                             ))}
                           </div>
                         )}
@@ -167,7 +191,7 @@ export default function AdminPage() {
                           <div className="space-y-1.5">
                             <p className="text-xs font-semibold text-text-tertiary uppercase tracking-wider pl-1">Past</p>
                             {pastGames.map((game) => (
-                              <GameRow key={game.id} game={game} muted />
+                              <GameRow key={game.id} game={game} clubId={club.id} muted />
                             ))}
                           </div>
                         )}
@@ -184,7 +208,7 @@ export default function AdminPage() {
   );
 }
 
-function GameRow({ game, muted = false }: { game: Game; muted?: boolean }) {
+function GameRow({ game, clubId, muted = false }: { game: Game; clubId: string; muted?: boolean }) {
   const dt = new Date(game.date_time);
 
   return (
@@ -212,6 +236,11 @@ function GameRow({ game, muted = false }: { game: Game; muted?: boolean }) {
           </span>
         </div>
         <div className="flex gap-2 flex-shrink-0">
+          <Link href={`/dashboard/admin/create-game?duplicate=${game.id}&clubId=${clubId}`}>
+            <Button variant="outline" size="sm" icon={<Copy className="h-4 w-4" />} title="Duplicate game">
+              Duplicate
+            </Button>
+          </Link>
           <Link href={`/dashboard/admin/schedule-game/${game.id}`}>
             <Button variant="outline" size="sm" icon={<LayoutGrid className="h-4 w-4" />}>
               Schedule

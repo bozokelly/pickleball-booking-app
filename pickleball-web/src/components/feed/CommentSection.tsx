@@ -4,14 +4,16 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { FeedComment } from '@/types/database';
 import { formatDistanceToNow } from 'date-fns';
-import { Send, Reply } from 'lucide-react';
+import { Send, Reply, Trash2 } from 'lucide-react';
 
 interface CommentSectionProps {
   comments: FeedComment[];
   onAddComment: (content: string, parentId?: string | null) => Promise<void>;
+  onDeleteComment?: (commentId: string, parentId?: string | null) => Promise<void>;
+  currentUserId?: string;
 }
 
-export default function CommentSection({ comments, onAddComment }: CommentSectionProps) {
+export default function CommentSection({ comments, onAddComment, onDeleteComment, currentUserId }: CommentSectionProps) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [replyingTo, setReplyingTo] = useState<{ id: string; name: string } | null>(null);
@@ -40,6 +42,8 @@ export default function CommentSection({ comments, onAddComment }: CommentSectio
               onReply={(id, name) => {
                 setReplyingTo({ id, name });
               }}
+              onDeleteComment={onDeleteComment}
+              currentUserId={currentUserId}
             />
           ))}
         </div>
@@ -84,17 +88,21 @@ export default function CommentSection({ comments, onAddComment }: CommentSectio
 function CommentThread({
   comment,
   onReply,
+  onDeleteComment,
+  currentUserId,
 }: {
   comment: FeedComment;
   onReply: (id: string, name: string) => void;
+  onDeleteComment?: (commentId: string, parentId?: string | null) => Promise<void>;
+  currentUserId?: string;
 }) {
   return (
     <div>
-      <SingleComment comment={comment} onReply={onReply} />
+      <SingleComment comment={comment} onReply={onReply} onDeleteComment={onDeleteComment} currentUserId={currentUserId} />
       {comment.replies && comment.replies.length > 0 && (
         <div className="ml-9 mt-1.5 space-y-1.5 border-l-2 border-border/50 pl-3">
           {comment.replies.map((reply) => (
-            <SingleComment key={reply.id} comment={reply} onReply={onReply} isReply />
+            <SingleComment key={reply.id} comment={reply} onReply={onReply} isReply parentId={comment.id} onDeleteComment={onDeleteComment} currentUserId={currentUserId} />
           ))}
         </div>
       )}
@@ -106,13 +114,21 @@ function SingleComment({
   comment,
   onReply,
   isReply = false,
+  parentId,
+  onDeleteComment,
+  currentUserId,
 }: {
   comment: FeedComment;
   onReply: (id: string, name: string) => void;
   isReply?: boolean;
+  parentId?: string;
+  onDeleteComment?: (commentId: string, parentId?: string | null) => Promise<void>;
+  currentUserId?: string;
 }) {
+  const isOwner = currentUserId && comment.user_id === currentUserId;
+
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-2 group">
       <div className={`${isReply ? 'h-6 w-6' : 'h-7 w-7'} rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0`}>
         {comment.profile?.avatar_url ? (
           <Image src={comment.profile.avatar_url} alt="" width={isReply ? 24 : 28} height={isReply ? 24 : 28} className={`${isReply ? 'h-6 w-6' : 'h-7 w-7'} rounded-full object-cover`} />
@@ -139,6 +155,14 @@ function SingleComment({
               className="text-xs text-text-tertiary hover:text-primary transition-colors font-medium"
             >
               Reply
+            </button>
+          )}
+          {isOwner && onDeleteComment && (
+            <button
+              onClick={() => onDeleteComment(comment.id, parentId || null)}
+              className="text-xs text-text-tertiary hover:text-danger transition-colors opacity-0 group-hover:opacity-100"
+            >
+              <Trash2 className="h-3 w-3" />
             </button>
           )}
         </div>

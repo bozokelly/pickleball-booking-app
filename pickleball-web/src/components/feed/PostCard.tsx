@@ -20,7 +20,7 @@ interface PostCardProps {
 
 function PostCard({ post }: PostCardProps) {
   const { profile } = useAuthStore();
-  const { toggleReaction, fetchComments, addComment, deletePost, comments } = useFeedStore();
+  const { toggleReaction, fetchComments, addComment, deletePost, deleteComment, comments } = useFeedStore();
   const { showToast } = useToast();
 
   const [showComments, setShowComments] = useState(false);
@@ -50,6 +50,15 @@ function PostCard({ post }: PostCardProps) {
       await addComment(post.id, content, parentId);
     } catch {
       showToast('Failed to add comment', 'error');
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string, parentId?: string | null) => {
+    try {
+      await deleteComment(post.id, commentId, parentId);
+      showToast('Comment deleted', 'success');
+    } catch {
+      showToast('Failed to delete comment', 'error');
     }
   };
 
@@ -166,7 +175,7 @@ function PostCard({ post }: PostCardProps) {
             <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent mx-auto" />
           </div>
         ) : (
-          <CommentSection comments={postComments} onAddComment={handleAddComment} />
+          <CommentSection comments={postComments} onAddComment={handleAddComment} onDeleteComment={handleDeleteComment} currentUserId={profile?.id} />
         )
       )}
 

@@ -76,7 +76,7 @@ serve(async (req) => {
         Authorization: `Bearer ${resendApiKey}`,
       },
       body: JSON.stringify({
-        from: 'Pickleball Booking <notifications@yourdomain.com>',
+        from: 'Book a Dink <notifications@bookadink.com>',
         to: [profile.email],
         subject: record.title,
         html: `
@@ -84,7 +84,7 @@ serve(async (req) => {
             <h2 style="color: #1a1a1a; margin-bottom: 8px;">${record.title}</h2>
             <p style="color: #666; font-size: 15px; line-height: 1.5;">${record.body}</p>
             <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
-            <p style="color: #999; font-size: 12px;">Pickleball Booking App</p>
+            <p style="color: #999; font-size: 12px;">Book a Dink &mdash; bookadink.com</p>
           </div>
         `,
       }),

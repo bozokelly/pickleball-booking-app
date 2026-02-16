@@ -14,6 +14,7 @@ interface FeedState {
   toggleReaction: (postId: string, reactionType: ReactionType) => Promise<void>;
   fetchComments: (postId: string) => Promise<void>;
   addComment: (postId: string, content: string, parentId?: string | null) => Promise<void>;
+  deleteComment: (postId: string, commentId: string, parentId?: string | null) => Promise<void>;
   prependPost: (post: FeedPost) => void;
 }
 
@@ -246,6 +247,40 @@ export const useFeedStore = create<FeedState>((set, get) => ({
         set({ posts: updated });
       }
     }
+  },
+
+  deleteComment: async (postId, commentId, parentId = null) => {
+    const { error } = await supabase.from('feed_comments').delete().eq('id', commentId);
+    if (error) throw new Error(error.message);
+
+    const comments = get().comments;
+    const postComments = [...(comments[postId] || [])];
+
+    if (parentId) {
+      const parentIndex = postComments.findIndex((c) => c.id === parentId);
+      if (parentIndex !== -1) {
+        const parent = { ...postComments[parentIndex] };
+        parent.replies = (parent.replies || []).filter((r) => r.id !== commentId);
+        postComments[parentIndex] = parent;
+      }
+    } else {
+      const idx = postComments.findIndex((c) => c.id === commentId);
+      if (idx !== -1) postComments.splice(idx, 1);
+
+      // Decrement comment count on the post
+      const posts = get().posts;
+      const postIndex = posts.findIndex((p) => p.id === postId);
+      if (postIndex !== -1) {
+        const updated = [...posts];
+        updated[postIndex] = {
+          ...updated[postIndex],
+          comment_count: Math.max(0, (updated[postIndex].comment_count || 0) - 1),
+        };
+        set({ posts: updated });
+      }
+    }
+
+    set({ comments: { ...comments, [postId]: postComments } });
   },
 
   prependPost: (post) => {

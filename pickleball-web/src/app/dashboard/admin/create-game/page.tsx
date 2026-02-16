@@ -9,7 +9,7 @@ import { useToast } from '@/components/ui/Toast';
 import { SkillLevel, GameFormat } from '@/types/database';
 import { SKILL_LEVEL_LABELS, SKILL_LEVEL_COLORS, GAME_FORMAT_LABELS } from '@/constants/theme';
 import { getDefaultCurrency } from '@/utils/currency';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 
 const skillLevels: SkillLevel[] = ['all', 'beginner', 'intermediate', 'advanced', 'pro'];
 const gameFormats: GameFormat[] = ['singles', 'doubles', 'mixed_doubles', 'round_robin', 'open_play'];
@@ -32,6 +32,7 @@ function CreateGameForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const clubIdParam = searchParams.get('clubId');
+  const duplicateId = searchParams.get('duplicate');
   const { myAdminClubs, fetchMyAdminClubs } = useClubStore();
   const { showToast } = useToast();
 
@@ -52,6 +53,7 @@ function CreateGameForm() {
   const [notes, setNotes] = useState('');
   const [requiresDupr, setRequiresDupr] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingDuplicate, setLoadingDuplicate] = useState(!!duplicateId);
 
   // Recurring game state
   const [isRecurring, setIsRecurring] = useState(false);
@@ -62,6 +64,38 @@ function CreateGameForm() {
   useEffect(() => {
     fetchMyAdminClubs();
   }, [fetchMyAdminClubs]);
+
+  // Pre-fill from duplicate game
+  useEffect(() => {
+    if (!duplicateId) return;
+    async function loadDuplicate() {
+      const { data, error } = await supabase
+        .from('games')
+        .select('*')
+        .eq('id', duplicateId)
+        .single();
+      if (error || !data) {
+        showToast('Could not load game to duplicate', 'error');
+        setLoadingDuplicate(false);
+        return;
+      }
+      setTitle(data.title);
+      setDuration(data.duration_minutes.toString());
+      setMaxSpots(data.max_spots.toString());
+      setSkillLevel(data.skill_level);
+      setGameFormat(data.game_format);
+      setLocation(data.location || '');
+      setLatitude(data.latitude ?? null);
+      setLongitude(data.longitude ?? null);
+      setFeeAmount(data.fee_amount > 0 ? data.fee_amount.toString() : '');
+      setDescription(data.description || '');
+      setNotes(data.notes || '');
+      setRequiresDupr(data.requires_dupr || false);
+      if (data.club_id) setClubId(data.club_id);
+      setLoadingDuplicate(false);
+    }
+    loadDuplicate();
+  }, [duplicateId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalGames = isRecurring ? Math.max(1, parseInt(repeatWeeks) || 1) : 1;
 
@@ -149,12 +183,23 @@ function CreateGameForm() {
     }
   };
 
+  if (loadingDuplicate) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <button onClick={() => router.back()} className="flex items-center gap-1 text-sm text-primary hover:underline">
         <ArrowLeft className="h-4 w-4" /> Back
       </button>
-      <h1 className="text-2xl font-bold text-text-primary">Create Game</h1>
+      <h1 className="text-2xl font-bold text-text-primary">{duplicateId ? 'Duplicate Game' : 'Create Game'}</h1>
+      {duplicateId && (
+        <p className="text-sm text-text-secondary -mt-4">All details copied — just pick a new date and time.</p>
+      )}
 
       <Card className="p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
