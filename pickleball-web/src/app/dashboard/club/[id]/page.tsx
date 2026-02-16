@@ -201,11 +201,12 @@ export default function ClubDetailPage({ params }: { params: Promise<{ id: strin
                 return (
                   <Link key={game.id} href={`/dashboard/game/${game.id}`}>
                     <Card className="p-3.5 hover:shadow-md transition-shadow cursor-pointer space-y-2 h-full">
+                      <p className="text-xs font-semibold text-text-primary truncate">{game.title}</p>
                       <div>
-                        <p className="text-xs font-bold text-text-primary">
+                        <p className="text-[11px] font-medium text-text-secondary">
                           {format(new Date(game.date_time), 'EEE d MMM')}
                         </p>
-                        <p className="text-[11px] text-text-secondary">
+                        <p className="text-[11px] text-text-tertiary">
                           {format(new Date(game.date_time), 'h:mm a')}
                         </p>
                       </div>
