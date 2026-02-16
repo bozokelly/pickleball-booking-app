@@ -9,6 +9,7 @@ interface GameState {
   fetchGameById: (gameId: string) => Promise<Game | null>;
   bookGame: (gameId: string) => Promise<Booking>;
   cancelBooking: (bookingId: string) => Promise<void>;
+  adminBookPlayer: (gameId: string, userId: string) => Promise<Booking>;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -76,5 +77,17 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
     if (error) throw new Error(error.message);
     await get().fetchMyBookings();
+  },
+
+  adminBookPlayer: async (gameId, userId) => {
+    const admin = (await supabase.auth.getUser()).data.user;
+    if (!admin) throw new Error('Not authenticated');
+    const { data, error } = await supabase.rpc('admin_book_player', {
+      p_game_id: gameId,
+      p_user_id: userId,
+      p_admin_id: admin.id,
+    });
+    if (error) throw new Error(error.message);
+    return data;
   },
 }));

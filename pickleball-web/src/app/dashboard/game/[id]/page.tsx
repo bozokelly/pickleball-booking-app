@@ -8,7 +8,7 @@ import { useGameStore } from '@/stores/gameStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useClubStore } from '@/stores/clubStore';
 import { supabase } from '@/lib/supabase';
-import { Game } from '@/types/database';
+import { Game, Profile } from '@/types/database';
 import { Badge, Button, Card } from '@/components/ui';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useToast } from '@/components/ui/Toast';
@@ -21,13 +21,13 @@ import {
 import {
   ArrowLeft, Clock, MapPin, Users, DollarSign, CalendarPlus,
   MessageCircle, XCircle, CheckCircle2, Home, Trophy, AlertTriangle,
-  CreditCard, Pencil,
+  CreditCard, Pencil, UserPlus, Search, X, Loader2,
 } from 'lucide-react';
 
 export default function GameDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { fetchGameById, bookGame, cancelBooking } = useGameStore();
+  const { fetchGameById, bookGame, cancelBooking, adminBookPlayer } = useGameStore();
   const { session, profile, updateProfile } = useAuthStore();
   const { isClubAdmin } = useClubStore();
   const { showToast } = useToast();
@@ -47,6 +47,12 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
   const [editingDupr, setEditingDupr] = useState(false);
   const [duprInput, setDuprInput] = useState('');
   const [savingDupr, setSavingDupr] = useState(false);
+  const [showAddPlayer, setShowAddPlayer] = useState(false);
+  const [clubMembers, setClubMembers] = useState<(Profile & { user_id?: string })[]>([]);
+  const [memberSearch, setMemberSearch] = useState('');
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [addingPlayer, setAddingPlayer] = useState<string | null>(null);
+  const [bookedUserIds, setBookedUserIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadGame();
@@ -130,6 +136,54 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
     } finally {
       setCancelling(false);
       setShowCancelDialog(false);
+    }
+  };
+
+  const openAddPlayer = async () => {
+    if (!game) return;
+    setShowAddPlayer(true);
+    setMemberSearch('');
+    setLoadingMembers(true);
+    try {
+      // Fetch club members
+      const { data: memberData } = await supabase
+        .from('club_members')
+        .select('user_id, profile:profiles!club_members_user_id_fkey(id, full_name, avatar_url, email)')
+        .eq('club_id', game.club_id)
+        .eq('status', 'approved');
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const members = (memberData || []).map((m: any) => ({ ...m.profile, user_id: m.user_id })).filter(Boolean);
+      setClubMembers(members);
+
+      // Fetch already booked user IDs
+      const { data: bookingData } = await supabase
+        .from('bookings')
+        .select('user_id')
+        .eq('game_id', game.id)
+        .neq('status', 'cancelled');
+      setBookedUserIds(new Set((bookingData || []).map((b) => b.user_id)));
+    } finally {
+      setLoadingMembers(false);
+    }
+  };
+
+  const handleAddPlayer = async (userId: string) => {
+    if (!game) return;
+    setAddingPlayer(userId);
+    try {
+      const result = await adminBookPlayer(game.id, userId);
+      showToast(
+        result.status === 'confirmed' ? 'Player added!' : 'Player added to waitlist',
+        'success'
+      );
+      setBookedUserIds((prev) => new Set([...prev, userId]));
+      await loadGame();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to add player';
+      showToast(message, 'error');
+    } finally {
+      setAddingPlayer(null);
     }
   };
 
@@ -232,6 +286,17 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
       {/* Participants */}
       <Card className="p-5">
         <ParticipantList gameId={game.id} maxSpots={game.max_spots} />
+        {isAdminOfGameClub && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            icon={<UserPlus className="h-4 w-4" />}
+            onClick={openAddPlayer}
+          >
+            Add Player
+          </Button>
+        )}
       </Card>
 
       {/* Booking status + actions */}
@@ -476,6 +541,85 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
               >
                 Confirm & Book
               </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Add Player Modal */}
+      {showAddPlayer && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md p-6 space-y-4 max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-text-primary">Add Player</h2>
+              <button onClick={() => setShowAddPlayer(false)} className="text-text-tertiary hover:text-text-primary">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
+              <input
+                type="text"
+                placeholder="Search members..."
+                value={memberSearch}
+                onChange={(e) => setMemberSearch(e.target.value)}
+                className="w-full pl-10 pr-3 py-2.5 bg-background border border-border rounded-xl text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
+              {loadingMembers ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : (
+                clubMembers
+                  .filter((m) =>
+                    !memberSearch || m.full_name?.toLowerCase().includes(memberSearch.toLowerCase()) ||
+                    m.email?.toLowerCase().includes(memberSearch.toLowerCase())
+                  )
+                  .map((member) => {
+                    const isAlreadyBooked = bookedUserIds.has(member.id);
+                    return (
+                      <div
+                        key={member.id}
+                        className={`flex items-center gap-3 p-3 rounded-xl ${isAlreadyBooked ? 'opacity-50' : 'hover:bg-background'}`}
+                      >
+                        <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+                          {member.avatar_url ? (
+                            <img src={member.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
+                          ) : (
+                            <Users className="h-4 w-4 text-primary" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-text-primary truncate">{member.full_name || 'Unknown'}</p>
+                          <p className="text-xs text-text-tertiary truncate">{member.email}</p>
+                        </div>
+                        {isAlreadyBooked ? (
+                          <span className="text-xs text-text-tertiary">Booked</span>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() => handleAddPlayer(member.id)}
+                            loading={addingPlayer === member.id}
+                            disabled={addingPlayer !== null}
+                          >
+                            Add
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })
+              )}
+              {!loadingMembers && clubMembers.filter((m) =>
+                !memberSearch || m.full_name?.toLowerCase().includes(memberSearch.toLowerCase()) ||
+                m.email?.toLowerCase().includes(memberSearch.toLowerCase())
+              ).length === 0 && (
+                <p className="text-center text-sm text-text-tertiary py-6">No members found</p>
+              )}
             </div>
           </Card>
         </div>

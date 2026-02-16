@@ -9,6 +9,7 @@ interface ClubMessageState {
   sendMessage: (clubId: string, subject: string, body: string) => Promise<void>;
   replyToMessage: (clubId: string, parentId: string, body: string) => Promise<void>;
   markMessageRead: (messageId: string) => Promise<void>;
+  deleteMessage: (messageId: string) => Promise<void>;
 }
 
 export const useClubMessageStore = create<ClubMessageState>((set) => ({
@@ -92,6 +93,16 @@ export const useClubMessageStore = create<ClubMessageState>((set) => ({
       messages: state.messages.map((m) =>
         m.id === messageId ? { ...m, read: true } : m
       ),
+    }));
+  },
+
+  deleteMessage: async (messageId) => {
+    // Delete replies first, then the parent message
+    await supabase.from('club_messages').delete().eq('parent_id', messageId);
+    const { error } = await supabase.from('club_messages').delete().eq('id', messageId);
+    if (error) throw new Error(error.message);
+    set((state) => ({
+      messages: state.messages.filter((m) => m.id !== messageId),
     }));
   },
 }));

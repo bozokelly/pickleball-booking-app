@@ -6,14 +6,14 @@ import { formatDistanceToNow } from 'date-fns';
 import { useClubMessageStore } from '@/stores/clubMessageStore';
 import { Card, Button } from '@/components/ui';
 import { ClubMessage } from '@/types/database';
-import { ArrowLeft, MessageSquare, Send, User, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Send, User, ChevronDown, ChevronUp, Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 
 export default function ClubMessagesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: clubId } = use(params);
   const router = useRouter();
   const { showToast } = useToast();
-  const { messages, loading, fetchClubMessages, replyToMessage, markMessageRead } = useClubMessageStore();
+  const { messages, loading, fetchClubMessages, replyToMessage, markMessageRead, deleteMessage } = useClubMessageStore();
 
   useEffect(() => {
     fetchClubMessages(clubId);
@@ -50,6 +50,7 @@ export default function ClubMessagesPage({ params }: { params: Promise<{ id: str
               clubId={clubId}
               onReply={replyToMessage}
               onMarkRead={markMessageRead}
+              onDelete={deleteMessage}
               onRefresh={() => fetchClubMessages(clubId)}
               showToast={showToast}
             />
@@ -65,6 +66,7 @@ function MessageThread({
   clubId,
   onReply,
   onMarkRead,
+  onDelete,
   onRefresh,
   showToast,
 }: {
@@ -72,12 +74,28 @@ function MessageThread({
   clubId: string;
   onReply: (clubId: string, parentId: string, body: string) => Promise<void>;
   onMarkRead: (messageId: string) => Promise<void>;
+  onDelete: (messageId: string) => Promise<void>;
   onRefresh: () => Promise<void>;
   showToast: (msg: string, type: 'success' | 'error') => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [sending, setSending] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Delete this message and all its replies?')) return;
+    setDeleting(true);
+    try {
+      await onDelete(message.id);
+      showToast('Message deleted', 'success');
+    } catch {
+      showToast('Failed to delete message', 'error');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleExpand = async () => {
     if (!expanded && !message.read) {
@@ -123,8 +141,18 @@ function MessageThread({
             <p className="text-sm font-medium text-text-primary mt-0.5">{message.subject}</p>
             <p className="text-sm text-text-secondary mt-0.5 line-clamp-2">{message.body}</p>
           </div>
-          <div className="flex-shrink-0 text-text-tertiary">
-            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="p-1.5 rounded-lg text-text-tertiary hover:text-red-500 hover:bg-red-50 transition-colors"
+              title="Delete message"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+            <span className="text-text-tertiary">
+              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </span>
           </div>
         </div>
       </button>
