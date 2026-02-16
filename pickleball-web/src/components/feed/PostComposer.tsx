@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui';
 import { useAuthStore } from '@/stores/authStore';
 import { useFeedStore } from '@/stores/feedStore';
@@ -87,7 +88,7 @@ export default function PostComposer({ clubs, fixedClubId }: PostComposerProps) 
       <div className="flex gap-3 min-w-0">
         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
           {profile?.avatar_url ? (
-            <img src={profile.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
+            <Image src={profile.avatar_url} alt="" width={40} height={40} className="h-10 w-10 rounded-full object-cover" />
           ) : (
             <span className="text-sm font-semibold text-primary">
               {profile?.full_name?.[0]?.toUpperCase() || '?'}

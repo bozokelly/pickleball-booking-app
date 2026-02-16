@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, use } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useGameStore } from '@/stores/gameStore';
@@ -589,7 +590,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                       >
                         <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden flex-shrink-0">
                           {member.avatar_url ? (
-                            <img src={member.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
+                            <Image src={member.avatar_url} alt="" width={36} height={36} className="h-9 w-9 rounded-full object-cover" />
                           ) : (
                             <Users className="h-4 w-4 text-primary" />
                           )}

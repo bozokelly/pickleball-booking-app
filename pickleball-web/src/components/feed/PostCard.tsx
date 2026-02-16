@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
+import Image from 'next/image';
 import { FeedPost, FeedComment, ReactionType } from '@/types/database';
 import { useAuthStore } from '@/stores/authStore';
 import { useFeedStore } from '@/stores/feedStore';
@@ -17,7 +18,7 @@ interface PostCardProps {
   post: FeedPost;
 }
 
-export default function PostCard({ post }: PostCardProps) {
+function PostCard({ post }: PostCardProps) {
   const { profile } = useAuthStore();
   const { toggleReaction, fetchComments, addComment, deletePost, comments } = useFeedStore();
   const { showToast } = useToast();
@@ -77,7 +78,7 @@ export default function PostCard({ post }: PostCardProps) {
         <div className="flex gap-3 min-w-0">
           <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
             {post.profile?.avatar_url ? (
-              <img src={post.profile.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
+              <Image src={post.profile.avatar_url} alt="" width={40} height={40} className="h-10 w-10 rounded-full object-cover" />
             ) : (
               <span className="text-sm font-semibold text-primary">
                 {post.profile?.full_name?.[0]?.toUpperCase() || '?'}
@@ -182,3 +183,5 @@ export default function PostCard({ post }: PostCardProps) {
     </div>
   );
 }
+
+export default memo(PostCard);

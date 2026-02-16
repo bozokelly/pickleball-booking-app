@@ -5,6 +5,10 @@ import { loadGoogleMapsScript } from '@/utils/googleMaps';
 import { Club } from '@/types/database';
 import { MapPin } from 'lucide-react';
 
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 interface ClubMapProps {
   clubs: Club[];
 }
@@ -99,10 +103,10 @@ export function ClubMap({ clubs }: ClubMapProps) {
 
       const content = `
         <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 220px; padding: 4px;">
-          <h3 style="margin: 0 0 4px; font-size: 14px; font-weight: 600;">${club.name}</h3>
-          ${club.location ? `<p style="margin: 0 0 4px; font-size: 12px; color: #666;">${club.location}</p>` : ''}
+          <h3 style="margin: 0 0 4px; font-size: 14px; font-weight: 600;">${escapeHtml(club.name)}</h3>
+          ${club.location ? `<p style="margin: 0 0 4px; font-size: 12px; color: #666;">${escapeHtml(club.location)}</p>` : ''}
           ${club.members_only ? '<p style="margin: 0 0 4px; font-size: 11px; color: #FF9500; font-weight: 500;">Members Only</p>' : '<p style="margin: 0 0 4px; font-size: 11px; color: #34C759; font-weight: 500;">Open Club</p>'}
-          <a href="/dashboard/club/${club.id}" style="display: inline-block; margin-top: 4px; font-size: 12px; color: #007AFF; text-decoration: none; font-weight: 500;">View Club &rarr;</a>
+          <a href="/dashboard/club/${encodeURIComponent(club.id)}" style="display: inline-block; margin-top: 4px; font-size: 12px; color: #007AFF; text-decoration: none; font-weight: 500;">View Club &rarr;</a>
         </div>
       `;
 

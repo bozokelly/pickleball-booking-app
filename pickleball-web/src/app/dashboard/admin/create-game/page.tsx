@@ -189,8 +189,8 @@ function CreateGameForm() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Duration (min)" type="number" value={duration} onChange={(e) => setDuration(e.target.value)} />
-            <Input label="Max Spots" type="number" value={maxSpots} onChange={(e) => setMaxSpots(e.target.value)} />
+            <Input label="Duration (min)" type="number" min={15} max={480} value={duration} onChange={(e) => setDuration(e.target.value)} />
+            <Input label="Max Spots" type="number" min={1} max={100} value={maxSpots} onChange={(e) => setMaxSpots(e.target.value)} />
           </div>
 
           {/* Skill level chips */}

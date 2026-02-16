@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { supabase } from '@/lib/supabase';
+import Image from 'next/image';
 import { useAuthStore } from '@/stores/authStore';
 import { GameMessage } from '@/types/database';
 import { Button, Card } from '@/components/ui';
@@ -89,7 +90,7 @@ export default function GameChatPage({ params }: { params: Promise<{ id: string 
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-12rem)] md:h-[calc(100vh-6rem)]">
+    <div className="flex flex-col h-[calc(100dvh-12rem)] md:h-[calc(100dvh-6rem)] min-h-[300px]">
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
         <button onClick={() => router.back()} className="text-primary hover:underline">
@@ -112,7 +113,7 @@ export default function GameChatPage({ params }: { params: Promise<{ id: string 
               <div key={msg.id} className={`flex gap-2 ${isMe ? 'flex-row-reverse' : ''}`}>
                 <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                   {msg.profile?.avatar_url ? (
-                    <img src={msg.profile.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
+                    <Image src={msg.profile.avatar_url} alt="" width={32} height={32} className="h-8 w-8 rounded-full object-cover" />
                   ) : (
                     <User className="h-4 w-4 text-primary" />
                   )}

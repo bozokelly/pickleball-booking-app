@@ -39,7 +39,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (session) await get().fetchProfile();
         else set({ profile: null });
       });
-    } catch { set({ initialized: true }); }
+    } catch (err) { console.warn('Auth initialization failed:', err); set({ initialized: true }); }
   },
 
   signUp: async (email, password, fullName) => {

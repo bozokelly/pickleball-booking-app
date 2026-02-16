@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { FeedComment } from '@/types/database';
 import { formatDistanceToNow } from 'date-fns';
 import { Send, Reply } from 'lucide-react';
@@ -114,7 +115,7 @@ function SingleComment({
     <div className="flex gap-2">
       <div className={`${isReply ? 'h-6 w-6' : 'h-7 w-7'} rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0`}>
         {comment.profile?.avatar_url ? (
-          <img src={comment.profile.avatar_url} alt="" className={`${isReply ? 'h-6 w-6' : 'h-7 w-7'} rounded-full object-cover`} />
+          <Image src={comment.profile.avatar_url} alt="" width={isReply ? 24 : 28} height={isReply ? 24 : 28} className={`${isReply ? 'h-6 w-6' : 'h-7 w-7'} rounded-full object-cover`} />
         ) : (
           <span className={`${isReply ? 'text-[10px]' : 'text-xs'} font-semibold text-primary`}>
             {comment.profile?.full_name?.[0]?.toUpperCase() || '?'}

@@ -15,8 +15,10 @@ import {
 } from 'lucide-react';
 import { useClubMessageStore } from '@/stores/clubMessageStore';
 import { useFeedStore } from '@/stores/feedStore';
+import Image from 'next/image';
 import PostComposer from '@/components/feed/PostComposer';
 import PostCard from '@/components/feed/PostCard';
+import { supabase } from '@/lib/supabase';
 
 export default function ClubDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: clubId } = use(params);
@@ -35,7 +37,6 @@ export default function ClubDetailPage({ params }: { params: Promise<{ id: strin
   useEffect(() => {
     async function load() {
       try {
-        const { supabase } = await import('@/lib/supabase');
         const [clubData] = await Promise.all([
           fetchClubById(clubId),
           fetchMyMemberships(),
@@ -151,8 +152,8 @@ export default function ClubDetailPage({ params }: { params: Promise<{ id: strin
 
       {/* Hero image */}
       {club.image_url && (
-        <div className="rounded-2xl overflow-hidden aspect-[3/1]">
-          <img src={club.image_url} alt={club.name} className="w-full h-full object-cover" />
+        <div className="rounded-2xl overflow-hidden aspect-[3/1] relative">
+          <Image src={club.image_url} alt={club.name} fill className="object-cover" />
         </div>
       )}
 

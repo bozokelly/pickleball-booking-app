@@ -3,13 +3,14 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuthStore } from '@/stores/authStore';
 import { Button, Input, Card } from '@/components/ui';
 import { useToast } from '@/components/ui/Toast';
 import { uploadAvatar } from '@/utils/imageUpload';
 import { supabase } from '@/lib/supabase';
 import { Club } from '@/types/database';
-import { User, LogOut, Camera, Star, Users, MapPin, Shield, Lock } from 'lucide-react';
+import { User, LogOut, Camera, Star, Users, MapPin, Shield, Lock, Loader2 } from 'lucide-react';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function ProfilePage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -95,7 +97,8 @@ export default function ProfilePage() {
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !profile) return;
+    if (!file || !profile || uploadingAvatar) return;
+    setUploadingAvatar(true);
     try {
       const url = await uploadAvatar(file, profile.id);
       await updateProfile({ avatar_url: url });
@@ -103,6 +106,8 @@ export default function ProfilePage() {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to upload avatar';
       showToast(message, 'error');
+    } finally {
+      setUploadingAvatar(false);
     }
   };
 
@@ -149,14 +154,14 @@ export default function ProfilePage() {
         <div className="relative">
           <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
             {profile.avatar_url ? (
-              <img src={profile.avatar_url} alt="" className="h-20 w-20 rounded-full object-cover" />
+              <Image src={profile.avatar_url} alt="" width={80} height={80} className="h-20 w-20 rounded-full object-cover" />
             ) : (
               <User className="h-10 w-10 text-primary" />
             )}
           </div>
-          <label className="absolute bottom-0 right-0 h-7 w-7 rounded-full bg-primary text-white flex items-center justify-center cursor-pointer hover:bg-primary-dark transition-colors">
-            <Camera className="h-3.5 w-3.5" />
-            <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+          <label className={`absolute bottom-0 right-0 h-7 w-7 rounded-full bg-primary text-white flex items-center justify-center transition-colors ${uploadingAvatar ? 'opacity-50 cursor-wait' : 'cursor-pointer hover:bg-primary-dark'}`}>
+            {uploadingAvatar ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+            <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" disabled={uploadingAvatar} />
           </label>
         </div>
         <div>
@@ -191,7 +196,7 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-background hover:bg-primary/5 transition-colors cursor-pointer">
                   <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden flex-shrink-0">
                     {club.image_url ? (
-                      <img src={club.image_url} alt="" className="h-10 w-10 rounded-xl object-cover" />
+                      <Image src={club.image_url} alt="" width={40} height={40} className="h-10 w-10 rounded-xl object-cover" />
                     ) : (
                       <Users className="h-5 w-5 text-primary" />
                     )}

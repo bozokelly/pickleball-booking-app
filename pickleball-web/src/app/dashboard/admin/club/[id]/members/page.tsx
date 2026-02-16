@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useMembershipStore } from '@/stores/membershipStore';
 import { supabase } from '@/lib/supabase';
 import { Button, Card, Badge } from '@/components/ui';
@@ -118,7 +119,7 @@ export default function ClubMembersPage({ params }: { params: Promise<{ id: stri
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden flex-shrink-0">
                       {member.profile?.avatar_url ? (
-                        <img src={member.profile.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
+                        <Image src={member.profile.avatar_url} alt="" width={40} height={40} className="h-10 w-10 rounded-full object-cover" />
                       ) : (
                         <User className="h-5 w-5 text-primary" />
                       )}
@@ -164,7 +165,7 @@ export default function ClubMembersPage({ params }: { params: Promise<{ id: stri
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden flex-shrink-0">
                       {member.profile?.avatar_url ? (
-                        <img src={member.profile.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
+                        <Image src={member.profile.avatar_url} alt="" width={32} height={32} className="h-8 w-8 rounded-full object-cover" />
                       ) : (
                         <User className="h-4 w-4 text-primary" />
                       )}
