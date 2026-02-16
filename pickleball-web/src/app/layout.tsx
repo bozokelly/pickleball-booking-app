@@ -6,7 +6,7 @@ import { ToastProvider } from '@/components/ui/Toast';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Pickleball Booking',
+  title: 'Book a Dink',
   description: 'Book pickleball games, join clubs, and connect with players',
 };
 

@@ -41,7 +41,7 @@ export default function LandingPage() {
       {/* Nav */}
       <nav className="border-b border-border/50 bg-white/70 backdrop-blur-xl sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <span className="text-lg font-bold text-text-primary">Pickleball Booking</span>
+          <span className="text-lg font-bold text-text-primary">Book a Dink</span>
           <div className="flex gap-3">
             {initialized && session ? (
               <Link
@@ -140,7 +140,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-border py-8">
         <p className="text-center text-sm text-text-tertiary">
-          Pickleball Booking
+          Book a Dink
         </p>
       </footer>
     </div>

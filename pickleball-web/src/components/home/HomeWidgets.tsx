@@ -164,7 +164,7 @@ export default function HomeWidgets({ onClubsLoaded }: { onClubsLoaded?: (clubs:
                   <div className="flex items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <Link href={`/dashboard/game/${game.id}`}>
-                        <p className="text-sm font-semibold text-text-primary truncate hover:text-primary transition-colors">{game.title}</p>
+                        <p className="text-base font-semibold text-text-primary truncate hover:text-primary transition-colors">{game.title}</p>
                       </Link>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
                         {game.club && (

@@ -12,7 +12,7 @@ export function downloadGameICS(game: Game): void {
   const ics = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Pickleball Booking//EN',
+    'PRODID:-//Book a Dink//EN',
     'BEGIN:VEVENT',
     `DTSTART:${formatICSDate(start)}`,
     `DTEND:${formatICSDate(end)}`,

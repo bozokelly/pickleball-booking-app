@@ -102,8 +102,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-64 bg-white/80 backdrop-blur-xl border-r border-border/50 h-screen sticky top-0">
         <div className="p-6 pb-4">
-          <h1 className="text-xl font-bold text-primary">Pickleball</h1>
-          <p className="text-xs text-text-tertiary">Booking</p>
+          <h1 className="text-xl font-bold text-primary">Book a Dink</h1>
         </div>
         {/* User profile dropdown */}
         <div className="px-3 pb-3 relative" ref={userMenuRef}>
