@@ -15,14 +15,25 @@ interface AuthState {
   updatePassword: (newPassword: string) => Promise<void>;
 }
 
+let _initialized = false;
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: null, profile: null, loading: false, initialized: false,
 
   initialize: async () => {
+    if (_initialized) return;
+    _initialized = true;
+
+    // Register auth state listener once — outside try/catch so it always gets set up
+    supabase.auth.onAuthStateChange(async (_event, session) => {
+      set({ session });
+      if (session) await get().fetchProfile();
+      else set({ profile: null });
+    });
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        // Validate the session is still valid (user may have been deleted)
         const { data: { user }, error } = await supabase.auth.getUser();
         if (error || !user) {
           await supabase.auth.signOut();
@@ -34,19 +45,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } else {
         set({ initialized: true });
       }
-      supabase.auth.onAuthStateChange(async (_event, session) => {
-        set({ session });
-        if (session) await get().fetchProfile();
-        else set({ profile: null });
-      });
-    } catch (err) { console.warn('Auth initialization failed:', err); set({ initialized: true }); }
+    } catch (err) {
+      console.warn('Auth initialization failed:', err);
+      set({ initialized: true });
+    }
   },
 
   signUp: async (email, password, fullName) => {
     set({ loading: true });
     try {
+      const siteUrl = typeof window !== 'undefined' ? window.location.origin : '';
       const { error } = await supabase.auth.signUp({
-        email, password, options: { data: { full_name: fullName } },
+        email, password, options: {
+          data: { full_name: fullName },
+          emailRedirectTo: `${siteUrl}/auth/callback`,
+        },
       });
       if (error) throw new Error(error.message);
     } finally { set({ loading: false }); }
@@ -66,7 +79,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   resetPassword: async (email) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    const siteUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${siteUrl}/auth/callback?next=/reset-password`,
+    });
     if (error) throw new Error(error.message);
   },
 

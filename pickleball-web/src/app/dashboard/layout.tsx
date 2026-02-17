@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { useAuthStore } from '@/stores/authStore';
 import { useClubStore } from '@/stores/clubStore';
 import { useMembershipStore } from '@/stores/membershipStore';
-import { Home, Search, Calendar, User, Shield, Bell, LogOut, ChevronDown, ChevronUp, Users, MapPin, Settings, HelpCircle, Newspaper } from 'lucide-react';
+import { Home, Search, Calendar, User, Shield, Bell, LogOut, ChevronDown, ChevronUp, Users, MapPin, Settings, HelpCircle, Newspaper, Plus } from 'lucide-react';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { Club } from '@/types/database';
 import { supabase } from '@/lib/supabase';
@@ -201,6 +201,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 >
                   <Search className="h-4 w-4" />
                   Find a Club
+                </Link>
+                <Link
+                  href="/dashboard/create-club"
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${pathname === '/dashboard/create-club' ? 'text-primary font-medium' : 'text-text-secondary hover:bg-background'}`}
+                >
+                  <Plus className="h-4 w-4" />
+                  Create a Club
                 </Link>
                 {myClubs.length > 0 && (
                   <div>

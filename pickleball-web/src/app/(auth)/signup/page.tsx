@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuthStore } from '@/stores/authStore';
 import { Button, Input, Card } from '@/components/ui';
 import { useToast } from '@/components/ui/Toast';
-import { Mail, Lock, User } from 'lucide-react';
+import { Mail, Lock, User, CheckCircle } from 'lucide-react';
 
 export default function SignupPage() {
   const { signUp, loading } = useAuthStore();
@@ -14,6 +14,7 @@ export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [sent, setSent] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,19 +32,44 @@ export default function SignupPage() {
     }
     try {
       await signUp(email, password, fullName);
-      showToast('Check your email to confirm your account', 'success');
+      setSent(true);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Sign up failed';
       showToast(message, 'error');
     }
   };
 
+  if (sent) {
+    return (
+      <div>
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-primary">Book a Dink</h1>
+        </div>
+        <Card className="p-8 text-center">
+          <CheckCircle className="h-12 w-12 text-success mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-text-primary mb-2">Check Your Email</h2>
+          <p className="text-text-secondary text-sm mb-1">
+            We&apos;ve sent a confirmation link to
+          </p>
+          <p className="text-text-primary font-medium mb-6">{email}</p>
+          <p className="text-text-tertiary text-xs mb-6">
+            Click the link in the email to activate your account, then come back and sign in.
+          </p>
+          <Link href="/login">
+            <Button variant="outline" className="w-full">
+              Back to Sign In
+            </Button>
+          </Link>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Branding */}
       <div className="text-center mb-6">
-        <h1 className="text-2xl font-bold text-primary">Pickleball</h1>
-        <p className="text-xs text-text-tertiary tracking-wide">BOOKING</p>
+        <h1 className="text-2xl font-bold text-primary">Book a Dink</h1>
       </div>
 
       {/* Tab toggle */}

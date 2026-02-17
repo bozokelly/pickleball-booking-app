@@ -200,9 +200,15 @@ export default function HomeWidgets({ onClubsLoaded }: { onClubsLoaded?: (clubs:
         <Card className="p-6 text-center">
           <Users className="h-8 w-8 text-text-tertiary mx-auto mb-2" />
           <p className="text-sm text-text-secondary">You haven&apos;t joined any clubs yet</p>
-          <Link href="/dashboard/games" className="text-sm text-primary hover:underline mt-1 inline-block">
-            Find a club to join
-          </Link>
+          <div className="flex flex-col items-center gap-1 mt-2">
+            <Link href="/dashboard/games" className="text-sm text-primary hover:underline">
+              Find a club to join
+            </Link>
+            <span className="text-xs text-text-tertiary">or</span>
+            <Link href="/dashboard/create-club" className="text-sm text-primary hover:underline">
+              Create your own club
+            </Link>
+          </div>
         </Card>
       )}
     </div>

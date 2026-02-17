@@ -34,8 +34,7 @@ export default function LoginPage() {
     <div>
       {/* Branding */}
       <div className="text-center mb-6">
-        <h1 className="text-2xl font-bold text-primary">Pickleball</h1>
-        <p className="text-xs text-text-tertiary tracking-wide">BOOKING</p>
+        <h1 className="text-2xl font-bold text-primary">Book a Dink</h1>
       </div>
 
       {/* Tab toggle */}

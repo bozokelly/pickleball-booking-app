@@ -143,7 +143,13 @@ export default function ProfilePage() {
     router.replace('/login');
   };
 
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
