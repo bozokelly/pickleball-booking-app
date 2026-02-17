@@ -44,17 +44,15 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   fetchGameById: async (gameId) => {
     const user = useAuthStore.getState().session?.user ?? null;
-    const { data, error } = await supabase.from('games').select('*, club:clubs(*)').eq('id', gameId).single();
-    if (error) throw new Error(error.message);
-    const { count } = await supabase.from('bookings')
-      .select('*', { count: 'exact', head: true }).eq('game_id', gameId).eq('status', 'confirmed');
-    let userBooking = null;
-    if (user) {
-      const { data: booking } = await supabase.from('bookings').select('*')
-        .eq('game_id', gameId).eq('user_id', user.id).neq('status', 'cancelled').maybeSingle();
-      userBooking = booking;
-    }
-    return { ...data, confirmed_count: count || 0, user_booking: userBooking };
+    const [gameResult, countResult, bookingResult] = await Promise.all([
+      supabase.from('games').select('*, club:clubs(*)').eq('id', gameId).single(),
+      supabase.from('bookings').select('*', { count: 'exact', head: true }).eq('game_id', gameId).eq('status', 'confirmed'),
+      user
+        ? supabase.from('bookings').select('*').eq('game_id', gameId).eq('user_id', user.id).neq('status', 'cancelled').maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+    if (gameResult.error) throw new Error(gameResult.error.message);
+    return { ...gameResult.data, confirmed_count: countResult.count || 0, user_booking: bookingResult.data };
   },
 
   bookGame: async (gameId) => {

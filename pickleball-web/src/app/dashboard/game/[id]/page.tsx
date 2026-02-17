@@ -146,24 +146,24 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
     setMemberSearch('');
     setLoadingMembers(true);
     try {
-      // Fetch club members
-      const { data: memberData } = await supabase
-        .from('club_members')
-        .select('user_id, profile:profiles!club_members_user_id_fkey(id, full_name, avatar_url, email)')
-        .eq('club_id', game.club_id)
-        .eq('status', 'approved');
+      // Fetch club members and booked users in parallel
+      const [memberResult, bookingResult] = await Promise.all([
+        supabase
+          .from('club_members')
+          .select('user_id, profile:profiles!club_members_user_id_fkey(id, full_name, avatar_url, email)')
+          .eq('club_id', game.club_id)
+          .eq('status', 'approved'),
+        supabase
+          .from('bookings')
+          .select('user_id')
+          .eq('game_id', game.id)
+          .neq('status', 'cancelled'),
+      ]);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const members = (memberData || []).map((m: any) => ({ ...m.profile, user_id: m.user_id })).filter(Boolean);
+      const members = (memberResult.data || []).map((m: any) => ({ ...m.profile, user_id: m.user_id })).filter(Boolean);
       setClubMembers(members);
-
-      // Fetch already booked user IDs
-      const { data: bookingData } = await supabase
-        .from('bookings')
-        .select('user_id')
-        .eq('game_id', game.id)
-        .neq('status', 'cancelled');
-      setBookedUserIds(new Set((bookingData || []).map((b) => b.user_id)));
+      setBookedUserIds(new Set((bookingResult.data || []).map((b) => b.user_id)));
     } finally {
       setLoadingMembers(false);
     }

@@ -21,32 +21,37 @@ export default function AdminPage() {
   }, [fetchMyAdminClubs]);
 
   useEffect(() => {
-    async function loadGames() {
-      for (const club of myAdminClubs) {
-        const { data } = await supabase
-          .from('games')
-          .select('*')
-          .eq('club_id', club.id)
-          .order('date_time', { ascending: false });
-        if (data) {
-          setClubGames((prev) => ({ ...prev, [club.id]: data }));
-        }
+    if (myAdminClubs.length === 0) return;
+    const clubIds = myAdminClubs.map((c) => c.id);
+
+    // Batch fetch all games and member counts in parallel (no N+1)
+    Promise.all([
+      supabase
+        .from('games')
+        .select('*')
+        .in('club_id', clubIds)
+        .order('date_time', { ascending: false }),
+      supabase
+        .from('club_members')
+        .select('club_id')
+        .in('club_id', clubIds)
+        .eq('status', 'approved'),
+    ]).then(([gamesResult, membersResult]) => {
+      // Group games by club_id
+      const gameMap: Record<string, Game[]> = {};
+      for (const game of gamesResult.data || []) {
+        if (!gameMap[game.club_id]) gameMap[game.club_id] = [];
+        gameMap[game.club_id].push(game);
       }
-    }
-    async function loadMemberCounts() {
-      for (const club of myAdminClubs) {
-        const { count } = await supabase
-          .from('club_members')
-          .select('*', { count: 'exact', head: true })
-          .eq('club_id', club.id)
-          .eq('status', 'approved');
-        setClubMemberCounts((prev) => ({ ...prev, [club.id]: count ?? 0 }));
+      setClubGames(gameMap);
+
+      // Count members by club_id
+      const countMap: Record<string, number> = {};
+      for (const m of membersResult.data || []) {
+        countMap[m.club_id] = (countMap[m.club_id] || 0) + 1;
       }
-    }
-    if (myAdminClubs.length > 0) {
-      loadGames();
-      loadMemberCounts();
-    }
+      setClubMemberCounts(countMap);
+    });
   }, [myAdminClubs]);
 
   const toggleClub = (clubId: string) => {

@@ -37,9 +37,9 @@ export default function GamesPage() {
     return map;
   }, [games]);
 
-  // Filter clubs by search text and only show clubs that have upcoming games (or all if no search)
+  // Filter clubs by search text — show all clubs (including those with no games)
   const filteredClubs = useMemo(() => {
-    let result = clubs.filter((club) => gamesByClub[club.id]?.length > 0);
+    let result = [...clubs];
     if (searchText) {
       const search = searchText.toLowerCase();
       result = result.filter((club) =>
@@ -47,6 +47,13 @@ export default function GamesPage() {
         club.location?.toLowerCase().includes(search)
       );
     }
+    // Sort: clubs with games first, then alphabetical
+    result.sort((a, b) => {
+      const aHasGames = (gamesByClub[a.id]?.length || 0) > 0 ? 0 : 1;
+      const bHasGames = (gamesByClub[b.id]?.length || 0) > 0 ? 0 : 1;
+      if (aHasGames !== bHasGames) return aHasGames - bHasGames;
+      return a.name.localeCompare(b.name);
+    });
     return result;
   }, [clubs, gamesByClub, searchText]);
 
@@ -93,7 +100,7 @@ export default function GamesPage() {
         </div>
       ) : filteredClubs.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-text-secondary">No clubs with upcoming games found</p>
+          <p className="text-text-secondary">No clubs found</p>
           <p className="text-sm text-text-tertiary mt-1">Try adjusting your search</p>
         </div>
       ) : (
@@ -128,7 +135,7 @@ export default function GamesPage() {
                           </p>
                         )}
                         <p className="text-sm text-text-secondary flex items-center gap-1">
-                          <Users className="h-3.5 w-3.5" /> {clubGames.length} upcoming {clubGames.length === 1 ? 'game' : 'games'}
+                          <Users className="h-3.5 w-3.5" /> {clubGames.length > 0 ? `${clubGames.length} upcoming ${clubGames.length === 1 ? 'game' : 'games'}` : 'No upcoming games'}
                         </p>
                       </div>
                     </div>

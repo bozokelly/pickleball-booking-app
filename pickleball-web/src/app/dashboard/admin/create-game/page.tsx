@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useClubStore } from '@/stores/clubStore';
+import { useAuthStore } from '@/stores/authStore';
 import { Button, Input, Card, AddressAutocomplete } from '@/components/ui';
 import { useToast } from '@/components/ui/Toast';
 import { SkillLevel, GameFormat } from '@/types/database';
@@ -108,7 +109,8 @@ function CreateGameForm() {
 
     setLoading(true);
     try {
-      const userId = (await supabase.auth.getUser()).data.user!.id;
+      const userId = useAuthStore.getState().session?.user?.id;
+      if (!userId) throw new Error('Not authenticated');
 
       const baseGame = {
         club_id: clubId,

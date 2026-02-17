@@ -37,48 +37,45 @@ export default function ClubDetailPage({ params }: { params: Promise<{ id: strin
   useEffect(() => {
     async function load() {
       try {
-        const [clubData] = await Promise.all([
-          fetchClubById(clubId),
-          fetchMyMemberships(),
-        ]);
-        setClub(clubData);
-
-        const { count } = await supabase
-          .from('club_members')
-          .select('*', { count: 'exact', head: true })
-          .eq('club_id', clubId)
-          .eq('status', 'approved');
-        setMemberCount(count || 0);
-
-        const { data: adminData } = await supabase
-          .from('club_admins')
-          .select('user_id, role')
-          .eq('club_id', clubId)
-          .eq('role', 'owner')
-          .limit(1)
-          .single();
-        if (adminData) {
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', adminData.user_id)
-            .single();
-          setManagerName(profileData?.full_name || null);
-        }
-
         const now = new Date().toISOString();
         const nextWeek = addDays(new Date(), 7).toISOString();
-        const { data: gameData } = await supabase
-          .from('games')
-          .select('*, club:clubs(*)')
-          .eq('club_id', clubId)
-          .eq('status', 'upcoming')
-          .gte('date_time', now)
-          .lte('date_time', nextWeek)
-          .or(`visible_from.is.null,visible_from.lte.${now}`)
-          .order('date_time', { ascending: true })
-          .limit(7);
 
+        // Fetch all data in parallel (5 queries → 1 round trip)
+        const [clubData, , memberResult, adminResult, gamesResult] = await Promise.all([
+          fetchClubById(clubId),
+          fetchMyMemberships(),
+          supabase
+            .from('club_members')
+            .select('*', { count: 'exact', head: true })
+            .eq('club_id', clubId)
+            .eq('status', 'approved'),
+          supabase
+            .from('club_admins')
+            .select('user_id, role, profile:profiles!club_admins_user_id_fkey(full_name)')
+            .eq('club_id', clubId)
+            .eq('role', 'owner')
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from('games')
+            .select('*, club:clubs(*)')
+            .eq('club_id', clubId)
+            .eq('status', 'upcoming')
+            .gte('date_time', now)
+            .lte('date_time', nextWeek)
+            .or(`visible_from.is.null,visible_from.lte.${now}`)
+            .order('date_time', { ascending: true })
+            .limit(7),
+        ]);
+
+        setClub(clubData);
+        setMemberCount(memberResult.count || 0);
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const ownerProfile = (adminResult.data as any)?.profile;
+        setManagerName(ownerProfile?.full_name || null);
+
+        const gameData = gamesResult.data;
         if (gameData && gameData.length > 0) {
           const gameIds = gameData.map((g) => g.id);
           const { data: countData } = await supabase
