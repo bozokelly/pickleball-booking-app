@@ -59,6 +59,7 @@ function CreateGameForm() {
   // Recurring game state
   const [isRecurring, setIsRecurring] = useState(false);
   const [repeatWeeks, setRepeatWeeks] = useState('4');
+  const [useGoLive, setUseGoLive] = useState(false);
   const [goLiveDay, setGoLiveDay] = useState('0');
   const [goLiveTime, setGoLiveTime] = useState('19:00');
 
@@ -148,8 +149,12 @@ function CreateGameForm() {
         for (let i = 0; i < weeks; i++) {
           const gameDate = new Date(`${date}T${time}`);
           gameDate.setDate(gameDate.getDate() + i * 7);
-          const gameDateStr = gameDate.toISOString().split('T')[0];
-          const visibleFrom = calculateVisibleFrom(gameDateStr, time, parseInt(goLiveDay), goLiveTime);
+
+          let visibleFrom: string | null = null;
+          if (useGoLive) {
+            const gameDateStr = gameDate.toISOString().split('T')[0];
+            visibleFrom = calculateVisibleFrom(gameDateStr, time, parseInt(goLiveDay), goLiveTime);
+          }
 
           games.push({
             ...baseGame,
@@ -326,30 +331,52 @@ function CreateGameForm() {
                 onChange={(e) => setRepeatWeeks(e.target.value)}
                 hint={`Will create ${totalGames} game${totalGames !== 1 ? 's' : ''}, each 7 days apart`}
               />
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-1.5">Go-Live Day</label>
-                <select
-                  value={goLiveDay}
-                  onChange={(e) => setGoLiveDay(e.target.value)}
-                  className="w-full px-4 py-3 bg-background border border-border rounded-xl text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+
+              {/* Go-Live Scheduler Toggle */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-text-primary">Schedule Go-Live</p>
+                  <p className="text-xs text-text-tertiary">
+                    {useGoLive ? 'Games release on a set day/time each week' : 'All games go live immediately'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUseGoLive(!useGoLive)}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${useGoLive ? 'bg-primary' : 'bg-border'}`}
                 >
-                  {DAY_LABELS.map((label, i) => (
-                    <option key={i} value={i}>{label}</option>
-                  ))}
-                </select>
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${useGoLive ? 'translate-x-5' : ''}`} />
+                </button>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-1.5">Go-Live Time</label>
-                <input
-                  type="time"
-                  value={goLiveTime}
-                  onChange={(e) => setGoLiveTime(e.target.value)}
-                  className="w-full px-4 py-3 bg-background border border-border rounded-xl text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
-              </div>
-              <p className="text-xs text-text-tertiary">
-                Each game becomes bookable on this day/time of the preceding week
-              </p>
+
+              {useGoLive && (
+                <div className="space-y-4 pl-1 border-l-2 border-primary/20 ml-1 pl-4">
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1.5">Go-Live Day</label>
+                    <select
+                      value={goLiveDay}
+                      onChange={(e) => setGoLiveDay(e.target.value)}
+                      className="w-full px-4 py-3 bg-background border border-border rounded-xl text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    >
+                      {DAY_LABELS.map((label, i) => (
+                        <option key={i} value={i}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1.5">Go-Live Time</label>
+                    <input
+                      type="time"
+                      value={goLiveTime}
+                      onChange={(e) => setGoLiveTime(e.target.value)}
+                      className="w-full px-4 py-3 bg-background border border-border rounded-xl text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    />
+                  </div>
+                  <p className="text-xs text-text-tertiary">
+                    Each game becomes bookable on this day/time of the preceding week
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
