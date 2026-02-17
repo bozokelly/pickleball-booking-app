@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { Button, Card, Badge } from '@/components/ui';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useToast } from '@/components/ui/Toast';
-import { ArrowLeft, User, Check, X, Shield, ShieldOff, UserMinus, Phone, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, User, Check, X, Shield, ShieldOff, UserMinus, Phone, Mail, AlertTriangle } from 'lucide-react';
 
 interface AdminInfo {
   user_id: string;
@@ -213,8 +213,23 @@ export default function ClubMembersPage({ params }: { params: Promise<{ id: stri
                       )}
                     </div>
                   </div>
+                  {/* Contact info */}
+                  <div className="mt-2 ml-11 flex flex-wrap items-center gap-x-4 gap-y-1">
+                    {member.profile?.email && (
+                      <a href={`mailto:${member.profile.email}`} className="flex items-center gap-1.5 text-xs text-primary hover:underline">
+                        <Mail className="h-3.5 w-3.5" />
+                        {member.profile.email}
+                      </a>
+                    )}
+                    {member.profile?.phone && (
+                      <a href={`tel:${member.profile.phone}`} className="flex items-center gap-1.5 text-xs text-primary hover:underline">
+                        <Phone className="h-3.5 w-3.5" />
+                        {member.profile.phone}
+                      </a>
+                    )}
+                  </div>
                   {/* Emergency contact — tap to reveal */}
-                  <div className="mt-2 ml-11">
+                  <div className="mt-1.5 ml-11">
                     {isRevealed ? (
                       hasEmergency ? (
                         <div className="bg-red-50 border border-red-100 rounded-lg px-3 py-2 space-y-1">
