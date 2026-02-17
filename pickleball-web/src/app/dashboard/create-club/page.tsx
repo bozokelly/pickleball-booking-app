@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useClubStore } from '@/stores/clubStore';
-import { Button, Input, Card, AddressAutocomplete } from '@/components/ui';
+import { Button, Input, Card, AddressAutocomplete, MarkdownEditor } from '@/components/ui';
 import { useToast } from '@/components/ui/Toast';
 import { ArrowLeft } from 'lucide-react';
 
@@ -74,16 +74,13 @@ export default function CreateClubPage() {
             value={location}
             onChange={(val, coords) => { setLocation(val); if (coords) { setLatitude(coords.lat); setLongitude(coords.lng); } }}
           />
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1.5">Description</label>
-            <textarea
-              placeholder="Tell people about your club..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={4}
-              className="w-full px-4 py-3 bg-background border border-border rounded-xl text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
-            />
-          </div>
+          <MarkdownEditor
+            label="Description"
+            placeholder="Tell people about your club..."
+            value={description}
+            onChange={setDescription}
+            rows={4}
+          />
           {/* Members Only Toggle */}
           <div className="flex items-center justify-between">
             <div>

@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { Button, Input, Card, AddressAutocomplete } from '@/components/ui';
+import { Button, Input, Card, AddressAutocomplete, MarkdownEditor } from '@/components/ui';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useToast } from '@/components/ui/Toast';
 import { useClubStore } from '@/stores/clubStore';
@@ -137,16 +137,13 @@ export default function EditClubPage({ params }: { params: Promise<{ id: string 
               }
             }}
           />
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1.5">Description</label>
-            <textarea
-              placeholder="Tell people about your club..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={4}
-              className="w-full px-4 py-3 bg-white border border-border rounded-xl text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 resize-none transition-all"
-            />
-          </div>
+          <MarkdownEditor
+            label="Description"
+            placeholder="Tell people about your club..."
+            value={description}
+            onChange={setDescription}
+            rows={4}
+          />
 
           {/* Contact Information */}
           <div className="pt-2">

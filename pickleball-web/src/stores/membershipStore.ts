@@ -20,6 +20,7 @@ interface MembershipState {
   removeMember: (memberId: string) => Promise<void>;
   promoteToAdmin: (clubId: string, userId: string) => Promise<void>;
   removeAdmin: (clubId: string, userId: string) => Promise<void>;
+  leaveClub: (clubId: string) => Promise<void>;
   getMembershipStatus: (clubId: string) => MembershipStatus | null;
 }
 
@@ -91,6 +92,14 @@ export const useMembershipStore = create<MembershipState>((set, get) => ({
   removeAdmin: async (clubId, userId) => {
     const { error } = await supabase.from('club_admins').delete().eq('club_id', clubId).eq('user_id', userId);
     if (error) throw new Error(error.message);
+  },
+
+  leaveClub: async (clubId) => {
+    const userId = useAuthStore.getState().session?.user?.id;
+    if (!userId) throw new Error('Not authenticated');
+    const { error } = await supabase.from('club_members').delete().eq('club_id', clubId).eq('user_id', userId);
+    if (error) throw new Error(error.message);
+    await get().fetchMyMemberships();
   },
 
   getMembershipStatus: (clubId) => get().myMemberships.find((m) => m.club_id === clubId)?.status || null,
