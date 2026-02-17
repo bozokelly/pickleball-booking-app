@@ -20,6 +20,7 @@ export default function CreateClubPage() {
   const [contactEmail, setContactEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [website, setWebsite] = useState('');
+  const [membersOnly, setMembersOnly] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,6 +40,7 @@ export default function CreateClubPage() {
         contact_email: contactEmail.trim() || null,
         contact_phone: contactPhone.trim() || null,
         website: website.trim() || null,
+        members_only: membersOnly,
       });
       showToast('Club created!', 'success');
       router.push('/dashboard/admin');
@@ -81,6 +83,21 @@ export default function CreateClubPage() {
               className="w-full px-4 py-3 bg-background border border-border rounded-xl text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
             />
           </div>
+          {/* Members Only Toggle */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-text-primary">Members Only</p>
+              <p className="text-xs text-text-tertiary">Players must be approved members before they can book games</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMembersOnly(!membersOnly)}
+              className={`relative w-11 h-6 rounded-full transition-colors ${membersOnly ? 'bg-primary' : 'bg-border'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${membersOnly ? 'translate-x-5' : ''}`} />
+            </button>
+          </div>
+
           {/* Contact Information */}
           <div className="pt-2">
             <h3 className="text-sm font-semibold text-text-secondary mb-3">Contact Information</h3>

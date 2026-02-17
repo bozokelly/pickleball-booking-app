@@ -8,7 +8,7 @@ interface ClubState {
   fetchClubs: () => Promise<void>;
   fetchClubById: (id: string) => Promise<Club>;
   fetchMyAdminClubs: () => Promise<void>;
-  createClub: (club: Pick<Club, 'name' | 'description' | 'location'> & { latitude?: number | null; longitude?: number | null; contact_email?: string | null; contact_phone?: string | null; website?: string | null }) => Promise<Club>;
+  createClub: (club: Pick<Club, 'name' | 'description' | 'location'> & { latitude?: number | null; longitude?: number | null; contact_email?: string | null; contact_phone?: string | null; website?: string | null; members_only?: boolean }) => Promise<Club>;
   updateClub: (clubId: string, updates: Partial<Club>) => Promise<void>;
   deleteClub: (clubId: string) => Promise<void>;
   addAdmin: (clubId: string, userId: string, role?: ClubAdmin['role']) => Promise<void>;
