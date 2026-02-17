@@ -77,6 +77,10 @@ export function ClubMap({ clubs }: ClubMapProps) {
 
     const clubsWithCoords = clubs.filter((c) => c.latitude != null && c.longitude != null);
 
+    if (clubs.length > 0 && clubsWithCoords.length === 0) {
+      console.warn('[ClubMap] No clubs have coordinates. Clubs:', clubs.map(c => ({ name: c.name, lat: c.latitude, lng: c.longitude })));
+    }
+
     // Fit map bounds to show all clubs
     if (clubsWithCoords.length === 1) {
       map.setCenter({ lat: clubsWithCoords[0].latitude!, lng: clubsWithCoords[0].longitude! });
@@ -135,6 +139,8 @@ export function ClubMap({ clubs }: ClubMapProps) {
     });
   }, [loaded, clubs]);
 
+  const clubsWithCoords = clubs.filter((c) => c.latitude != null && c.longitude != null);
+
   if (error) {
     return (
       <div className="bg-background border border-border rounded-xl p-6 text-center">
@@ -145,9 +151,20 @@ export function ClubMap({ clubs }: ClubMapProps) {
   }
 
   return (
-    <div
-      ref={mapRef}
-      className="w-full h-[300px] rounded-xl border border-border overflow-hidden bg-background"
-    />
+    <div className="relative">
+      <div
+        ref={mapRef}
+        className="w-full h-[300px] rounded-xl border border-border overflow-hidden bg-background"
+      />
+      {loaded && clubs.length > 0 && clubsWithCoords.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/70 rounded-xl">
+          <div className="text-center px-4">
+            <MapPin className="h-6 w-6 text-text-tertiary mx-auto mb-1" />
+            <p className="text-sm text-text-secondary">No clubs have map coordinates yet</p>
+            <p className="text-xs text-text-tertiary mt-1">Edit a club and select an address from the dropdown to pin it on the map</p>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
