@@ -7,7 +7,7 @@ export type MembershipStatus = 'pending' | 'approved' | 'rejected';
 export interface ClubMember {
   id: string; club_id: string; user_id: string; status: MembershipStatus;
   requested_at: string; responded_at: string | null;
-  profile?: { full_name: string | null; email: string; avatar_url: string | null; dupr_rating: number | null; };
+  profile?: { full_name: string | null; email: string; avatar_url: string | null; dupr_rating: number | null; phone: string | null; emergency_contact_name: string | null; emergency_contact_phone: string | null; };
 }
 
 interface MembershipState {
@@ -30,7 +30,7 @@ export const useMembershipStore = create<MembershipState>((set, get) => ({
     set({ loading: true });
     try {
       const { data, error } = await supabase.from('club_members')
-        .select('*, profile:profiles!club_members_user_id_fkey(full_name, email, avatar_url, dupr_rating)')
+        .select('*, profile:profiles!club_members_user_id_fkey(full_name, email, avatar_url, dupr_rating, phone, emergency_contact_name, emergency_contact_phone)')
         .eq('club_id', clubId).order('requested_at', { ascending: false });
       if (error) throw new Error(error.message);
       set({ members: data || [] });

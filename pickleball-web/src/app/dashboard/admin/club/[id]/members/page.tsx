@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { Button, Card, Badge } from '@/components/ui';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useToast } from '@/components/ui/Toast';
-import { ArrowLeft, User, Check, X, Shield, ShieldOff, UserMinus } from 'lucide-react';
+import { ArrowLeft, User, Check, X, Shield, ShieldOff, UserMinus, Phone, AlertTriangle } from 'lucide-react';
 
 interface AdminInfo {
   user_id: string;
@@ -22,6 +22,7 @@ export default function ClubMembersPage({ params }: { params: Promise<{ id: stri
   const { showToast } = useToast();
   const [admins, setAdmins] = useState<AdminInfo[]>([]);
   const [removeMemberId, setRemoveMemberId] = useState<string | null>(null);
+  const [revealedEmergency, setRevealedEmergency] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchClubMembers(clubId);
@@ -160,6 +161,8 @@ export default function ClubMembersPage({ params }: { params: Promise<{ id: stri
               const adminRole = getAdminRole(member.user_id);
               const isAdmin = !!adminRole;
               const isOwner = adminRole === 'owner';
+              const isRevealed = revealedEmergency.has(member.id);
+              const hasEmergency = member.profile?.emergency_contact_name || member.profile?.emergency_contact_phone;
               return (
                 <Card key={member.id} className="p-3">
                   <div className="flex items-center gap-3">
@@ -209,6 +212,35 @@ export default function ClubMembersPage({ params }: { params: Promise<{ id: stri
                         </>
                       )}
                     </div>
+                  </div>
+                  {/* Emergency contact — tap to reveal */}
+                  <div className="mt-2 ml-11">
+                    {isRevealed ? (
+                      hasEmergency ? (
+                        <div className="bg-red-50 border border-red-100 rounded-lg px-3 py-2 space-y-1">
+                          <p className="text-[10px] font-semibold text-red-400 uppercase tracking-wider">Emergency Contact</p>
+                          {member.profile?.emergency_contact_name && (
+                            <p className="text-sm text-text-primary font-medium">{member.profile.emergency_contact_name}</p>
+                          )}
+                          {member.profile?.emergency_contact_phone && (
+                            <a href={`tel:${member.profile.emergency_contact_phone}`} className="flex items-center gap-1.5 text-sm text-primary hover:underline">
+                              <Phone className="h-3.5 w-3.5" />
+                              {member.profile.emergency_contact_phone}
+                            </a>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-text-tertiary italic">No emergency contact on file</p>
+                      )
+                    ) : (
+                      <button
+                        onClick={() => setRevealedEmergency((prev) => new Set([...prev, member.id]))}
+                        className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-600 transition-colors"
+                      >
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        View Emergency Contact
+                      </button>
+                    )}
                   </div>
                 </Card>
               );

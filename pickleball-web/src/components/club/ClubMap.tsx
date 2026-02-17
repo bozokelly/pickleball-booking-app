@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { loadGoogleMapsScript } from '@/utils/googleMaps';
 import { Club } from '@/types/database';
 import { MapPin } from 'lucide-react';
@@ -42,17 +42,12 @@ export function ClubMap({ clubs }: ClubMapProps) {
       .catch(() => setError(true));
   }, []);
 
-  const initMap = useCallback(() => {
-    if (!mapRef.current || mapInstanceRef.current) return;
-
-    const clubsWithCoords = clubs.filter((c) => c.latitude != null && c.longitude != null);
-
-    const center = clubsWithCoords.length > 0
-      ? { lat: clubsWithCoords[0].latitude!, lng: clubsWithCoords[0].longitude! }
-      : { lat: -31.95, lng: 115.86 };
+  // Initialize the map (once) when Google Maps script loads
+  useEffect(() => {
+    if (!loaded || !mapRef.current || mapInstanceRef.current) return;
 
     const map = new google.maps.Map(mapRef.current, {
-      center,
+      center: { lat: -31.95, lng: 115.86 },
       zoom: 11,
       mapTypeControl: false,
       streetViewControl: false,
@@ -65,14 +60,9 @@ export function ClubMap({ clubs }: ClubMapProps) {
 
     mapInstanceRef.current = map;
     infoWindowRef.current = new google.maps.InfoWindow();
+  }, [loaded]);
 
-    if (clubsWithCoords.length > 1) {
-      const bounds = new google.maps.LatLngBounds();
-      clubsWithCoords.forEach((c) => bounds.extend({ lat: c.latitude!, lng: c.longitude! }));
-      map.fitBounds(bounds, 50);
-    }
-  }, [clubs]);
-
+  // Add/update overlays and fit bounds whenever clubs change
   useEffect(() => {
     if (!loaded || !mapInstanceRef.current) return;
 
@@ -86,6 +76,16 @@ export function ClubMap({ clubs }: ClubMapProps) {
     const infoWindow = infoWindowRef.current!;
 
     const clubsWithCoords = clubs.filter((c) => c.latitude != null && c.longitude != null);
+
+    // Fit map bounds to show all clubs
+    if (clubsWithCoords.length === 1) {
+      map.setCenter({ lat: clubsWithCoords[0].latitude!, lng: clubsWithCoords[0].longitude! });
+      map.setZoom(13);
+    } else if (clubsWithCoords.length > 1) {
+      const bounds = new google.maps.LatLngBounds();
+      clubsWithCoords.forEach((c) => bounds.extend({ lat: c.latitude!, lng: c.longitude! }));
+      map.fitBounds(bounds, 50);
+    }
 
     clubsWithCoords.forEach((club) => {
       const pos = new google.maps.LatLng(club.latitude!, club.longitude!);
@@ -134,10 +134,6 @@ export function ClubMap({ clubs }: ClubMapProps) {
       overlaysRef.current.push(overlay);
     });
   }, [loaded, clubs]);
-
-  useEffect(() => {
-    if (loaded) initMap();
-  }, [loaded, initMap]);
 
   if (error) {
     return (
