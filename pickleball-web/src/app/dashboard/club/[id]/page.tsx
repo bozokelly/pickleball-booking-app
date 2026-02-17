@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useClubStore } from '@/stores/clubStore';
 import { useMembershipStore } from '@/stores/membershipStore';
-import { useAuthStore } from '@/stores/authStore';
 import { Club, Game } from '@/types/database';
 import { format, addDays } from 'date-fns';
 import { Button, Card, Badge, MarkdownRenderer } from '@/components/ui';
@@ -21,11 +20,6 @@ import Image from 'next/image';
 import PostComposer from '@/components/feed/PostComposer';
 import PostCard from '@/components/feed/PostCard';
 import { supabase } from '@/lib/supabase';
-
-interface AdminInfo {
-  user_id: string;
-  role: string;
-}
 
 export default function ClubDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: clubId } = use(params);
@@ -49,7 +43,7 @@ export default function ClubDetailPage({ params }: { params: Promise<{ id: strin
         const now = new Date().toISOString();
         const nextWeek = addDays(new Date(), 7).toISOString();
 
-        const [clubData, , memberResult, adminResult, gamesResult] = await Promise.all([
+        const [clubData, , memberResult, gamesResult] = await Promise.all([
           fetchClubById(clubId),
           fetchMyMemberships(),
           supabase
@@ -57,13 +51,6 @@ export default function ClubDetailPage({ params }: { params: Promise<{ id: strin
             .select('*', { count: 'exact', head: true })
             .eq('club_id', clubId)
             .eq('status', 'approved'),
-          supabase
-            .from('club_admins')
-            .select('user_id, role, profile:profiles!club_admins_user_id_fkey(full_name)')
-            .eq('club_id', clubId)
-            .eq('role', 'owner')
-            .limit(1)
-            .maybeSingle(),
           supabase
             .from('games')
             .select('*, club:clubs(*)')
@@ -78,10 +65,7 @@ export default function ClubDetailPage({ params }: { params: Promise<{ id: strin
 
         setClub(clubData);
         setMemberCount(memberResult.count || 0);
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const ownerProfile = (adminResult.data as any)?.profile;
-        setManagerName(ownerProfile?.full_name || null);
+        setManagerName(clubData.manager_name || null);
 
         const gameData = gamesResult.data;
         if (gameData && gameData.length > 0) {
@@ -351,7 +335,6 @@ export default function ClubDetailPage({ params }: { params: Promise<{ id: strin
 
 function ClubMembers({ clubId }: { clubId: string }) {
   const [members, setMembers] = useState<{ user_id: string; full_name: string | null; avatar_url: string | null; role: string | null }[]>([]);
-  const [admins, setAdmins] = useState<AdminInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
 
@@ -371,7 +354,6 @@ function ClubMembers({ clubId }: { clubId: string }) {
       ]);
 
       const adminList = adminsResult.data || [];
-      setAdmins(adminList);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const memberList = (membersResult.data || []).map((m: any) => ({

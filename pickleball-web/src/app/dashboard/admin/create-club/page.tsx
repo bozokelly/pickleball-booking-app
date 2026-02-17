@@ -17,6 +17,7 @@ export default function CreateClubPage() {
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [description, setDescription] = useState('');
+  const [managerName, setManagerName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [website, setWebsite] = useState('');
@@ -37,6 +38,7 @@ export default function CreateClubPage() {
         location: location.trim() || null,
         latitude,
         longitude,
+        manager_name: managerName.trim() || null,
         contact_email: contactEmail.trim() || null,
         contact_phone: contactPhone.trim() || null,
         website: website.trim() || null,
@@ -80,6 +82,13 @@ export default function CreateClubPage() {
             onChange={setDescription}
             rows={4}
           />
+          <Input
+            label="Club Manager / Contact Person"
+            placeholder="e.g. John Smith"
+            value={managerName}
+            onChange={(e) => setManagerName(e.target.value)}
+          />
+
           {/* Members Only Toggle */}
           <div className="flex items-center justify-between">
             <div>

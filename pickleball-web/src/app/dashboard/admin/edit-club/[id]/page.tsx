@@ -24,6 +24,7 @@ export default function EditClubPage({ params }: { params: Promise<{ id: string 
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [description, setDescription] = useState('');
+  const [managerName, setManagerName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [website, setWebsite] = useState('');
@@ -46,6 +47,7 @@ export default function EditClubPage({ params }: { params: Promise<{ id: string 
       setLatitude(data.latitude ?? null);
       setLongitude(data.longitude ?? null);
       setDescription(data.description || '');
+      setManagerName(data.manager_name || '');
       setContactEmail(data.contact_email || '');
       setContactPhone(data.contact_phone || '');
       setWebsite(data.website || '');
@@ -70,6 +72,7 @@ export default function EditClubPage({ params }: { params: Promise<{ id: string 
         latitude,
         longitude,
         description: description.trim() || null,
+        manager_name: managerName.trim() || null,
         contact_email: contactEmail.trim() || null,
         contact_phone: contactPhone.trim() || null,
         website: website.trim() || null,
@@ -143,6 +146,13 @@ export default function EditClubPage({ params }: { params: Promise<{ id: string 
             value={description}
             onChange={setDescription}
             rows={4}
+          />
+
+          <Input
+            label="Club Manager / Contact Person"
+            placeholder="e.g. John Smith"
+            value={managerName}
+            onChange={(e) => setManagerName(e.target.value)}
           />
 
           {/* Contact Information */}

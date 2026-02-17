@@ -21,6 +21,7 @@ export interface Club {
   id: string; name: string; description: string | null; location: string | null;
   latitude: number | null; longitude: number | null;
   image_url: string | null; members_only: boolean; created_by: string;
+  manager_name: string | null;
   contact_email: string | null; contact_phone: string | null; website: string | null;
   created_at: string; updated_at: string;
 }
