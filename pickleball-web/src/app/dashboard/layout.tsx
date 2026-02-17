@@ -54,36 +54,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (session) {
-      fetchMyAdminClubs().catch(() => {});
-      fetchNotifications().catch(() => {});
+      // Fire all initial data fetches in parallel
+      Promise.all([
+        fetchMyAdminClubs(),
+        fetchNotifications(),
+        fetchMyMemberships(),
+      ]).catch(() => {});
       subscribeToRealtime().catch(() => {});
-      fetchMyMemberships().catch(() => {});
     }
     return () => {
       unsubscribe();
     };
   }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch club details for approved memberships + admin clubs
+  // Build sidebar clubs list from store data
   useEffect(() => {
-    async function loadMyClubs() {
-      const memberIds = myMemberships
-        .filter((m) => m.status === 'approved')
-        .map((m) => m.club_id);
-      const adminIds = myAdminClubs.map((c) => c.id);
-      const allIds = [...new Set([...memberIds, ...adminIds])];
-      if (allIds.length === 0) {
-        setMyClubs([]);
-        return;
-      }
-      const { data } = await supabase
-        .from('clubs')
-        .select('*')
-        .in('id', allIds)
-        .order('name');
-      setMyClubs(data || []);
+    const memberIds = myMemberships
+      .filter((m) => m.status === 'approved')
+      .map((m) => m.club_id);
+    const adminIds = myAdminClubs.map((c) => c.id);
+    const allIds = [...new Set([...memberIds, ...adminIds])];
+    if (allIds.length === 0) {
+      setMyClubs([]);
+      return;
     }
-    loadMyClubs();
+    supabase
+      .from('clubs')
+      .select('*')
+      .in('id', allIds)
+      .order('name')
+      .then(({ data }) => {
+        setMyClubs(data || []);
+      });
   }, [myMemberships, myAdminClubs]);
 
   if (!initialized || !session) {

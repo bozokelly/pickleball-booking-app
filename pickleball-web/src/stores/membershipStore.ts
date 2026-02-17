@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
+import { useAuthStore } from './authStore';
 
 export type MembershipStatus = 'pending' | 'approved' | 'rejected';
 
@@ -37,17 +38,16 @@ export const useMembershipStore = create<MembershipState>((set, get) => ({
   },
 
   fetchMyMemberships: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data, error } = await supabase.from('club_members').select('*').eq('user_id', user.id);
+    const userId = useAuthStore.getState().session?.user?.id;
+    if (!userId) return;
+    const { data, error } = await supabase.from('club_members').select('*').eq('user_id', userId);
     if (error) throw new Error(error.message);
     set({ myMemberships: data || [] });
   },
 
   requestMembership: async (clubId) => {
-    const user = (await supabase.auth.getUser()).data.user;
-    if (!user) throw new Error('Not authenticated');
-    const userId = user.id;
+    const userId = useAuthStore.getState().session?.user?.id;
+    if (!userId) throw new Error('Not authenticated');
     const { error } = await supabase.from('club_members').insert({ club_id: clubId, user_id: userId, status: 'pending' });
     if (error) throw new Error(error.message);
     await get().fetchMyMemberships();
@@ -63,18 +63,16 @@ export const useMembershipStore = create<MembershipState>((set, get) => ({
   },
 
   approveMember: async (memberId) => {
-    const user = (await supabase.auth.getUser()).data.user;
-    if (!user) throw new Error('Not authenticated');
-    const userId = user.id;
+    const userId = useAuthStore.getState().session?.user?.id;
+    if (!userId) throw new Error('Not authenticated');
     const { error } = await supabase.from('club_members')
       .update({ status: 'approved', responded_at: new Date().toISOString(), responded_by: userId }).eq('id', memberId);
     if (error) throw new Error(error.message);
   },
 
   rejectMember: async (memberId) => {
-    const user = (await supabase.auth.getUser()).data.user;
-    if (!user) throw new Error('Not authenticated');
-    const userId = user.id;
+    const userId = useAuthStore.getState().session?.user?.id;
+    if (!userId) throw new Error('Not authenticated');
     const { error } = await supabase.from('club_members')
       .update({ status: 'rejected', responded_at: new Date().toISOString(), responded_by: userId }).eq('id', memberId);
     if (error) throw new Error(error.message);

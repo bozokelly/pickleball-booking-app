@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Club, ClubAdmin } from '@/types/database';
+import { useAuthStore } from './authStore';
 
 interface ClubState {
   clubs: Club[]; myAdminClubs: Club[]; loading: boolean;
@@ -33,9 +34,9 @@ export const useClubStore = create<ClubState>((set, get) => ({
   },
 
   fetchMyAdminClubs: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data, error } = await supabase.from('club_admins').select('club:clubs(*)').eq('user_id', user.id);
+    const userId = useAuthStore.getState().session?.user?.id;
+    if (!userId) return;
+    const { data, error } = await supabase.from('club_admins').select('club:clubs(*)').eq('user_id', userId);
     if (error) throw new Error(error.message);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const clubs = (data || []).map((row: any) => row.club).filter(Boolean);
@@ -43,9 +44,8 @@ export const useClubStore = create<ClubState>((set, get) => ({
   },
 
   createClub: async (clubData) => {
-    const user = (await supabase.auth.getUser()).data.user;
-    if (!user) throw new Error('Not authenticated');
-    const userId = user.id;
+    const userId = useAuthStore.getState().session?.user?.id;
+    if (!userId) throw new Error('Not authenticated');
     const { data: club, error: clubError } = await supabase.from('clubs')
       .insert({ ...clubData, created_by: userId }).select().single();
     if (clubError) throw new Error(clubError.message);

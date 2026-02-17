@@ -20,47 +20,50 @@ export default function HomeWidgets({ onClubsLoaded }: { onClubsLoaded?: (clubs:
   const [upcomingGames, setUpcomingGames] = useState<(Game & { club?: Club; confirmed_count?: number })[]>([]);
   const [myClubs, setMyClubs] = useState<Club[]>([]);
 
+  // Fetch booking stats in parallel
   useEffect(() => {
     if (!session) return;
     const userId = session.user.id;
     const now = new Date().toISOString();
 
-    // Fetch games played — confirmed bookings where game date_time has passed
-    supabase
-      .from('bookings')
-      .select('id, game:games!inner(date_time)')
-      .eq('user_id', userId)
-      .eq('status', 'confirmed')
-      .lt('game.date_time', now)
-      .then(({ data }) => {
-        setGamesPlayed(data?.length || 0);
-      });
-
-    // Fetch total active bookings count
-    supabase
-      .from('bookings')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .neq('status', 'cancelled')
-      .then(({ count }) => {
-        setTotalBooked(count || 0);
-      });
+    Promise.all([
+      supabase
+        .from('bookings')
+        .select('id, game:games!inner(date_time)')
+        .eq('user_id', userId)
+        .eq('status', 'confirmed')
+        .lt('game.date_time', now),
+      supabase
+        .from('bookings')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .neq('status', 'cancelled'),
+    ]).then(([gamesResult, bookedResult]) => {
+      setGamesPlayed(gamesResult.data?.length || 0);
+      setTotalBooked(bookedResult.count || 0);
+    });
   }, [session]);
 
-  // Fetch upcoming games from user's clubs (member + admin)
+  // Fetch upcoming games + clubs in a single effect with parallel queries
   useEffect(() => {
-    async function loadUpcomingGames() {
-      const memberIds = myMemberships
-        .filter((m) => m.status === 'approved')
-        .map((m) => m.club_id);
-      const adminIds = myAdminClubs.map((c) => c.id);
-      const allIds = [...new Set([...memberIds, ...adminIds])];
-      if (allIds.length === 0) {
-        setUpcomingGames([]);
-        return;
-      }
-      const now = new Date().toISOString();
-      const { data } = await supabase
+    const memberIds = myMemberships
+      .filter((m) => m.status === 'approved')
+      .map((m) => m.club_id);
+    const adminIds = myAdminClubs.map((c) => c.id);
+    const allIds = [...new Set([...memberIds, ...adminIds])];
+
+    if (allIds.length === 0) {
+      setUpcomingGames([]);
+      setMyClubs([]);
+      onClubsLoaded?.([]);
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    // Fetch games and clubs in parallel
+    Promise.all([
+      supabase
         .from('games')
         .select('*, club:clubs(*)')
         .in('club_id', allIds)
@@ -68,15 +71,26 @@ export default function HomeWidgets({ onClubsLoaded }: { onClubsLoaded?: (clubs:
         .gte('date_time', now)
         .or(`visible_from.is.null,visible_from.lte.${now}`)
         .order('date_time', { ascending: true })
-        .limit(5);
+        .limit(5),
+      supabase
+        .from('clubs')
+        .select('*')
+        .in('id', allIds)
+        .order('name'),
+    ]).then(async ([gamesResult, clubsResult]) => {
+      // Set clubs
+      const clubs = clubsResult.data || [];
+      setMyClubs(clubs);
+      onClubsLoaded?.(clubs);
 
-      if (!data || data.length === 0) {
+      // Set games with booking counts
+      const gameData = gamesResult.data;
+      if (!gameData || gameData.length === 0) {
         setUpcomingGames([]);
         return;
       }
 
-      // Fetch confirmed counts
-      const gameIds = data.map((g) => g.id);
+      const gameIds = gameData.map((g) => g.id);
       const { data: countData } = await supabase
         .from('bookings')
         .select('game_id')
@@ -87,34 +101,8 @@ export default function HomeWidgets({ onClubsLoaded }: { onClubsLoaded?: (clubs:
         countMap[b.game_id] = (countMap[b.game_id] || 0) + 1;
       });
 
-      setUpcomingGames(data.map((g) => ({ ...g, confirmed_count: countMap[g.id] || 0 })));
-    }
-    loadUpcomingGames();
-  }, [myMemberships, myAdminClubs]);
-
-  // Fetch user's clubs (member + admin)
-  useEffect(() => {
-    async function loadMyClubs() {
-      const memberIds = myMemberships
-        .filter((m) => m.status === 'approved')
-        .map((m) => m.club_id);
-      const adminIds = myAdminClubs.map((c) => c.id);
-      const allIds = [...new Set([...memberIds, ...adminIds])];
-      if (allIds.length === 0) {
-        setMyClubs([]);
-        onClubsLoaded?.([]);
-        return;
-      }
-      const { data } = await supabase
-        .from('clubs')
-        .select('*')
-        .in('id', allIds)
-        .order('name');
-      const clubs = data || [];
-      setMyClubs(clubs);
-      onClubsLoaded?.(clubs);
-    }
-    loadMyClubs();
+      setUpcomingGames(gameData.map((g) => ({ ...g, confirmed_count: countMap[g.id] || 0 })));
+    });
   }, [myMemberships, myAdminClubs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const greeting = getGreeting();

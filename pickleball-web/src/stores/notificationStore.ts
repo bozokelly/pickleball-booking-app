@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Notification } from '@/types/database';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { useAuthStore } from './authStore';
 
 interface NotificationState {
   notifications: Notification[]; unreadCount: number; channel: RealtimeChannel | null;
@@ -16,10 +17,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   notifications: [], unreadCount: 0, channel: null,
 
   fetchNotifications: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    const userId = useAuthStore.getState().session?.user?.id;
+    if (!userId) return;
     const { data, error } = await supabase.from('notifications')
-      .select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
+      .select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50);
     if (error) throw new Error(error.message);
     const notifications = data || [];
     set({ notifications, unreadCount: notifications.filter((n) => !n.read).length });
@@ -34,16 +35,16 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
 
   markAllAsRead: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false);
+    const userId = useAuthStore.getState().session?.user?.id;
+    if (!userId) return;
+    await supabase.from('notifications').update({ read: true }).eq('user_id', userId).eq('read', false);
     set((state) => ({ notifications: state.notifications.map((n) => ({ ...n, read: true })), unreadCount: 0 }));
   },
 
   subscribeToRealtime: async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const userId = useAuthStore.getState().session?.user?.id;
+      if (!userId) return;
 
       const existing = get().channel;
       if (existing) {
@@ -51,14 +52,14 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       }
 
       const channel = supabase
-        .channel(`notifications-${user.id}`)
+        .channel(`notifications-${userId}`)
         .on(
           'postgres_changes',
           {
             event: 'INSERT',
             schema: 'public',
             table: 'notifications',
-            filter: `user_id=eq.${user.id}`,
+            filter: `user_id=eq.${userId}`,
           },
           (payload) => {
             const newNotification = payload.new as Notification;

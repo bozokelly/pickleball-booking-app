@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { FeedPost, FeedComment, ReactionType } from '@/types/database';
+import { useAuthStore } from './authStore';
 
 interface FeedState {
   posts: FeedPost[];
@@ -32,7 +33,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     if (loading) return;
     set({ loading: true, currentClubId: clubId });
     try {
-      const user = (await supabase.auth.getUser()).data.user;
+      const user = useAuthStore.getState().session?.user ?? null;
       const offset = reset ? 0 : posts.length;
 
       let query = supabase
@@ -49,50 +50,59 @@ export const useFeedStore = create<FeedState>((set, get) => ({
 
       if (error) throw new Error(error.message);
 
-      const postsWithMeta: FeedPost[] = [];
-
-      for (const post of data || []) {
-        // Fetch reaction counts
-        const { data: reactions } = await supabase
-          .from('feed_reactions')
-          .select('reaction_type')
-          .eq('post_id', post.id);
-
-        const counts: Record<ReactionType, number> = { like: 0, love: 0, fire: 0, laugh: 0 };
-        for (const r of reactions || []) {
-          counts[r.reaction_type as ReactionType]++;
-        }
-
-        // Fetch user's reaction
-        let userReaction: ReactionType | null = null;
-        if (user) {
-          const { data: myReaction } = await supabase
-            .from('feed_reactions')
-            .select('reaction_type')
-            .eq('post_id', post.id)
-            .eq('user_id', user.id)
-            .maybeSingle();
-          userReaction = myReaction?.reaction_type as ReactionType | null;
-        }
-
-        // Fetch comment count (top-level only)
-        const { count } = await supabase
-          .from('feed_comments')
-          .select('*', { count: 'exact', head: true })
-          .eq('post_id', post.id)
-          .is('parent_id', null);
-
-        postsWithMeta.push({
-          ...post,
-          reaction_counts: counts,
-          user_reaction: userReaction,
-          comment_count: count || 0,
-        });
+      const postData = data || [];
+      if (postData.length === 0) {
+        set({ posts: reset ? [] : posts, hasMore: false });
+        return;
       }
+
+      const postIds = postData.map((p) => p.id);
+
+      // Batch fetch all reactions, user reactions, and comment counts in parallel
+      const [reactionsResult, userReactionsResult, commentCountsResult] = await Promise.all([
+        supabase.from('feed_reactions').select('post_id, reaction_type').in('post_id', postIds),
+        user
+          ? supabase.from('feed_reactions').select('post_id, reaction_type').in('post_id', postIds).eq('user_id', user.id)
+          : Promise.resolve({ data: [] }),
+        supabase.from('feed_comments').select('post_id', { count: 'exact' }).in('post_id', postIds).is('parent_id', null),
+      ]);
+
+      // Build reaction counts per post
+      const reactionsByPost: Record<string, Record<ReactionType, number>> = {};
+      for (const r of reactionsResult.data || []) {
+        if (!reactionsByPost[r.post_id]) reactionsByPost[r.post_id] = { like: 0, love: 0, fire: 0, laugh: 0 };
+        reactionsByPost[r.post_id][r.reaction_type as ReactionType]++;
+      }
+
+      // Build user reactions map
+      const userReactionsByPost: Record<string, ReactionType> = {};
+      for (const r of (userReactionsResult as { data: { post_id: string; reaction_type: string }[] | null }).data || []) {
+        userReactionsByPost[r.post_id] = r.reaction_type as ReactionType;
+      }
+
+      // Build comment counts — since we can't group by in supabase-js easily,
+      // fetch all top-level comments for these posts and count client-side
+      const commentCountsByPost: Record<string, number> = {};
+      // Re-fetch with individual counts (still batched, not per-post)
+      const { data: commentData } = await supabase
+        .from('feed_comments')
+        .select('post_id')
+        .in('post_id', postIds)
+        .is('parent_id', null);
+      for (const c of commentData || []) {
+        commentCountsByPost[c.post_id] = (commentCountsByPost[c.post_id] || 0) + 1;
+      }
+
+      const postsWithMeta: FeedPost[] = postData.map((post) => ({
+        ...post,
+        reaction_counts: reactionsByPost[post.id] || { like: 0, love: 0, fire: 0, laugh: 0 },
+        user_reaction: userReactionsByPost[post.id] || null,
+        comment_count: commentCountsByPost[post.id] || 0,
+      }));
 
       set({
         posts: reset ? postsWithMeta : [...posts, ...postsWithMeta],
-        hasMore: (data?.length || 0) === PAGE_SIZE,
+        hasMore: postData.length === PAGE_SIZE,
       });
     } finally {
       set({ loading: false });
@@ -100,7 +110,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
   },
 
   createPost: async (content, imageUrl, clubId) => {
-    const user = (await supabase.auth.getUser()).data.user;
+    const user = useAuthStore.getState().session?.user ?? null;
     if (!user) throw new Error('Not authenticated');
 
     const { error } = await supabase.from('feed_posts').insert({
@@ -122,7 +132,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
   },
 
   toggleReaction: async (postId, reactionType) => {
-    const user = (await supabase.auth.getUser()).data.user;
+    const user = useAuthStore.getState().session?.user ?? null;
     if (!user) throw new Error('Not authenticated');
 
     const posts = get().posts;
@@ -200,7 +210,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
   },
 
   addComment: async (postId, content, parentId = null) => {
-    const user = (await supabase.auth.getUser()).data.user;
+    const user = useAuthStore.getState().session?.user ?? null;
     if (!user) throw new Error('Not authenticated');
 
     const { data, error } = await supabase

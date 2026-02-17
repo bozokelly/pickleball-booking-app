@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { ClubMessage } from '@/types/database';
+import { useAuthStore } from './authStore';
 
 interface ClubMessageState {
   messages: ClubMessage[];
@@ -44,7 +45,7 @@ export const useClubMessageStore = create<ClubMessageState>((set) => ({
   },
 
   sendMessage: async (clubId, subject, body) => {
-    const user = (await supabase.auth.getUser()).data.user;
+    const user = useAuthStore.getState().session?.user ?? null;
     if (!user) throw new Error('Not authenticated');
     const { error } = await supabase.from('club_messages').insert({
       club_id: clubId, sender_id: user.id, subject, body,
@@ -61,7 +62,7 @@ export const useClubMessageStore = create<ClubMessageState>((set) => ({
   },
 
   replyToMessage: async (clubId, parentId, body) => {
-    const user = (await supabase.auth.getUser()).data.user;
+    const user = useAuthStore.getState().session?.user ?? null;
     if (!user) throw new Error('Not authenticated');
 
     const { data: parent } = await supabase

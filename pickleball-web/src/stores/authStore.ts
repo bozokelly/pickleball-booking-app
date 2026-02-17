@@ -24,7 +24,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (_initialized) return;
     _initialized = true;
 
-    // Register auth state listener once — outside try/catch so it always gets set up
+    // Register auth state listener once
     supabase.auth.onAuthStateChange(async (_event, session) => {
       set({ session });
       if (session) await get().fetchProfile();
@@ -32,18 +32,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error || !user) {
-          await supabase.auth.signOut();
-          set({ session: null, profile: null, initialized: true });
-        } else {
-          set({ session, initialized: true });
-          await get().fetchProfile();
-        }
+      // Single call — getUser() validates the session and returns the user
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) {
+        set({ session: null, profile: null, initialized: true });
       } else {
-        set({ initialized: true });
+        // Get the session (local, no network call after getUser refreshed it)
+        const { data: { session } } = await supabase.auth.getSession();
+        set({ session, initialized: true });
+        await get().fetchProfile();
       }
     } catch (err) {
       console.warn('Auth initialization failed:', err);
@@ -87,9 +84,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   fetchProfile: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+    const userId = get().session?.user?.id;
+    if (!userId) return;
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
     if (error) { console.warn('Failed to fetch profile:', error.message); return; }
     set({ profile: data });
   },

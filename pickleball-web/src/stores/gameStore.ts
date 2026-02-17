@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Game, Booking } from '@/types/database';
+import { useAuthStore } from './authStore';
 
 interface GameState {
   games: Game[]; myBookings: Booking[]; loading: boolean;
@@ -31,7 +32,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   fetchMyBookings: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = useAuthStore.getState().session?.user ?? null;
     if (!user) return;
     const { data, error } = await supabase.from('bookings')
       .select('*, game:games(*, club:clubs(*))')
@@ -42,7 +43,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   fetchGameById: async (gameId) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = useAuthStore.getState().session?.user ?? null;
     const { data, error } = await supabase.from('games').select('*, club:clubs(*)').eq('id', gameId).single();
     if (error) throw new Error(error.message);
     const { count } = await supabase.from('bookings')
@@ -57,7 +58,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   bookGame: async (gameId) => {
-    const user = (await supabase.auth.getUser()).data.user;
+    const user = useAuthStore.getState().session?.user ?? null;
     if (!user) throw new Error('Not authenticated');
     const { data, error } = await supabase.rpc('book_game', {
       p_game_id: gameId,
@@ -69,7 +70,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   cancelBooking: async (bookingId) => {
-    const user = (await supabase.auth.getUser()).data.user;
+    const user = useAuthStore.getState().session?.user ?? null;
     if (!user) throw new Error('Not authenticated');
     const { error } = await supabase.rpc('cancel_booking', {
       p_booking_id: bookingId,
@@ -80,7 +81,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   adminBookPlayer: async (gameId, userId) => {
-    const admin = (await supabase.auth.getUser()).data.user;
+    const admin = useAuthStore.getState().session?.user ?? null;
     if (!admin) throw new Error('Not authenticated');
     const { data, error } = await supabase.rpc('admin_book_player', {
       p_game_id: gameId,
