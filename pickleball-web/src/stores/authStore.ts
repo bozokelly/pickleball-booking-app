@@ -13,6 +13,7 @@ interface AuthState {
   fetchProfile: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 let _initialized = false;
@@ -102,5 +103,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   updatePassword: async (newPassword) => {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) throw new Error(error.message);
+  },
+
+  deleteAccount: async () => {
+    const session = get().session;
+    if (!session) throw new Error('Not authenticated');
+    const { data, error } = await supabase.functions.invoke('delete-account', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (error) throw new Error(error.message);
+    if (data?.error) throw new Error(data.error);
+    await supabase.auth.signOut();
+    set({ session: null, profile: null });
   },
 }));
