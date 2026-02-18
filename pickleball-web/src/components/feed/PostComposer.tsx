@@ -10,6 +10,8 @@ import { useToast } from '@/components/ui/Toast';
 import { Club } from '@/types/database';
 import { ImagePlus, X, Users } from 'lucide-react';
 
+const MAX_IMAGES = 4;
+
 interface PostComposerProps {
   clubs: Club[];
   fixedClubId?: string;
@@ -23,40 +25,55 @@ export default function PostComposer({ clubs, fixedClubId }: PostComposerProps) 
 
   const [content, setContent] = useState('');
   const [clubId, setClubId] = useState(fixedClubId || '');
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [posting, setPosting] = useState(false);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    const remaining = MAX_IMAGES - imageFiles.length;
+    const toAdd = files.slice(0, remaining);
+
+    setImageFiles((prev) => [...prev, ...toAdd]);
+    setImagePreviews((prev) => [...prev, ...toAdd.map((f) => URL.createObjectURL(f))]);
+
+    // Reset input so same file can be re-selected
+    if (fileRef.current) fileRef.current.value = '';
   };
 
-  const removeImage = () => {
-    setImageFile(null);
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
-    setImagePreview(null);
+  const removeImage = (index: number) => {
+    URL.revokeObjectURL(imagePreviews[index]);
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const clearAllImages = () => {
+    imagePreviews.forEach((url) => URL.revokeObjectURL(url));
+    setImageFiles([]);
+    setImagePreviews([]);
     if (fileRef.current) fileRef.current.value = '';
   };
 
   const handleSubmit = async () => {
     const targetClubId = fixedClubId || clubId;
-    if (!content.trim() && !imageFile) return;
+    if (!content.trim() && imageFiles.length === 0) return;
     if (!targetClubId) {
       showToast('Please select a club', 'error');
       return;
     }
     setPosting(true);
     try {
-      let imageUrl: string | null = null;
-      if (imageFile && profile) {
-        imageUrl = await uploadFeedImage(imageFile, profile.id);
+      let imageUrls: string[] = [];
+      if (imageFiles.length > 0 && profile) {
+        imageUrls = await Promise.all(
+          imageFiles.map((file) => uploadFeedImage(file, profile.id))
+        );
       }
-      await createPost(content, imageUrl, targetClubId);
+      await createPost(content, imageUrls, targetClubId);
       setContent('');
-      removeImage();
+      clearAllImages();
       showToast('Post created!', 'success');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create post';
@@ -104,30 +121,50 @@ export default function PostComposer({ clubs, fixedClubId }: PostComposerProps) 
         />
       </div>
 
-      {imagePreview && (
-        <div className="relative inline-block">
-          <img src={imagePreview} alt="Preview" className="max-h-48 rounded-xl object-cover" />
-          <button
-            onClick={removeImage}
-            className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 hover:bg-black/80"
-          >
-            <X className="h-4 w-4" />
-          </button>
+      {/* Image previews grid */}
+      {imagePreviews.length > 0 && (
+        <div className={`grid gap-2 ${
+          imagePreviews.length === 1 ? 'grid-cols-1' :
+          imagePreviews.length === 2 ? 'grid-cols-2' :
+          'grid-cols-2'
+        }`}>
+          {imagePreviews.map((preview, index) => (
+            <div
+              key={index}
+              className={`relative ${
+                imagePreviews.length === 3 && index === 0 ? 'col-span-2' : ''
+              }`}
+            >
+              <img
+                src={preview}
+                alt={`Preview ${index + 1}`}
+                className="w-full h-32 rounded-xl object-cover"
+              />
+              <button
+                onClick={() => removeImage(index)}
+                className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1 hover:bg-black/80"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
       <div className="flex items-center justify-between">
         <button
           onClick={() => fileRef.current?.click()}
-          className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-primary transition-colors"
+          disabled={imageFiles.length >= MAX_IMAGES}
+          className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <ImagePlus className="h-5 w-5" />
-          Photo
+          Photo {imageFiles.length > 0 && `(${imageFiles.length}/${MAX_IMAGES})`}
         </button>
         <input
           ref={fileRef}
           type="file"
           accept="image/*"
+          multiple
           onChange={handleImageSelect}
           className="hidden"
         />
@@ -135,7 +172,7 @@ export default function PostComposer({ clubs, fixedClubId }: PostComposerProps) 
           size="sm"
           onClick={handleSubmit}
           loading={posting}
-          disabled={!content.trim() && !imageFile}
+          disabled={!content.trim() && imageFiles.length === 0}
         >
           Post
         </Button>

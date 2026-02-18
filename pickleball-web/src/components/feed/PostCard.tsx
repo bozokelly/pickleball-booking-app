@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, memo } from 'react';
+import { useState, memo, useMemo } from 'react';
 import Image from 'next/image';
 import { FeedPost, FeedComment, ReactionType } from '@/types/database';
 import { useAuthStore } from '@/stores/authStore';
@@ -9,10 +9,14 @@ import { useToast } from '@/components/ui/Toast';
 import { ConfirmDialog } from '@/components/ui';
 import ReactionBar from './ReactionBar';
 import CommentSection from './CommentSection';
+import ImageGallery from './ImageGallery';
+import LinkPreview from './LinkPreview';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
 import { Club } from '@/types/database';
 import { MessageCircle, Trash2, MoreHorizontal, Users } from 'lucide-react';
+
+const URL_REGEX = /https?:\/\/[^\s<>)"']+/g;
 
 interface PostCardProps {
   post: FeedPost;
@@ -30,6 +34,20 @@ function PostCard({ post }: PostCardProps) {
 
   const isOwner = profile?.id === post.user_id;
   const postComments: FeedComment[] = comments[post.id] || [];
+
+  // Resolve images: prefer image_urls array, fall back to single image_url
+  const images = useMemo(() => {
+    if (post.image_urls && post.image_urls.length > 0) return post.image_urls;
+    if (post.image_url) return [post.image_url];
+    return [];
+  }, [post.image_urls, post.image_url]);
+
+  // Detect the first URL in post content for link preview
+  const firstUrl = useMemo(() => {
+    if (!post.content) return null;
+    const match = post.content.match(URL_REGEX);
+    return match ? match[0] : null;
+  }, [post.content]);
 
   const handleToggleComments = async () => {
     if (!showComments && !comments[post.id]) {
@@ -143,14 +161,11 @@ function PostCard({ post }: PostCardProps) {
       {/* Content */}
       <p className="text-sm text-text-primary whitespace-pre-wrap">{post.content}</p>
 
-      {/* Image */}
-      {post.image_url && (
-        <img
-          src={post.image_url}
-          alt="Post image"
-          className="rounded-xl max-h-96 w-full object-cover"
-        />
-      )}
+      {/* Images */}
+      {images.length > 0 && <ImageGallery images={images} />}
+
+      {/* Link Preview */}
+      {firstUrl && <LinkPreview url={firstUrl} />}
 
       {/* Reactions + Comment toggle */}
       <div className="flex items-center justify-between gap-2 flex-wrap">

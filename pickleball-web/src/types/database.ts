@@ -70,6 +70,7 @@ export type ReactionType = 'like' | 'love' | 'fire' | 'laugh';
 
 export interface FeedPost {
   id: string; user_id: string; club_id: string | null; content: string; image_url: string | null;
+  image_urls: string[];
   created_at: string; updated_at: string;
   profile?: Pick<Profile, 'full_name' | 'avatar_url'>;
   club?: Pick<Club, 'id' | 'name' | 'image_url'>;

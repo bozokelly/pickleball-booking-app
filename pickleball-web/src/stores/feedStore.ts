@@ -10,7 +10,7 @@ interface FeedState {
   comments: Record<string, FeedComment[]>;
   currentClubId: string | null;
   fetchPosts: (reset?: boolean, clubId?: string | null) => Promise<void>;
-  createPost: (content: string, imageUrl: string | null, clubId: string) => Promise<void>;
+  createPost: (content: string, imageUrls: string[], clubId: string) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
   toggleReaction: (postId: string, reactionType: ReactionType) => Promise<void>;
   fetchComments: (postId: string) => Promise<void>;
@@ -102,7 +102,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     }
   },
 
-  createPost: async (content, imageUrl, clubId) => {
+  createPost: async (content, imageUrls, clubId) => {
     const user = useAuthStore.getState().session?.user ?? null;
     if (!user) throw new Error('Not authenticated');
 
@@ -110,7 +110,8 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       user_id: user.id,
       club_id: clubId,
       content: content.trim(),
-      image_url: imageUrl,
+      image_url: imageUrls[0] || null,
+      image_urls: imageUrls,
     });
     if (error) throw new Error(error.message);
 
