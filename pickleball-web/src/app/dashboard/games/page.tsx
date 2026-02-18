@@ -178,36 +178,38 @@ function CompactGameRow({ game }: { game: Game }) {
   const spotsLeft = game.max_spots - (game.confirmed_count || 0);
 
   return (
-    <Card className="px-4 py-3">
-      <div className="flex items-center gap-3">
-        {/* Date box */}
-        <div className="flex flex-col items-center justify-center bg-primary/10 rounded-lg px-2 py-1 min-w-[48px]">
-          <span className="text-[10px] font-semibold text-primary uppercase">{format(dt, 'MMM')}</span>
-          <span className="text-lg font-bold text-primary leading-tight">{format(dt, 'd')}</span>
-        </div>
-        <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-medium text-text-primary truncate">{game.title}</h4>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
-            <span className="text-xs text-text-secondary flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {format(dt, 'h:mm a')}
-            </span>
-            {game.location && (
+    <Link href={`/dashboard/game/${game.id}`}>
+      <Card className="px-4 py-3 hover:border-primary/30 transition-colors cursor-pointer">
+        <div className="flex items-center gap-3">
+          {/* Date box */}
+          <div className="flex flex-col items-center justify-center bg-primary/10 rounded-lg px-2 py-1 min-w-[48px]">
+            <span className="text-[10px] font-semibold text-primary uppercase">{format(dt, 'MMM')}</span>
+            <span className="text-lg font-bold text-primary leading-tight">{format(dt, 'd')}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-sm font-medium text-text-primary truncate">{game.title}</h4>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
               <span className="text-xs text-text-secondary flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                <span className="truncate max-w-[120px]">{game.location}</span>
+                <Clock className="h-3 w-3" />
+                {format(dt, 'h:mm a')}
               </span>
-            )}
-            <span className="text-xs text-text-secondary">
-              {spotsLeft <= 0 ? 'Full' : `${spotsLeft} spot${spotsLeft !== 1 ? 's' : ''}`}
-            </span>
-          </div>
-          <div className="flex gap-1.5 mt-1">
-            <Badge label={SKILL_LEVEL_LABELS[game.skill_level]} color={SKILL_LEVEL_COLORS[game.skill_level]} />
-            <Badge label={GAME_FORMAT_LABELS[game.game_format]} color="#5856D6" />
+              {game.location && (
+                <span className="text-xs text-text-secondary flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  <span className="truncate max-w-[120px]">{game.location}</span>
+                </span>
+              )}
+              <span className="text-xs text-text-secondary">
+                {spotsLeft <= 0 ? 'Full' : `${spotsLeft} spot${spotsLeft !== 1 ? 's' : ''}`}
+              </span>
+            </div>
+            <div className="flex gap-1.5 mt-1">
+              <Badge label={SKILL_LEVEL_LABELS[game.skill_level]} color={SKILL_LEVEL_COLORS[game.skill_level]} />
+              <Badge label={GAME_FORMAT_LABELS[game.game_format]} color="#5856D6" />
+            </div>
           </div>
         </div>
-      </div>
-    </Card>
+      </Card>
+    </Link>
   );
 }
