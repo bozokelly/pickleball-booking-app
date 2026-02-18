@@ -327,6 +327,7 @@ function CreateGameForm() {
               <Input
                 label="Number of Weeks"
                 type="number"
+                min={1}
                 value={repeatWeeks}
                 onChange={(e) => setRepeatWeeks(e.target.value)}
                 hint={`Will create ${totalGames} game${totalGames !== 1 ? 's' : ''}, each 7 days apart`}

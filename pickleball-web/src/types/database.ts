@@ -7,7 +7,8 @@ export type NotificationType =
   | 'booking_confirmed' | 'waitlist_promoted' | 'game_cancelled'
   | 'game_reminder' | 'game_updated'
   | 'membership_request' | 'new_game_available'
-  | 'new_club_message' | 'club_message_reply';
+  | 'new_club_message' | 'club_message_reply'
+  | 'booking_confirmed' | 'booking_cancelled';
 export type ClubAdminRole = 'owner' | 'admin';
 
 export interface Profile {

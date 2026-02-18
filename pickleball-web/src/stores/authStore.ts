@@ -25,11 +25,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (_initialized) return;
     _initialized = true;
 
-    // Register auth state listener once
+    // Register auth state listener — only fetch profile on real auth changes, not initial event
     supabase.auth.onAuthStateChange(async (_event, session) => {
+      const prev = get().session;
       set({ session });
-      if (session) await get().fetchProfile();
-      else set({ profile: null });
+      if (session && session.user.id !== prev?.user?.id) {
+        await get().fetchProfile();
+      } else if (!session) {
+        set({ profile: null });
+      }
     });
 
     try {

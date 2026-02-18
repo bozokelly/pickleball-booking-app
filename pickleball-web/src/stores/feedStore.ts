@@ -59,12 +59,12 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       const postIds = postData.map((p) => p.id);
 
       // Batch fetch all reactions, user reactions, and comment counts in parallel
-      const [reactionsResult, userReactionsResult, commentCountsResult] = await Promise.all([
+      const [reactionsResult, userReactionsResult, commentResult] = await Promise.all([
         supabase.from('feed_reactions').select('post_id, reaction_type').in('post_id', postIds),
         user
           ? supabase.from('feed_reactions').select('post_id, reaction_type').in('post_id', postIds).eq('user_id', user.id)
           : Promise.resolve({ data: [] }),
-        supabase.from('feed_comments').select('post_id', { count: 'exact' }).in('post_id', postIds).is('parent_id', null),
+        supabase.from('feed_comments').select('post_id').in('post_id', postIds).is('parent_id', null),
       ]);
 
       // Build reaction counts per post
@@ -80,16 +80,9 @@ export const useFeedStore = create<FeedState>((set, get) => ({
         userReactionsByPost[r.post_id] = r.reaction_type as ReactionType;
       }
 
-      // Build comment counts — since we can't group by in supabase-js easily,
-      // fetch all top-level comments for these posts and count client-side
+      // Build comment counts per post from the parallel fetch
       const commentCountsByPost: Record<string, number> = {};
-      // Re-fetch with individual counts (still batched, not per-post)
-      const { data: commentData } = await supabase
-        .from('feed_comments')
-        .select('post_id')
-        .in('post_id', postIds)
-        .is('parent_id', null);
-      for (const c of commentData || []) {
+      for (const c of commentResult.data || []) {
         commentCountsByPost[c.post_id] = (commentCountsByPost[c.post_id] || 0) + 1;
       }
 

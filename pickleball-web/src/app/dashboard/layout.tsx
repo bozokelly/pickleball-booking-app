@@ -88,12 +88,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       });
   }, [myMemberships, myAdminClubs]);
 
-  if (!initialized || !session) {
+  if (!initialized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
       </div>
     );
+  }
+
+  if (!session) {
+    return null;
   }
 
   const isAdmin = myAdminClubs.length > 0;
