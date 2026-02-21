@@ -15,7 +15,7 @@ export async function uploadAvatar(file: File, userId: string): Promise<string> 
 
 export async function uploadFeedImage(file: File, userId: string): Promise<string> {
   const fileExt = file.name.split('.').pop();
-  const filePath = `${userId}/${Date.now()}.${fileExt}`;
+  const filePath = `${userId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
 
   const { error: uploadError } = await supabase.storage
     .from('feed-images')
