@@ -13,6 +13,7 @@ interface AuthState {
   fetchProfile: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
+  resendConfirmation: (email: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
 }
 
@@ -106,6 +107,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   updatePassword: async (newPassword) => {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw new Error(error.message);
+  },
+
+  resendConfirmation: async (email) => {
+    const siteUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: `${siteUrl}/auth/callback` },
+    });
     if (error) throw new Error(error.message);
   },
 

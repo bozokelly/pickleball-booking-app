@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useClubStore } from '@/stores/clubStore';
 import { useMembershipStore } from '@/stores/membershipStore';
 import { Club, Game } from '@/types/database';
-import { format, addDays } from 'date-fns';
+import { format } from 'date-fns';
 import { Button, Card, Badge, MarkdownRenderer } from '@/components/ui';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useToast } from '@/components/ui/Toast';
@@ -41,7 +41,6 @@ export default function ClubDetailPage({ params }: { params: Promise<{ id: strin
     async function load() {
       try {
         const now = new Date().toISOString();
-        const nextWeek = addDays(new Date(), 7).toISOString();
 
         const [clubData, , memberResult, gamesResult] = await Promise.all([
           fetchClubById(clubId),
@@ -57,10 +56,8 @@ export default function ClubDetailPage({ params }: { params: Promise<{ id: strin
             .eq('club_id', clubId)
             .eq('status', 'upcoming')
             .gte('date_time', now)
-            .lte('date_time', nextWeek)
             .or(`visible_from.is.null,visible_from.lte.${now}`)
-            .order('date_time', { ascending: true })
-            .limit(7),
+            .order('date_time', { ascending: true }),
         ]);
 
         setClub(clubData);
@@ -240,11 +237,11 @@ export default function ClubDetailPage({ params }: { params: Promise<{ id: strin
             <p className="text-text-tertiary text-sm">No games scheduled this week</p>
           </Card>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}>
             {games.map((game) => {
               const isFull = (game.confirmed_count || 0) >= game.max_spots;
               return (
-                <Link key={game.id} href={`/dashboard/game/${game.id}`}>
+                <Link key={game.id} href={`/dashboard/game/${game.id}`} className="flex-shrink-0 w-40">
                   <Card className="p-3.5 hover:shadow-md transition-shadow cursor-pointer space-y-2 h-full">
                     <p className="text-xs font-semibold text-text-primary truncate">{game.title}</p>
                     <div>

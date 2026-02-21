@@ -22,7 +22,7 @@ import {
 import {
   ArrowLeft, Clock, MapPin, Users, DollarSign, CalendarPlus,
   XCircle, CheckCircle2, Home, Trophy, AlertTriangle,
-  CreditCard, Pencil, UserPlus, Search, X, Loader2,
+  CreditCard, Pencil, UserPlus, Search, X, Loader2, Info, Mail, Bell, Timer,
 } from 'lucide-react';
 
 export default function GameDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -41,6 +41,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [confirmationStatus, setConfirmationStatus] = useState<'confirmed' | 'waitlisted'>('confirmed');
+  const [confirmationPosition, setConfirmationPosition] = useState<number | null>(null);
   const [showDuprDialog, setShowDuprDialog] = useState(false);
   const [duprConfirmed, setDuprConfirmed] = useState(false);
   const [pendingBookPayment, setPendingBookPayment] = useState(true);
@@ -115,6 +116,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
       }
       await loadGame();
       setConfirmationStatus(result.status === 'confirmed' ? 'confirmed' : 'waitlisted');
+      setConfirmationPosition(result.waitlist_position ?? null);
       setShowConfirmation(true);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Booking failed';
@@ -627,7 +629,10 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
           <Card className="w-full max-w-md p-8 space-y-6 text-center">
             <div className="flex justify-center">
               <div className={`h-16 w-16 rounded-full flex items-center justify-center ${confirmationStatus === 'confirmed' ? 'bg-success/10' : 'bg-warning/10'}`}>
-                <CheckCircle2 className={`h-10 w-10 ${confirmationStatus === 'confirmed' ? 'text-success' : 'text-warning'}`} />
+                {confirmationStatus === 'confirmed'
+                  ? <CheckCircle2 className="h-10 w-10 text-success" />
+                  : <Clock className="h-10 w-10 text-warning" />
+                }
               </div>
             </div>
 
@@ -640,6 +645,11 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                   ? `You're all set for ${game.title}`
                   : `You've been added to the waitlist for ${game.title}`}
               </p>
+              {confirmationStatus === 'waitlisted' && confirmationPosition && (
+                <p className="text-sm font-medium text-warning mt-1">
+                  Position #{confirmationPosition}
+                </p>
+              )}
             </div>
 
             <div className="bg-background rounded-xl p-4 text-left space-y-2">
@@ -660,6 +670,42 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
                 </div>
               )}
             </div>
+
+            {/* Waitlist process explanation */}
+            {confirmationStatus === 'waitlisted' && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-left">
+                <div className="flex items-center gap-2 mb-3">
+                  <Info className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                  <p className="text-sm font-semibold text-blue-900">How the waitlist works</p>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-2.5">
+                    <div className="h-5 w-5 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Bell className="h-3 w-3 text-blue-600" />
+                    </div>
+                    <p className="text-xs text-blue-800">
+                      We&apos;ll notify you by <strong>email</strong> and <strong>on the site</strong> when a spot opens up
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <div className="h-5 w-5 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Timer className="h-3 w-3 text-blue-600" />
+                    </div>
+                    <p className="text-xs text-blue-800">
+                      You&apos;ll have <strong>1 hour</strong> to confirm and complete payment for your spot
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <div className="h-5 w-5 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Users className="h-3 w-3 text-blue-600" />
+                    </div>
+                    <p className="text-xs text-blue-800">
+                      If you don&apos;t confirm in time, the spot passes to the next person on the list
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               {confirmationStatus === 'confirmed' && (
