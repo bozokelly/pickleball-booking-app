@@ -52,6 +52,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [initialized, session, router]);
 
+  // Redirect to onboarding if profile is missing required fields
+  useEffect(() => {
+    if (initialized && profile && pathname !== '/dashboard/onboarding') {
+      if (!profile.phone || !profile.date_of_birth) {
+        router.replace('/dashboard/onboarding');
+      }
+    }
+  }, [initialized, profile, pathname, router]);
+
   useEffect(() => {
     if (session) {
       // Fire all initial data fetches in parallel
