@@ -16,6 +16,7 @@ export interface Profile {
   date_of_birth: string | null; dupr_rating: number | null; avatar_url: string | null;
   push_token: string | null;
   emergency_contact_name: string | null; emergency_contact_phone: string | null;
+  email_notifications_enabled: boolean;
   created_at: string; updated_at: string;
 }
 export interface Club {

@@ -180,15 +180,20 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    // Get user's email
+    // Get user's email and notification preference
     const { data: profile } = await supabase
       .from('profiles')
-      .select('email, full_name')
+      .select('email, full_name, email_notifications_enabled')
       .eq('id', record.user_id)
       .single();
 
     if (!profile?.email) {
       return new Response('No email found for user', { status: 200 });
+    }
+
+    // Respect user's email notification preference
+    if (profile.email_notifications_enabled === false) {
+      return new Response('User has email notifications disabled', { status: 200 });
     }
 
     // Build email HTML

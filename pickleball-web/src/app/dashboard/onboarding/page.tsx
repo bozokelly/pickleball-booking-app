@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
-import { Button, Input, Card } from '@/components/ui';
+import { Button, Card } from '@/components/ui';
 import { useToast } from '@/components/ui/Toast';
-import { Phone, Calendar, Trophy, ArrowRight } from 'lucide-react';
+import { Phone, Calendar, Trophy, ArrowRight, UserCircle, Mail } from 'lucide-react';
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -15,6 +15,9 @@ export default function OnboardingPage() {
   const [phone, setPhone] = useState(profile?.phone || '');
   const [dateOfBirth, setDateOfBirth] = useState(profile?.date_of_birth || '');
   const [duprRating, setDuprRating] = useState('');
+  const [emergencyName, setEmergencyName] = useState(profile?.emergency_contact_name || '');
+  const [emergencyPhone, setEmergencyPhone] = useState(profile?.emergency_contact_phone || '');
+  const [emailNotifications, setEmailNotifications] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,6 +37,7 @@ export default function OnboardingPage() {
       const updates: Record<string, unknown> = {
         phone: phone.trim(),
         date_of_birth: dateOfBirth,
+        email_notifications_enabled: emailNotifications,
       };
 
       if (duprRating.trim()) {
@@ -44,6 +48,13 @@ export default function OnboardingPage() {
           return;
         }
         updates.dupr_rating = rating;
+      }
+
+      if (emergencyName.trim()) {
+        updates.emergency_contact_name = emergencyName.trim();
+      }
+      if (emergencyPhone.trim()) {
+        updates.emergency_contact_phone = emergencyPhone.trim();
       }
 
       await updateProfile(updates);
@@ -124,6 +135,58 @@ export default function OnboardingPage() {
             <p className="text-xs text-text-tertiary mt-1">
               Your DUPR rating helps match you with games at your skill level
             </p>
+          </div>
+
+          {/* Emergency Contact (optional) */}
+          <div className="border-t border-border/50 pt-5">
+            <div className="flex items-center gap-2 mb-3">
+              <UserCircle className="h-4 w-4 text-text-tertiary" />
+              <p className="text-sm font-medium text-text-primary">
+                Emergency Contact <span className="text-text-tertiary font-normal">(optional)</span>
+              </p>
+            </div>
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={emergencyName}
+                onChange={(e) => setEmergencyName(e.target.value)}
+                placeholder="Contact name"
+                autoComplete="off"
+                className="w-full px-4 py-3 bg-background/60 border border-border rounded-xl text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 text-sm"
+              />
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-text-tertiary" />
+                <input
+                  type="tel"
+                  value={emergencyPhone}
+                  onChange={(e) => setEmergencyPhone(e.target.value)}
+                  placeholder="Contact phone number"
+                  autoComplete="off"
+                  className="w-full pl-11 pr-4 py-3 bg-background/60 border border-border rounded-xl text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Email Notifications Consent */}
+          <div className="border-t border-border/50 pt-5">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={emailNotifications}
+                onChange={(e) => setEmailNotifications(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary/30"
+              />
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <Mail className="h-4 w-4 text-text-tertiary" />
+                  <p className="text-sm font-medium text-text-primary">Email Notifications</p>
+                </div>
+                <p className="text-xs text-text-tertiary mt-0.5">
+                  Receive email updates for booking confirmations, waitlist promotions, game cancellations, and club messages
+                </p>
+              </div>
+            </label>
           </div>
 
           <Button
