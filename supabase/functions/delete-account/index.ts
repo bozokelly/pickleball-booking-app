@@ -41,7 +41,10 @@ serve(async (req) => {
     // Use service role client to delete the user
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Delete user's data (RLS cascade should handle most, but be explicit)
+    // Delete user's data — order matters for foreign key constraints
+    await adminClient.from('feed_reactions').delete().eq('user_id', user.id);
+    await adminClient.from('feed_comments').delete().eq('user_id', user.id);
+    await adminClient.from('feed_posts').delete().eq('user_id', user.id);
     await adminClient.from('bookings').delete().eq('user_id', user.id);
     await adminClient.from('game_messages').delete().eq('user_id', user.id);
     await adminClient.from('club_members').delete().eq('user_id', user.id);
