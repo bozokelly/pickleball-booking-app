@@ -67,8 +67,8 @@ export default function SignupPage() {
   if (sent) {
     return (
       <div>
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-primary">Book a Dink</h1>
+        <div className="flex justify-center mb-6">
+          <img src="/images/logo.png" alt="Book a Dink" className="h-24 w-24 object-contain drop-shadow-md" />
         </div>
         <Card className="p-8">
           {/* Animated mail icon */}
