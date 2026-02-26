@@ -33,8 +33,8 @@ export default function LoginPage() {
   return (
     <div>
       {/* Branding */}
-      <div className="flex justify-center mb-6">
-        <img src="/images/logo.png" alt="Book a Dink" className="h-24 w-24 object-contain drop-shadow-md" />
+      <div className="flex justify-center mb-8">
+        <img src="/images/logo-wide.png" alt="Book a Dink" className="w-64 h-auto object-contain" />
       </div>
 
       {/* Tab toggle */}
