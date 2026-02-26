@@ -1,12 +1,19 @@
 export const colors = {
-  primary: '#007AFF', primaryLight: '#4DA3FF', primaryDark: '#0055CC',
-  success: '#34C759', warning: '#FF9500', error: '#FF3B30', info: '#5856D6',
-  white: '#FFFFFF', background: '#F2F2F7', surface: '#FFFFFF',
-  border: '#E5E5EA', separator: '#C6C6C8',
-  textPrimary: '#000000', textSecondary: '#8E8E93', textTertiary: '#AEAEB2',
-  disabled: '#D1D1D6',
-  skillAll: '#8E8E93', skillBeginner: '#34C759', skillIntermediate: '#007AFF',
-  skillAdvanced: '#FF9500', skillPro: '#FF3B30',
+  // Brand — Slate Blue
+  primary: '#4F6FA3', primaryLight: '#7A97C8', primaryDark: '#3A5585',
+  // CTA — Emerald
+  success: '#2ECC71', successDark: '#27AE60',
+  // Semantic
+  warning: '#FFA500', error: '#EF4444', info: '#6366F1',
+  // Surfaces
+  white: '#FFFFFF', surfaceTint: '#F2F5FB', background: '#EEF2F8',
+  surface: '#FFFFFF', border: '#D8E0EE', separator: '#C4CDE0',
+  // Typography
+  textPrimary: '#1A1F2E', textSecondary: '#5C6478', textTertiary: '#94A0B8',
+  disabled: '#C4CDE0',
+  // Skill levels
+  skillAll: '#86868B', skillBeginner: '#2ECC71', skillIntermediate: '#4F6FA3',
+  skillAdvanced: '#E67E22', skillPro: '#E74C3C',
 } as const;
 
 export const SKILL_LEVEL_COLORS: Record<string, string> = {

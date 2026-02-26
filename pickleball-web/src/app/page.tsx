@@ -46,7 +46,7 @@ export default function LandingPage() {
             {initialized && session ? (
               <Link
                 href="/dashboard"
-                className="inline-flex items-center justify-center px-5 py-2 bg-primary text-white font-semibold rounded-xl text-sm hover:bg-primary-dark transition-colors"
+                className="inline-flex items-center justify-center px-5 py-2 bg-success text-white font-semibold rounded-xl text-sm hover:bg-success-dark transition-all duration-150"
               >
                 Go to Dashboard
               </Link>
@@ -60,7 +60,7 @@ export default function LandingPage() {
                 </Link>
                 <Link
                   href="/signup"
-                  className="inline-flex items-center justify-center px-5 py-2 bg-primary text-white font-semibold rounded-xl text-sm hover:bg-primary-dark transition-all shadow-[0_1px_4px_rgba(0,113,227,0.25)]"
+                  className="inline-flex items-center justify-center px-5 py-2 bg-success text-white font-semibold rounded-xl text-sm hover:bg-success-dark transition-all duration-150 shadow-[0_1px_4px_rgba(46,204,113,0.30)]"
                 >
                   Get Started
                 </Link>
@@ -89,7 +89,7 @@ export default function LandingPage() {
             {initialized && session ? (
               <Link
                 href="/dashboard"
-                className="inline-flex items-center justify-center px-8 py-3.5 bg-primary text-white font-semibold rounded-xl text-lg hover:bg-primary-dark transition-colors"
+                className="inline-flex items-center justify-center px-8 py-3.5 bg-success text-white font-semibold rounded-xl text-lg hover:bg-success-dark transition-all duration-150"
               >
                 Go to Dashboard
               </Link>
@@ -97,13 +97,13 @@ export default function LandingPage() {
               <>
                 <Link
                   href="/signup"
-                  className="inline-flex items-center justify-center px-8 py-3.5 bg-primary text-white font-semibold rounded-xl text-lg hover:bg-primary-dark transition-all shadow-[0_2px_8px_rgba(0,113,227,0.3)]"
+                  className="inline-flex items-center justify-center px-8 py-3.5 bg-success text-white font-semibold rounded-xl text-lg hover:bg-success-dark active:scale-[0.98] transition-all duration-150 shadow-[0_2px_12px_rgba(46,204,113,0.35)]"
                 >
                   Get Started — It&apos;s Free
                 </Link>
                 <Link
                   href="/login"
-                  className="inline-flex items-center justify-center px-8 py-3.5 border border-primary/30 text-primary font-semibold rounded-xl text-lg hover:bg-primary/5 transition-all"
+                  className="inline-flex items-center justify-center px-8 py-3.5 border border-primary/30 text-primary font-semibold rounded-xl text-lg hover:bg-primary/8 transition-all duration-150"
                 >
                   Sign In
                 </Link>

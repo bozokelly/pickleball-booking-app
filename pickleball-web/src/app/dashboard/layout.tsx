@@ -115,7 +115,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen bg-background flex">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col w-64 bg-white/80 backdrop-blur-xl border-r border-border/50 h-screen sticky top-0">
+      <aside className="hidden md:flex flex-col w-64 bg-surface-tint backdrop-blur-xl border-r border-primary/10 h-screen sticky top-0">
         <div className="p-6 pb-4">
           <h1 className="text-xl font-bold text-primary">Book a Dink</h1>
         </div>
@@ -123,7 +123,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="px-3 pb-3 relative" ref={userMenuRef}>
           <button
             onClick={() => setUserMenuOpen(!userMenuOpen)}
-            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-background transition-colors"
+            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-primary/8 transition-all duration-150"
           >
             {profile?.avatar_url ? (
               <Image src={profile.avatar_url} alt="" width={32} height={32} className="h-8 w-8 rounded-full object-cover flex-shrink-0" />
@@ -188,7 +188,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${active ? 'bg-primary/10 text-primary' : 'text-text-secondary hover:bg-background'}`}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${active ? 'bg-primary text-white shadow-[0_2px_8px_rgba(79,111,163,0.25)]' : 'text-text-secondary hover:bg-primary/10 hover:text-primary'}`}
               >
                 <Icon className="h-5 w-5" />
                 {label}
@@ -200,7 +200,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div>
             <button
               onClick={() => setClubsExpanded(!clubsExpanded)}
-              className={`flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${isClubsActive ? 'bg-primary/10 text-primary' : 'text-text-secondary hover:bg-background'}`}
+              className={`flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${isClubsActive ? 'bg-primary text-white shadow-[0_2px_8px_rgba(79,111,163,0.25)]' : 'text-text-secondary hover:bg-primary/10 hover:text-primary'}`}
             >
               <div className="flex items-center gap-3">
                 <Users className="h-5 w-5" />
@@ -212,14 +212,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="ml-5 mt-1 space-y-0.5">
                 <Link
                   href="/dashboard/games"
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${pathname === '/dashboard/games' ? 'text-primary font-medium' : 'text-text-secondary hover:bg-background'}`}
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${pathname === '/dashboard/games' ? 'text-primary font-semibold' : 'text-text-secondary hover:bg-primary/10 hover:text-primary'}`}
                 >
                   <Search className="h-4 w-4" />
                   Find a Club
                 </Link>
                 <Link
                   href="/dashboard/create-club"
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${pathname === '/dashboard/create-club' ? 'text-primary font-medium' : 'text-text-secondary hover:bg-background'}`}
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${pathname === '/dashboard/create-club' ? 'text-primary font-semibold' : 'text-text-secondary hover:bg-primary/10 hover:text-primary'}`}
                 >
                   <Plus className="h-4 w-4" />
                   Create a Club
@@ -231,7 +231,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <Link
                         key={club.id}
                         href={`/dashboard/club/${club.id}`}
-                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${pathname === `/dashboard/club/${club.id}` ? 'text-primary font-medium' : 'text-text-secondary hover:bg-background'}`}
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${pathname === `/dashboard/club/${club.id}` ? 'text-primary font-semibold' : 'text-text-secondary hover:bg-primary/10 hover:text-primary'}`}
                       >
                         <MapPin className="h-4 w-4 flex-shrink-0" />
                         <span className="truncate">{club.name}</span>
@@ -246,7 +246,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* Notifications */}
           <Link
             href="/dashboard/notifications"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${pathname === '/dashboard/notifications' ? 'bg-primary/10 text-primary' : 'text-text-secondary hover:bg-background'}`}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${pathname === '/dashboard/notifications' ? 'bg-primary text-white shadow-[0_2px_8px_rgba(79,111,163,0.25)]' : 'text-text-secondary hover:bg-primary/10 hover:text-primary'}`}
           >
             <div className="relative">
               <Bell className="h-5 w-5" />
@@ -263,7 +263,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {isAdmin && (
             <Link
               href="/dashboard/admin"
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${pathname.startsWith('/dashboard/admin') ? 'bg-primary/10 text-primary' : 'text-text-secondary hover:bg-background'}`}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${pathname.startsWith('/dashboard/admin') ? 'bg-primary text-white shadow-[0_2px_8px_rgba(79,111,163,0.25)]' : 'text-text-secondary hover:bg-primary/10 hover:text-primary'}`}
             >
               <Shield className="h-5 w-5" />
               Admin
@@ -280,7 +280,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </main>
 
       {/* Mobile Bottom Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-border/50 flex justify-around py-2 z-50">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-primary/10 flex justify-around py-2 z-50">
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
           return (

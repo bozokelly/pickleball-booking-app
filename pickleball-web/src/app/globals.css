@@ -1,33 +1,37 @@
 @import "tailwindcss";
 
 @theme inline {
-  /* Primary — refined, confident blue (Apple HIG) */
-  --color-primary: #0071E3;
-  --color-primary-light: #2997FF;
-  --color-primary-dark: #0058B9;
+  /* Primary — Slate Blue (brand identity) */
+  --color-primary: #4F6FA3;
+  --color-primary-light: #7A97C8;
+  --color-primary-dark: #3A5585;
 
-  /* Semantic — muted, sophisticated tones */
-  --color-success: #30B050;
-  --color-warning: #F59E0B;
+  /* CTA / Positive Action — Emerald */
+  --color-success: #2ECC71;
+  --color-success-dark: #27AE60;
+
+  /* Semantic */
+  --color-warning: #FFA500;
   --color-error: #EF4444;
   --color-info: #6366F1;
 
-  /* Surfaces — clean, elevated whites */
+  /* Surfaces — clean white + cool slate tint */
   --color-surface: #FFFFFF;
-  --color-background: #F5F5F7;
-  --color-border: #E8E8ED;
-  --color-separator: #D2D2D7;
+  --color-surface-tint: #F2F5FB;
+  --color-background: #EEF2F8;
+  --color-border: #D8E0EE;
+  --color-separator: #C4CDE0;
 
-  /* Typography — Apple's near-black hierarchy */
-  --color-text-primary: #1D1D1F;
-  --color-text-secondary: #6E6E73;
-  --color-text-tertiary: #98989D;
-  --color-disabled: #C7C7CC;
+  /* Typography — deep contrast with cool cast */
+  --color-text-primary: #1A1F2E;
+  --color-text-secondary: #5C6478;
+  --color-text-tertiary: #94A0B8;
+  --color-disabled: #C4CDE0;
 
-  /* Skill level colors — slightly desaturated for elegance */
+  /* Skill level colors */
   --color-skill-all: #86868B;
-  --color-skill-beginner: #30B050;
-  --color-skill-intermediate: #0071E3;
+  --color-skill-beginner: #2ECC71;
+  --color-skill-intermediate: #4F6FA3;
   --color-skill-advanced: #E67E22;
   --color-skill-pro: #E74C3C;
 
@@ -35,7 +39,7 @@
 }
 
 body {
-  background: linear-gradient(160deg, #FAFBFC 0%, #F5F5F7 35%, #F0F0F2 100%);
+  background: linear-gradient(160deg, #F6F8FC 0%, #EEF2F8 50%, #E8EDF5 100%);
   background-attachment: fixed;
   color: var(--color-text-primary);
   font-family: var(--font-sans);
@@ -67,7 +71,7 @@ body {
 .pac-container {
   border-radius: 12px;
   border: 1px solid var(--color-border);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 16px rgba(79, 111, 163, 0.10);
   margin-top: 4px;
   font-family: var(--font-sans);
   z-index: 9999;
