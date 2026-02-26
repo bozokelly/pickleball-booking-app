@@ -73,6 +73,16 @@ export default function LandingPage() {
 
       {/* Hero */}
       <section className="relative overflow-hidden">
+        {/* Faded logo watermark — sits behind gradient and content */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none" aria-hidden="true">
+          <Image
+            src="/images/logo-wide.png"
+            alt=""
+            width={700}
+            height={467}
+            className="w-[640px] max-w-[95vw] h-auto opacity-[0.07]"
+          />
+        </div>
         <div className="absolute inset-0 bg-gradient-to-b from-white/60 via-transparent to-transparent" />
         <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-20 sm:py-32 text-center">
           <div className="text-6xl sm:text-7xl mb-6">
