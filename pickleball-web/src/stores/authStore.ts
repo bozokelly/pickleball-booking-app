@@ -26,9 +26,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (_initialized) return;
     _initialized = true;
 
-    // Register auth state listener — only fetch profile on real auth changes, not initial event
-    supabase.auth.onAuthStateChange(async (_event, session) => {
+    // onAuthStateChange fires INITIAL_SESSION from local cookie storage — no network call.
+    // This is the reliable path for initialization. getUser() (a network round-trip) was
+    // previously used here but could hang on stale/expired cookies, leaving the spinner
+    // stuck indefinitely. The middleware already validates the session server-side on every
+    // request, so a client-side network validation on init is redundant.
+    supabase.auth.onAuthStateChange(async (event, session) => {
       const prev = get().session;
+
+      if (event === 'INITIAL_SESSION') {
+        set({ session, initialized: true });
+        if (session) {
+          await get().fetchProfile();
+        }
+        return;
+      }
+
       set({ session });
       if (session && session.user.id !== prev?.user?.id) {
         await get().fetchProfile();
@@ -36,22 +49,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ profile: null });
       }
     });
-
-    try {
-      // Single call — getUser() validates the session and returns the user
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error || !user) {
-        set({ session: null, profile: null, initialized: true });
-      } else {
-        // Get the session (local, no network call after getUser refreshed it)
-        const { data: { session } } = await supabase.auth.getSession();
-        set({ session, initialized: true });
-        await get().fetchProfile();
-      }
-    } catch (err) {
-      console.warn('Auth initialization failed:', err);
-      set({ initialized: true });
-    }
   },
 
   signUp: async (email, password, fullName) => {
