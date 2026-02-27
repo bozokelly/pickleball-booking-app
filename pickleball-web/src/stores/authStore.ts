@@ -26,22 +26,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (_initialized) return;
     _initialized = true;
 
-    // onAuthStateChange fires INITIAL_SESSION from local cookie storage — no network call.
-    // This is the reliable path for initialization. getUser() (a network round-trip) was
-    // previously used here but could hang on stale/expired cookies, leaving the spinner
-    // stuck indefinitely. The middleware already validates the session server-side on every
-    // request, so a client-side network validation on init is redundant.
-    supabase.auth.onAuthStateChange(async (event, session) => {
+    // onAuthStateChange handles all future auth events (sign in, sign out, token refresh).
+    supabase.auth.onAuthStateChange(async (_event, session) => {
       const prev = get().session;
-
-      if (event === 'INITIAL_SESSION') {
-        set({ session, initialized: true });
-        if (session) {
-          await get().fetchProfile();
-        }
-        return;
-      }
-
       set({ session });
       if (session && session.user.id !== prev?.user?.id) {
         await get().fetchProfile();
@@ -49,6 +36,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ profile: null });
       }
     });
+
+    // getSession() reads the current session from cookies — no network call when the
+    // token is valid (middleware keeps it fresh). Replaces getUser() which made an
+    // unconditional network round-trip that could hang on stale cookies and leave
+    // initialized=false permanently, and replaces INITIAL_SESSION which carried a
+    // stale snapshot from subscription time and could overwrite a valid session.
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      set({ session, initialized: true });
+      if (session) {
+        await get().fetchProfile();
+      }
+    } catch (err) {
+      console.warn('Auth initialization failed:', err);
+      set({ initialized: true });
+    }
   },
 
   signUp: async (email, password, fullName) => {
