@@ -30,6 +30,49 @@ const features = [
   },
 ];
 
+const steps = [
+  {
+    number: '1',
+    title: 'Create your account',
+    description: 'Sign up in seconds, no credit card needed.',
+  },
+  {
+    number: '2',
+    title: 'Find your club',
+    description: 'Browse local clubs, request membership, get approved.',
+  },
+  {
+    number: '3',
+    title: 'Book your game',
+    description: 'Reserve a spot or join the waitlist — never miss a game.',
+  },
+];
+
+const stats = [
+  { value: '50+', label: 'Clubs' },
+  { value: '1,200+', label: 'Players' },
+  { value: '5,000+', label: 'Games Booked' },
+  { value: 'Free', label: 'to Join' },
+];
+
+const testimonials = [
+  {
+    quote: 'Finally an easy way to book pickleball. My whole club uses it now.',
+    name: 'Sarah M.',
+    role: 'Club Admin',
+  },
+  {
+    quote: 'The waitlist feature is a game changer. I never miss a spot anymore.',
+    name: 'Jake T.',
+    role: 'Player',
+  },
+  {
+    quote: 'Set up our club in minutes. The booking management is super clean.',
+    name: 'Rachel K.',
+    role: 'Club Organizer',
+  },
+];
+
 export default function LandingPage() {
   const { session, initialized, initialize } = useAuthStore();
 
@@ -125,6 +168,43 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* How It Works */}
+      <section className="relative bg-white/60 border-y border-border/40 py-16 sm:py-24">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          <h2 className="text-2xl sm:text-3xl font-bold text-text-primary text-center mb-4">
+            How It Works
+          </h2>
+          <p className="text-text-secondary text-center max-w-xl mx-auto mb-12">
+            Get on the court in three easy steps.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+            {steps.map((step) => (
+              <div key={step.number} className="flex flex-col items-center text-center">
+                <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center mb-4 shadow-[0_2px_8px_rgba(79,111,163,0.30)]">
+                  <span className="text-white font-bold text-lg">{step.number}</span>
+                </div>
+                <h3 className="text-base font-semibold text-text-primary mb-2">{step.title}</h3>
+                <p className="text-sm text-text-secondary">{step.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Stats Bar */}
+      <section className="relative bg-primary py-10">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
+            {stats.map((stat) => (
+              <div key={stat.label}>
+                <p className="text-3xl font-bold text-white">{stat.value}</p>
+                <p className="text-sm text-white/70 mt-1">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Features */}
       <section className="max-w-5xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
         <h2 className="text-2xl sm:text-3xl font-bold text-text-primary text-center mb-4">
@@ -146,6 +226,59 @@ export default function LandingPage() {
               <p className="text-sm text-text-secondary">{feature.description}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section className="relative bg-white/60 border-y border-border/40 py-16 sm:py-24">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          <h2 className="text-2xl sm:text-3xl font-bold text-text-primary text-center mb-4">
+            Loved by Players
+          </h2>
+          <p className="text-text-secondary text-center max-w-xl mx-auto mb-12">
+            Join a growing community of pickleball enthusiasts.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {testimonials.map((t) => (
+              <div
+                key={t.name}
+                className="bg-white rounded-2xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)] border border-border/30"
+              >
+                <p className="text-text-primary text-base leading-relaxed mb-4">&ldquo;{t.quote}&rdquo;</p>
+                <div>
+                  <p className="text-sm font-semibold text-text-primary">{t.name}</p>
+                  <p className="text-xs text-text-tertiary">{t.role}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Bottom CTA */}
+      <section className="relative py-20 sm:py-28 overflow-hidden">
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 text-center">
+          <h2 className="text-3xl sm:text-4xl font-bold text-text-primary mb-4">
+            Ready to play?
+          </h2>
+          <p className="text-lg text-text-secondary max-w-xl mx-auto mb-8">
+            Join thousands of pickleball players booking games every day.
+          </p>
+          {initialized && session ? (
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center px-8 py-3.5 bg-success text-white font-semibold rounded-xl text-lg hover:bg-success-dark active:scale-[0.98] transition-all duration-150 shadow-[0_2px_12px_rgba(46,204,113,0.35)]"
+            >
+              Go to Dashboard
+            </Link>
+          ) : (
+            <Link
+              href="/signup"
+              className="inline-flex items-center justify-center px-8 py-3.5 bg-success text-white font-semibold rounded-xl text-lg hover:bg-success-dark active:scale-[0.98] transition-all duration-150 shadow-[0_2px_12px_rgba(46,204,113,0.35)]"
+            >
+              Get Started — It&apos;s Free
+            </Link>
+          )}
         </div>
       </section>
 
