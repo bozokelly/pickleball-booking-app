@@ -17,41 +17,68 @@ interface AuthState {
   deleteAccount: () => Promise<void>;
 }
 
-let _initialized = false;
+const AUTH_INIT_TIMEOUT_MS = 8000;
+let _authListenerAttached = false;
+let _initializePromise: Promise<void> | null = null;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: null, profile: null, loading: false, initialized: false,
 
   initialize: async () => {
-    if (_initialized) return;
-    _initialized = true;
+    if (get().initialized) return;
+    if (_initializePromise) return _initializePromise;
 
     // onAuthStateChange handles all future auth events (sign in, sign out, token refresh).
-    supabase.auth.onAuthStateChange(async (_event, session) => {
-      const prev = get().session;
-      set({ session });
-      if (session && session.user.id !== prev?.user?.id) {
-        await get().fetchProfile();
-      } else if (!session) {
-        set({ profile: null });
-      }
-    });
-
-    // getSession() reads the current session from cookies — no network call when the
-    // token is valid (middleware keeps it fresh). Replaces getUser() which made an
-    // unconditional network round-trip that could hang on stale cookies and leave
-    // initialized=false permanently, and replaces INITIAL_SESSION which carried a
-    // stale snapshot from subscription time and could overwrite a valid session.
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      set({ session, initialized: true });
-      if (session) {
-        await get().fetchProfile();
-      }
-    } catch (err) {
-      console.warn('Auth initialization failed:', err);
-      set({ initialized: true });
+    if (!_authListenerAttached) {
+      _authListenerAttached = true;
+      supabase.auth.onAuthStateChange(async (_event, session) => {
+        const prev = get().session;
+        set({ session });
+        if (session && session.user.id !== prev?.user?.id) {
+          await get().fetchProfile();
+        } else if (!session) {
+          set({ profile: null });
+        }
+      });
     }
+
+    _initializePromise = (async () => {
+      // getSession() reads the current session from cookies/local storage.
+      // Guard with a timeout so stale browser auth state cannot lock the app spinner forever.
+      try {
+        const { data: { session } } = await withTimeout(
+          supabase.auth.getSession(),
+          AUTH_INIT_TIMEOUT_MS,
+          'supabase.auth.getSession()'
+        );
+        set({ session, initialized: true });
+        if (session) {
+          await get().fetchProfile();
+        }
+      } catch (err) {
+        console.warn('Auth initialization failed:', err);
+        set({ session: null, profile: null, initialized: true });
+      } finally {
+        _initializePromise = null;
+      }
+    })();
+
+    return _initializePromise;
   },
 
   signUp: async (email, password, fullName) => {

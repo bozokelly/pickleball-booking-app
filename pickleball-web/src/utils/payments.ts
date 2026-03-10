@@ -5,8 +5,8 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY 
 
 export async function processBookingPayment(
   bookingId: string,
-  amount: number,
-  currency: string
+  _amount: number,
+  _currency: string
 ): Promise<void> {
   const stripe = await stripePromise;
   if (!stripe) throw new Error('Stripe not loaded');
@@ -22,10 +22,10 @@ export async function processBookingPayment(
   const { clientSecret } = data;
   if (!clientSecret) throw new Error('No client secret returned');
 
+  // Test-mode fallback payment method until Elements UI is integrated.
+  const testPaymentMethod = 'pm_card_visa';
   const { error: confirmError } = await stripe.confirmCardPayment(clientSecret, {
-    payment_method: {
-      card: { token: 'tok_visa' }, // In production, use Stripe Elements
-    } as any,
+    payment_method: testPaymentMethod,
   });
 
   if (confirmError) throw new Error(confirmError.message);

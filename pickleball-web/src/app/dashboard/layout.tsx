@@ -78,23 +78,36 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // Build sidebar clubs list from store data
   useEffect(() => {
-    const memberIds = myMemberships
-      .filter((m) => m.status === 'approved')
-      .map((m) => m.club_id);
-    const adminIds = myAdminClubs.map((c) => c.id);
-    const allIds = [...new Set([...memberIds, ...adminIds])];
-    if (allIds.length === 0) {
-      setMyClubs([]);
-      return;
+    let isCancelled = false;
+
+    async function loadSidebarClubs() {
+      const memberIds = myMemberships
+        .filter((m) => m.status === 'approved')
+        .map((m) => m.club_id);
+      const adminIds = myAdminClubs.map((c) => c.id);
+      const allIds = [...new Set([...memberIds, ...adminIds])];
+
+      if (allIds.length === 0) {
+        if (!isCancelled) setMyClubs([]);
+        return;
+      }
+
+      const { data } = await supabase
+        .from('clubs')
+        .select('*')
+        .in('id', allIds)
+        .order('name');
+
+      if (!isCancelled) setMyClubs(data || []);
     }
-    supabase
-      .from('clubs')
-      .select('*')
-      .in('id', allIds)
-      .order('name')
-      .then(({ data }) => {
-        setMyClubs(data || []);
-      });
+
+    loadSidebarClubs().catch(() => {
+      if (!isCancelled) setMyClubs([]);
+    });
+
+    return () => {
+      isCancelled = true;
+    };
   }, [myMemberships, myAdminClubs]);
 
   if (!initialized) {

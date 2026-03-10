@@ -40,6 +40,11 @@ interface ConfirmedPlayer {
   profile: Pick<Profile, 'id' | 'full_name' | 'avatar_url' | 'dupr_rating'>;
 }
 
+interface BookingWithProfile {
+  user_id: string;
+  profile: Pick<Profile, 'id' | 'full_name' | 'avatar_url' | 'dupr_rating'> | Pick<Profile, 'id' | 'full_name' | 'avatar_url' | 'dupr_rating'>[] | null;
+}
+
 const METHODS: AllocationMethod[] = [
   'random',
   'dupr_balanced',
@@ -88,17 +93,22 @@ export default function ScheduleGamePage({ params }: { params: Promise<{ id: str
       }
       setGame(gameData);
 
-      const { data: bookings } = await supabase
+      const { data } = await supabase
         .from('bookings')
         .select('user_id, profile:profiles(id, full_name, avatar_url, dupr_rating)')
         .eq('game_id', gameId)
         .eq('status', 'confirmed');
 
-      if (bookings) {
+      if (data) {
+        const bookings = data as BookingWithProfile[];
         const confirmed: ConfirmedPlayer[] = bookings
-          .filter((b: any) => b.profile)
-          .map((b: any) => ({
+          .map((b) => ({
             id: b.user_id,
+            profile: Array.isArray(b.profile) ? (b.profile[0] || null) : b.profile,
+          }))
+          .filter((b): b is ConfirmedPlayer => Boolean(b.profile))
+          .map((b) => ({
+            id: b.id,
             profile: b.profile,
           }));
         setPlayers(confirmed);

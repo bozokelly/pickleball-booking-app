@@ -47,7 +47,7 @@ export default function CreateClubPage() {
       showToast('Club created!', 'success');
       router.push('/dashboard/admin');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : (err as any)?.message || 'Failed to create club';
+      const message = err instanceof Error ? err.message : 'Failed to create club';
       showToast(message, 'error');
     } finally {
       setLoading(false);

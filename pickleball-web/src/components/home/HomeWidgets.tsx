@@ -46,47 +46,54 @@ export default function HomeWidgets({ onClubsLoaded }: { onClubsLoaded?: (clubs:
 
   // Fetch upcoming games + clubs in a single effect with parallel queries
   useEffect(() => {
-    const memberIds = myMemberships
-      .filter((m) => m.status === 'approved')
-      .map((m) => m.club_id);
-    const adminIds = myAdminClubs.map((c) => c.id);
-    const allIds = [...new Set([...memberIds, ...adminIds])];
+    let isCancelled = false;
 
-    if (allIds.length === 0) {
-      setUpcomingGames([]);
-      setMyClubs([]);
-      onClubsLoaded?.([]);
-      return;
-    }
+    async function loadUpcomingGamesAndClubs() {
+      const memberIds = myMemberships
+        .filter((m) => m.status === 'approved')
+        .map((m) => m.club_id);
+      const adminIds = myAdminClubs.map((c) => c.id);
+      const allIds = [...new Set([...memberIds, ...adminIds])];
 
-    const now = new Date().toISOString();
+      if (allIds.length === 0) {
+        if (!isCancelled) {
+          setUpcomingGames([]);
+          setMyClubs([]);
+          onClubsLoaded?.([]);
+        }
+        return;
+      }
 
-    // Fetch games and clubs in parallel
-    Promise.all([
-      supabase
-        .from('games')
-        .select('*, club:clubs(*)')
-        .in('club_id', allIds)
-        .eq('status', 'upcoming')
-        .gte('date_time', now)
-        .or(`visible_from.is.null,visible_from.lte.${now}`)
-        .order('date_time', { ascending: true })
-        .limit(5),
-      supabase
-        .from('clubs')
-        .select('*')
-        .in('id', allIds)
-        .order('name'),
-    ]).then(async ([gamesResult, clubsResult]) => {
-      // Set clubs
+      const now = new Date().toISOString();
+
+      // Fetch games and clubs in parallel
+      const [gamesResult, clubsResult] = await Promise.all([
+        supabase
+          .from('games')
+          .select('*, club:clubs(*)')
+          .in('club_id', allIds)
+          .eq('status', 'upcoming')
+          .gte('date_time', now)
+          .or(`visible_from.is.null,visible_from.lte.${now}`)
+          .order('date_time', { ascending: true })
+          .limit(5),
+        supabase
+          .from('clubs')
+          .select('*')
+          .in('id', allIds)
+          .order('name'),
+      ]);
+
       const clubs = clubsResult.data || [];
-      setMyClubs(clubs);
-      onClubsLoaded?.(clubs);
+      if (!isCancelled) {
+        setMyClubs(clubs);
+        onClubsLoaded?.(clubs);
+      }
 
       // Set games with booking counts
       const gameData = gamesResult.data;
       if (!gameData || gameData.length === 0) {
-        setUpcomingGames([]);
+        if (!isCancelled) setUpcomingGames([]);
         return;
       }
 
@@ -101,8 +108,22 @@ export default function HomeWidgets({ onClubsLoaded }: { onClubsLoaded?: (clubs:
         countMap[b.game_id] = (countMap[b.game_id] || 0) + 1;
       });
 
-      setUpcomingGames(gameData.map((g) => ({ ...g, confirmed_count: countMap[g.id] || 0 })));
+      if (!isCancelled) {
+        setUpcomingGames(gameData.map((g) => ({ ...g, confirmed_count: countMap[g.id] || 0 })));
+      }
+    }
+
+    loadUpcomingGamesAndClubs().catch(() => {
+      if (!isCancelled) {
+        setUpcomingGames([]);
+        setMyClubs([]);
+        onClubsLoaded?.([]);
+      }
     });
+
+    return () => {
+      isCancelled = true;
+    };
   }, [myMemberships, myAdminClubs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const greeting = getGreeting();
