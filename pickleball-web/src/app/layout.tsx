@@ -6,6 +6,7 @@ import { ToastProvider } from '@/components/ui/Toast';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://bookadink.com'),
   title: 'Book a Dink — Pickleball Booking Made Easy',
   description: 'Find games, join clubs, and connect with players in your area. The easiest way to organize and book pickleball.',
   openGraph: {
