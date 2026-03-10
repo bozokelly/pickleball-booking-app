@@ -48,9 +48,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (initialized && !session) {
-      router.replace('/login');
+      const next = pathname || '/dashboard';
+      router.replace(`/login?next=${encodeURIComponent(next)}&recover=1`);
     }
-  }, [initialized, session, router]);
+  }, [initialized, session, router, pathname]);
 
   // Redirect to onboarding if profile is missing required fields
   useEffect(() => {

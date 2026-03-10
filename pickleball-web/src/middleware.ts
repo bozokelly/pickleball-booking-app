@@ -37,8 +37,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users away from auth pages
-  if (user && (pathname === '/login' || pathname === '/signup')) {
+  // Redirect authenticated users away from auth pages.
+  // If a `next` param is present, allow auth pages for client-session recovery flows.
+  const hasNext = request.nextUrl.searchParams.has('next');
+  if (user && (pathname === '/login' || pathname === '/signup') && !hasNext) {
     const next = request.nextUrl.searchParams.get('next');
     const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
     return NextResponse.redirect(new URL(safeNext, request.url));
