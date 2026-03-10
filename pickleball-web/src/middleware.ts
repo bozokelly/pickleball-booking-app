@@ -26,20 +26,22 @@ export async function middleware(request: NextRequest) {
   // Use getUser() (server-validated) instead of getSession() to avoid trusting stale cookies.
   // Stale/invalid auth cookies can otherwise allow /dashboard while client auth is null.
   const { data: { user } } = await supabase.auth.getUser();
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
+  const requestedPath = `${pathname}${search || ''}`;
 
   // Protect dashboard routes — redirect to login if not authenticated
   if (!user && pathname.startsWith('/dashboard')) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
+    url.searchParams.set('next', requestedPath);
     return NextResponse.redirect(url);
   }
 
   // Redirect authenticated users away from auth pages
   if (user && (pathname === '/login' || pathname === '/signup')) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/dashboard';
-    return NextResponse.redirect(url);
+    const next = request.nextUrl.searchParams.get('next');
+    const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
+    return NextResponse.redirect(new URL(safeNext, request.url));
   }
 
   return supabaseResponse;

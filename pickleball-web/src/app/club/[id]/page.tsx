@@ -79,7 +79,9 @@ export default async function ClubFallbackPage({ params }: { params: Promise<{ i
   const siteOrigin = getSiteOrigin();
   const shareUrl = `${siteOrigin}/club/${normalizedId}`;
   const appStoreUrl = getAppStoreUrl();
-  const continueOnWebUrl = `/dashboard/club/${normalizedId}`;
+  const webTarget = `/dashboard/club/${normalizedId}`;
+  const continueOnWebUrl = `/login?next=${encodeURIComponent(webTarget)}`;
+  const createAccountUrl = `/signup?next=${encodeURIComponent(webTarget)}`;
 
   return (
     <main className="min-h-screen bg-background">
@@ -118,6 +120,10 @@ export default async function ClubFallbackPage({ params }: { params: Promise<{ i
               <div className="mt-4">
                 <Link href={continueOnWebUrl} className="text-sm text-text-secondary hover:text-primary underline underline-offset-4">
                   Continue on Web
+                </Link>
+                <span className="mx-2 text-text-tertiary">·</span>
+                <Link href={createAccountUrl} className="text-sm text-text-secondary hover:text-primary underline underline-offset-4">
+                  Create Account
                 </Link>
               </div>
             </>

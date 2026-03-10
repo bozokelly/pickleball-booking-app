@@ -23,7 +23,11 @@ export default function LoginPage() {
     }
     try {
       await signIn(email, password);
-      router.replace('/dashboard');
+      const next = typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('next')
+        : null;
+      const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
+      router.replace(safeNext);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Sign in failed';
       showToast(message, 'error');
