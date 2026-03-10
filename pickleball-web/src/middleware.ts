@@ -23,8 +23,9 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const { data: { session } } = await supabase.auth.getSession();
-  const user = session?.user ?? null;
+  // Use getUser() (server-validated) instead of getSession() to avoid trusting stale cookies.
+  // Stale/invalid auth cookies can otherwise allow /dashboard while client auth is null.
+  const { data: { user } } = await supabase.auth.getUser();
   const { pathname } = request.nextUrl;
 
   // Protect dashboard routes — redirect to login if not authenticated
