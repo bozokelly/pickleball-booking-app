@@ -44,12 +44,16 @@ This is intentionally detailed so engineering/product can use one source of trut
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
 - `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`
+- `IOS_APP_IDS` (comma-separated Apple App IDs like `TEAMID.com.bookadink.app`)
+- `ANDROID_APP_PACKAGE`
+- `ANDROID_SHA256_CERT_FINGERPRINTS` (comma-separated)
 
 If missing:
 
 - Auth and data calls fail or use placeholder config.
 - Payments cannot initialize.
 - Maps/autocomplete fail to load.
+- Universal/App Link association endpoints return empty mappings.
 
 ## 2.4 Route map (high level)
 
@@ -412,7 +416,15 @@ Legend:
 - [ ] Focus states visible on interactive controls.
 - [ ] Color contrast acceptable for key text and action surfaces.
 
-## 6.17 Security / authorization checks
+## 6.17 Universal/App Links
+
+- [ ] `/.well-known/apple-app-site-association` returns valid JSON (200, no redirect).
+- [ ] `/.well-known/assetlinks.json` returns valid JSON (200, no redirect).
+- [ ] iOS Associated Domains config includes `applinks:bookadink.com`.
+- [ ] Android intent filter + SHA256 fingerprints match production signing certs.
+- [ ] Shared `https://bookadink.com/...` links open app when installed and web when not installed.
+
+## 6.18 Security / authorization checks
 
 - [ ] Non-admin user cannot access admin-only actions in UI.
 - [ ] Server-side/RLS denies unauthorized data updates.
