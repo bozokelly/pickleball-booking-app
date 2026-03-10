@@ -68,7 +68,9 @@ export default function SignupPage() {
     return (
       <div>
         <div className="flex justify-center mb-8">
-          <img src="/images/logo-wide.png" alt="Book a Dink" className="w-64 h-auto object-contain" />
+          <Link href="/" aria-label="Go to home page">
+            <img src="/images/logo-wide.png" alt="Book a Dink" className="w-64 h-auto object-contain" />
+          </Link>
         </div>
         <Card className="p-8">
           {/* Animated mail icon */}
@@ -147,7 +149,9 @@ export default function SignupPage() {
     <div>
       {/* Branding */}
       <div className="text-center mb-6">
-        <h1 className="text-2xl font-bold text-primary">Book a Dink</h1>
+        <Link href="/" aria-label="Go to home page" className="text-2xl font-bold text-primary hover:opacity-90 transition-opacity">
+          Book a Dink
+        </Link>
       </div>
 
       {/* Tab toggle */}

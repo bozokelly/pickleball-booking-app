@@ -34,7 +34,9 @@ export default function LoginPage() {
     <div>
       {/* Branding */}
       <div className="flex justify-center mb-8">
-        <img src="/images/logo-wide.png" alt="Book a Dink" className="w-64 h-auto object-contain" />
+        <Link href="/" aria-label="Go to home page">
+          <img src="/images/logo-wide.png" alt="Book a Dink" className="w-64 h-auto object-contain" />
+        </Link>
       </div>
 
       {/* Tab toggle */}

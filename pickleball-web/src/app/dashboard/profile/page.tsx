@@ -201,11 +201,7 @@ export default function ProfilePage() {
               <Link key={club.id} href={`/dashboard/club/${club.id}`}>
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-background hover:bg-primary/5 transition-colors cursor-pointer">
                   <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden flex-shrink-0">
-                    {club.image_url ? (
-                      <Image src={club.image_url} alt="" width={40} height={40} className="h-10 w-10 rounded-xl object-cover" />
-                    ) : (
-                      <Users className="h-5 w-5 text-primary" />
-                    )}
+                    <Users className="h-5 w-5 text-primary" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-text-primary truncate">{club.name}</p>

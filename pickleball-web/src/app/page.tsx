@@ -96,7 +96,9 @@ export default function LandingPage() {
       {/* Nav */}
       <nav className="relative border-b border-border/50 bg-white/70 backdrop-blur-xl sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <Image src="/images/logo.png" alt="Book a Dink" width={44} height={44} className="object-contain drop-shadow-sm" />
+          <Link href="/" aria-label="Go to home page">
+            <Image src="/images/logo.png" alt="Book a Dink" width={44} height={44} className="object-contain drop-shadow-sm" />
+          </Link>
           <div className="flex gap-3">
             {initialized && session ? (
               <Link

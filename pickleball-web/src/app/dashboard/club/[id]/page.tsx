@@ -149,13 +149,6 @@ export default function ClubDetailPage({ params }: { params: Promise<{ id: strin
         <ArrowLeft className="h-4 w-4" /> Back
       </button>
 
-      {/* Hero image */}
-      {club.image_url && (
-        <div className="rounded-2xl overflow-hidden aspect-[3/1] relative">
-          <Image src={club.image_url} alt={club.name} fill className="object-cover" />
-        </div>
-      )}
-
       {/* Club name + badges */}
       <div>
         <h1 className="text-2xl font-bold text-text-primary">{club.name}</h1>

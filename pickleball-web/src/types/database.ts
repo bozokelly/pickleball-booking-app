@@ -74,7 +74,7 @@ export interface FeedPost {
   image_urls: string[];
   created_at: string; updated_at: string;
   profile?: Pick<Profile, 'full_name' | 'avatar_url'>;
-  club?: Pick<Club, 'id' | 'name' | 'image_url'>;
+  club?: Pick<Club, 'id' | 'name'>;
   reaction_counts?: Record<ReactionType, number>;
   user_reaction?: ReactionType | null;
   comment_count?: number;

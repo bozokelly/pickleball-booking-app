@@ -38,7 +38,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
 
       let query = supabase
         .from('feed_posts')
-        .select('*, profile:profiles!feed_posts_user_id_fkey(full_name, avatar_url), club:clubs!feed_posts_club_id_fkey(id, name, image_url)')
+        .select('*, profile:profiles!feed_posts_user_id_fkey(full_name, avatar_url), club:clubs!feed_posts_club_id_fkey(id, name)')
         .order('created_at', { ascending: false })
         .range(offset, offset + PAGE_SIZE - 1);
 

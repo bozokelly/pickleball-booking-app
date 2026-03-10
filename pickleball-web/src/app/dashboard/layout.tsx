@@ -117,7 +117,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-64 bg-surface-tint backdrop-blur-xl border-r border-primary/10 h-screen sticky top-0">
         <div className="px-3 pt-4 pb-2">
-          <Image src="/images/logo-wide.png" alt="Book a Dink" width={220} height={147} className="w-full h-auto object-contain" />
+          <Link href="/" aria-label="Go to home page" className="block">
+            <Image src="/images/logo-wide.png" alt="Book a Dink" width={220} height={147} className="w-full h-auto object-contain" />
+          </Link>
         </div>
         {/* User profile dropdown */}
         <div className="px-3 pb-3 relative" ref={userMenuRef}>
