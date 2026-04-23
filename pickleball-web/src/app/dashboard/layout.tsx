@@ -48,8 +48,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (initialized && !session) {
-      const next = pathname || '/dashboard';
-      router.replace(`/login?next=${encodeURIComponent(next)}&recover=1`);
+      const next = encodeURIComponent(pathname || '/dashboard');
+      router.replace(`/login?next=${next}`);
     }
   }, [initialized, session, router, pathname]);
 

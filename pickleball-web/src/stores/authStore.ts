@@ -25,14 +25,8 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): 
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
     promise
-      .then((value) => {
-        clearTimeout(timer);
-        resolve(value);
-      })
-      .catch((error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
+      .then((value) => { clearTimeout(timer); resolve(value); })
+      .catch((error) => { clearTimeout(timer); reject(error); });
   });
 }
 
@@ -43,13 +37,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (get().initialized) return;
     if (_initializePromise) return _initializePromise;
 
-    // onAuthStateChange handles all future auth events (sign in, sign out, token refresh).
+    // Attach a single long-lived listener for all future auth events.
+    // onAuthStateChange covers token refresh, tab-sync sign-out, etc.
     if (!_authListenerAttached) {
       _authListenerAttached = true;
       supabase.auth.onAuthStateChange(async (_event, session) => {
         const prev = get().session;
-        set({ session });
+        set({ session, initialized: true });
         if (session && session.user.id !== prev?.user?.id) {
+          // New user signed in (or different user)
           await get().fetchProfile();
         } else if (!session) {
           set({ profile: null });
@@ -58,8 +54,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     _initializePromise = (async () => {
-      // getSession() reads the current session from cookies/local storage.
-      // Guard with a timeout so stale browser auth state cannot lock the app spinner forever.
       try {
         const { data: { session } } = await withTimeout(
           supabase.auth.getSession(),
@@ -98,14 +92,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signIn: async (email, password) => {
     set({ loading: true });
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw new Error(error.message);
-    } finally { set({ loading: false }); }
+      // Set session synchronously from the API response so any navigation
+      // that happens immediately after signIn() returns sees a valid session.
+      // Without this, callers that call router.replace() right after signIn()
+      // race against onAuthStateChange (which fires asynchronously) and the
+      // dashboard layout's !session guard bounces the user back to /login.
+      if (data.session) {
+        set({ session: data.session, initialized: true });
+        await get().fetchProfile();
+      }
+    } finally {
+      set({ loading: false });
+    }
   },
 
   signOut: async () => {
-    await supabase.auth.signOut();
-    set({ session: null, profile: null });
+    // Always clear local state even if the network call fails, so the user
+    // isn't left in a half-authenticated state that requires clearing storage.
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      // Reset initialized so the next initialize() call re-reads session state
+      // from cookies rather than short-circuiting. Without this, a subsequent
+      // signIn() on the same page would race with onAuthStateChange.
+      set({ session: null, profile: null, initialized: false });
+    }
   },
 
   resetPassword: async (email) => {
@@ -155,7 +168,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
     if (error) throw new Error(error.message);
     if (data?.error) throw new Error(data.error);
-    await supabase.auth.signOut();
-    set({ session: null, profile: null });
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      set({ session: null, profile: null, initialized: false });
+    }
   },
 }));

@@ -23,13 +23,12 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Use getUser() (server-validated) instead of getSession() to avoid trusting stale cookies.
-  // Stale/invalid auth cookies can otherwise allow /dashboard while client auth is null.
+  // getUser() validates the JWT against Supabase — avoids trusting stale cookies.
   const { data: { user } } = await supabase.auth.getUser();
   const { pathname, search } = request.nextUrl;
   const requestedPath = `${pathname}${search || ''}`;
 
-  // Protect dashboard routes — redirect to login if not authenticated
+  // Protect all /dashboard routes — redirect unauthenticated users to login.
   if (!user && pathname.startsWith('/dashboard')) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
@@ -37,10 +36,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users away from auth pages.
-  // If a `next` param is present, allow auth pages for client-session recovery flows.
-  const hasNext = request.nextUrl.searchParams.has('next');
-  if (user && (pathname === '/login' || pathname === '/signup') && !hasNext) {
+  // Redirect authenticated users away from /login and /signup.
+  // Allow through if a ?next param is present — that's the recovery/redirect flow
+  // where the client needs to land on the auth page to pick up the ?next param.
+  if (user && (pathname === '/login' || pathname === '/signup')) {
     const next = request.nextUrl.searchParams.get('next');
     const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
     return NextResponse.redirect(new URL(safeNext, request.url));
