@@ -117,7 +117,7 @@ export default function LandingPage() {
                 </Link>
                 <Link
                   href="/signup"
-                  className="inline-flex items-center justify-center px-5 py-2 bg-success text-white font-semibold rounded-xl text-sm hover:bg-success-dark transition-all duration-150 shadow-[0_1px_4px_rgba(46,204,113,0.30)]"
+                  className="inline-flex items-center justify-center px-5 py-2 bg-[#1C1C1E] text-white font-semibold rounded-xl text-sm hover:bg-black transition-all duration-150 shadow-[0_1px_4px_rgba(0,0,0,0.20)]"
                 >
                   Get Started
                 </Link>
@@ -154,7 +154,7 @@ export default function LandingPage() {
               <>
                 <Link
                   href="/signup"
-                  className="inline-flex items-center justify-center px-8 py-3.5 bg-success text-white font-semibold rounded-xl text-lg hover:bg-success-dark active:scale-[0.98] transition-all duration-150 shadow-[0_2px_12px_rgba(46,204,113,0.35)]"
+                  className="inline-flex items-center justify-center px-8 py-3.5 bg-[#1C1C1E] text-white font-semibold rounded-2xl text-lg hover:bg-black active:scale-[0.98] transition-all duration-150 shadow-[0_2px_8px_rgba(0,0,0,0.20)]"
                 >
                   Get Started — It&apos;s Free
                 </Link>
@@ -182,7 +182,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
             {steps.map((step) => (
               <div key={step.number} className="flex flex-col items-center text-center">
-                <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center mb-4 shadow-[0_2px_8px_rgba(79,111,163,0.30)]">
+                <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center mb-4 shadow-[0_2px_8px_rgba(0,0,0,0.12)]">
                   <span className="text-white font-bold text-lg">{step.number}</span>
                 </div>
                 <h3 className="text-base font-semibold text-text-primary mb-2">{step.title}</h3>
@@ -269,14 +269,14 @@ export default function LandingPage() {
           {initialized && session ? (
             <Link
               href="/dashboard"
-              className="inline-flex items-center justify-center px-8 py-3.5 bg-success text-white font-semibold rounded-xl text-lg hover:bg-success-dark active:scale-[0.98] transition-all duration-150 shadow-[0_2px_12px_rgba(46,204,113,0.35)]"
+              className="inline-flex items-center justify-center px-8 py-3.5 bg-[#1C1C1E] text-white font-semibold rounded-2xl text-lg hover:bg-black active:scale-[0.98] transition-all duration-150 shadow-[0_2px_8px_rgba(0,0,0,0.20)]"
             >
               Go to Dashboard
             </Link>
           ) : (
             <Link
               href="/signup"
-              className="inline-flex items-center justify-center px-8 py-3.5 bg-success text-white font-semibold rounded-xl text-lg hover:bg-success-dark active:scale-[0.98] transition-all duration-150 shadow-[0_2px_12px_rgba(46,204,113,0.35)]"
+              className="inline-flex items-center justify-center px-8 py-3.5 bg-[#1C1C1E] text-white font-semibold rounded-2xl text-lg hover:bg-black active:scale-[0.98] transition-all duration-150 shadow-[0_2px_8px_rgba(0,0,0,0.20)]"
             >
               Get Started — It&apos;s Free
             </Link>

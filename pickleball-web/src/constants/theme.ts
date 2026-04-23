@@ -1,19 +1,20 @@
 export const colors = {
-  // Brand — Slate Blue
-  primary: '#4F6FA3', primaryLight: '#7A97C8', primaryDark: '#3A5585',
-  // CTA — Emerald
-  success: '#2ECC71', successDark: '#27AE60',
-  // Semantic
-  warning: '#FFA500', error: '#EF4444', info: '#6366F1',
+  // Brand — near-black (iOS label)
+  primary: '#1C1C1E', primaryLight: '#48484A', primaryDark: '#000000',
+  // Accent — iOS system blue
+  accent: '#007AFF',
+  // Semantic — iOS system colours
+  success: '#34C759', successDark: '#248A3D',
+  warning: '#FF9500', error: '#FF3B30', info: '#007AFF',
   // Surfaces
-  white: '#FFFFFF', surfaceTint: '#F2F5FB', background: '#EEF2F8',
-  surface: '#FFFFFF', border: '#D8E0EE', separator: '#C4CDE0',
-  // Typography
-  textPrimary: '#1A1F2E', textSecondary: '#5C6478', textTertiary: '#94A0B8',
-  disabled: '#C4CDE0',
-  // Skill levels
-  skillAll: '#86868B', skillBeginner: '#2ECC71', skillIntermediate: '#4F6FA3',
-  skillAdvanced: '#E67E22', skillPro: '#E74C3C',
+  white: '#FFFFFF', surfaceTint: '#F9F9F9', background: '#F2F2F7',
+  surface: '#FFFFFF', border: '#E5E5EA', separator: '#C6C6C8',
+  // Typography — iOS label hierarchy
+  textPrimary: '#1C1C1E', textSecondary: '#8E8E93', textTertiary: '#AEAEB2',
+  disabled: '#C7C7CC',
+  // Skill levels — iOS-native palette
+  skillAll: '#8E8E93', skillBeginner: '#34C759', skillIntermediate: '#007AFF',
+  skillAdvanced: '#FF9500', skillPro: '#FF3B30',
 } as const;
 
 export const SKILL_LEVEL_COLORS: Record<string, string> = {
@@ -28,3 +29,8 @@ export const GAME_FORMAT_LABELS: Record<string, string> = {
   singles: 'Singles', doubles: 'Doubles', mixed_doubles: 'Mixed Doubles',
   round_robin: 'Round Robin', open_play: 'Open Play',
 };
+
+// iOS-style club avatar colours (used for initials placeholders)
+export const CLUB_AVATAR_COLORS = [
+  '#007AFF', '#5856D6', '#AF52DE', '#FF2D55', '#FF9500', '#34C759', '#00C7BE',
+];

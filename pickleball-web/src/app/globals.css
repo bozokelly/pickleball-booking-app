@@ -1,46 +1,46 @@
 @import "tailwindcss";
 
 @theme inline {
-  /* Primary — Slate Blue (brand identity) */
-  --color-primary: #4F6FA3;
-  --color-primary-light: #7A97C8;
-  --color-primary-dark: #3A5585;
+  /* Primary — near-black (iOS label colour) */
+  --color-primary: #1C1C1E;
+  --color-primary-light: #48484A;
+  --color-primary-dark: #000000;
 
-  /* CTA / Positive Action — Emerald */
-  --color-success: #2ECC71;
-  --color-success-dark: #27AE60;
+  /* Accent — iOS system blue (links, interactive elements) */
+  --color-accent: #007AFF;
 
-  /* Semantic */
-  --color-warning: #FFA500;
-  --color-error: #EF4444;
-  --color-info: #6366F1;
+  /* Semantic — iOS system colours */
+  --color-success: #34C759;
+  --color-success-dark: #248A3D;
+  --color-warning: #FF9500;
+  --color-error: #FF3B30;
+  --color-info: #007AFF;
 
-  /* Surfaces — clean white + cool slate tint */
+  /* Surfaces — iOS grouped background */
   --color-surface: #FFFFFF;
-  --color-surface-tint: #F2F5FB;
-  --color-background: #EEF2F8;
-  --color-border: #D8E0EE;
-  --color-separator: #C4CDE0;
+  --color-surface-tint: #F9F9F9;
+  --color-background: #F2F2F7;
+  --color-border: #E5E5EA;
+  --color-separator: #C6C6C8;
 
-  /* Typography — deep contrast with cool cast */
-  --color-text-primary: #1A1F2E;
-  --color-text-secondary: #5C6478;
-  --color-text-tertiary: #94A0B8;
-  --color-disabled: #C4CDE0;
+  /* Typography — iOS label hierarchy */
+  --color-text-primary: #1C1C1E;
+  --color-text-secondary: #8E8E93;
+  --color-text-tertiary: #AEAEB2;
+  --color-disabled: #C7C7CC;
 
-  /* Skill level colors */
-  --color-skill-all: #86868B;
-  --color-skill-beginner: #2ECC71;
-  --color-skill-intermediate: #4F6FA3;
-  --color-skill-advanced: #E67E22;
-  --color-skill-pro: #E74C3C;
+  /* Skill level colours — iOS-native palette */
+  --color-skill-all: #8E8E93;
+  --color-skill-beginner: #34C759;
+  --color-skill-intermediate: #007AFF;
+  --color-skill-advanced: #FF9500;
+  --color-skill-pro: #FF3B30;
 
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", system-ui, sans-serif;
 }
 
 body {
-  background: linear-gradient(160deg, #F6F8FC 0%, #EEF2F8 50%, #E8EDF5 100%);
-  background-attachment: fixed;
+  background: #F2F2F7;
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -71,7 +71,7 @@ body {
 .pac-container {
   border-radius: 12px;
   border: 1px solid var(--color-border);
-  box-shadow: 0 4px 16px rgba(79, 111, 163, 0.10);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
   margin-top: 4px;
   font-family: var(--font-sans);
   z-index: 9999;

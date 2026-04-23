@@ -70,19 +70,19 @@ export default function GamesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-text-primary">Find a Game</h1>
+      <h1 className="text-3xl font-bold text-[#1C1C1E] tracking-tight">Find a Game</h1>
 
       <ClubMap clubs={filteredClubs} />
 
       {/* Search bar */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-text-tertiary" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[#AEAEB2]" />
         <input
           type="text"
           placeholder="Search clubs by name or location..."
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
-          className="w-full pl-10 pr-10 py-2.5 bg-surface border border-border rounded-xl text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          className="w-full pl-10 pr-10 py-3 bg-white border border-[#E5E5EA] rounded-2xl text-sm text-[#1C1C1E] placeholder:text-[#AEAEB2] focus:outline-none focus:ring-2 focus:ring-[#1C1C1E]/10 focus:border-[#C6C6C8]"
         />
         {searchText && (
           <button
@@ -100,8 +100,8 @@ export default function GamesPage() {
         </div>
       ) : filteredClubs.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-text-secondary">No clubs found</p>
-          <p className="text-sm text-text-tertiary mt-1">Try adjusting your search</p>
+          <p className="text-[#8E8E93]">No clubs found</p>
+          <p className="text-sm text-[#AEAEB2] mt-1">Try adjusting your search</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -112,17 +112,17 @@ export default function GamesPage() {
 
             return (
               <div key={club.id}>
-                <Card className="p-4">
+                <div className="bg-white rounded-2xl border border-[#E5E5EA] shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_16px_rgba(0,0,0,0.04)] p-4">
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => toggleClub(club.id)}
-                      className="flex-shrink-0 p-1 rounded-lg hover:bg-background transition-colors text-text-tertiary hover:text-text-primary"
+                      className="flex-shrink-0 p-1.5 rounded-xl bg-[#F2F2F7] transition-colors text-[#8E8E93] hover:text-[#1C1C1E]"
                     >
-                      {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     </button>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-text-primary truncate">{club.name}</h3>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-bold text-[#1C1C1E] truncate">{club.name}</h3>
                         <Badge
                           label={club.members_only ? 'Members Only' : 'Open'}
                           color={club.members_only ? '#FF9500' : '#34C759'}
@@ -130,23 +130,23 @@ export default function GamesPage() {
                       </div>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
                         {club.location && (
-                          <p className="text-sm text-text-secondary flex items-center gap-1">
+                          <p className="text-sm text-[#8E8E93] flex items-center gap-1">
                             <MapPin className="h-3.5 w-3.5" /> {club.location}
                           </p>
                         )}
-                        <p className="text-sm text-text-secondary flex items-center gap-1">
+                        <p className="text-sm text-[#8E8E93] flex items-center gap-1">
                           <Users className="h-3.5 w-3.5" /> {clubGames.length > 0 ? `${clubGames.length} upcoming ${clubGames.length === 1 ? 'game' : 'games'}` : 'No upcoming games'}
                         </p>
                       </div>
                     </div>
                     <Link
                       href={`/dashboard/club/${club.id}`}
-                      className="flex-shrink-0 text-sm font-medium text-primary hover:underline"
+                      className="flex-shrink-0 text-sm font-semibold text-[#1C1C1E] hover:opacity-70 transition-opacity"
                     >
-                      View Club
+                      View →
                     </Link>
                   </div>
-                </Card>
+                </div>
 
                 {/* Expandable upcoming games preview */}
                 {isExpanded && (
@@ -157,9 +157,9 @@ export default function GamesPage() {
                     {clubGames.length > 3 && (
                       <Link
                         href={`/dashboard/club/${club.id}`}
-                        className="block text-center text-sm text-primary hover:underline py-1"
+                        className="block text-center text-sm text-[#8E8E93] font-medium hover:text-[#1C1C1E] transition-colors py-1"
                       >
-                        +{clubGames.length - 3} more — View Club
+                        +{clubGames.length - 3} more
                       </Link>
                     )}
                   </div>
@@ -176,40 +176,41 @@ export default function GamesPage() {
 function CompactGameRow({ game }: { game: Game }) {
   const dt = new Date(game.date_time);
   const spotsLeft = game.max_spots - (game.confirmed_count || 0);
+  const isFull = spotsLeft <= 0;
 
   return (
     <Link href={`/dashboard/game/${game.id}`}>
-      <Card className="px-4 py-3 hover:border-primary/30 transition-colors cursor-pointer">
+      <div className="bg-white rounded-2xl border border-[#E5E5EA] shadow-[0_1px_3px_rgba(0,0,0,0.06)] px-4 py-3 hover:shadow-[0_2px_8px_rgba(0,0,0,0.10)] hover:-translate-y-px transition-all duration-150 cursor-pointer">
         <div className="flex items-center gap-3">
-          {/* Date box */}
-          <div className="flex flex-col items-center justify-center bg-primary/10 rounded-lg px-2 py-1 min-w-[48px]">
-            <span className="text-[10px] font-semibold text-primary uppercase">{format(dt, 'MMM')}</span>
-            <span className="text-lg font-bold text-primary leading-tight">{format(dt, 'd')}</span>
+          {/* Date badge */}
+          <div className="flex flex-col items-center justify-center bg-[#1C1C1E] rounded-xl px-2.5 py-1.5 min-w-[44px] flex-shrink-0">
+            <span className="text-[9px] font-semibold text-white/60 uppercase tracking-wide">{format(dt, 'MMM')}</span>
+            <span className="text-base font-bold text-white leading-tight">{format(dt, 'd')}</span>
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-medium text-text-primary truncate">{game.title}</h4>
+            <h4 className="text-sm font-bold text-[#1C1C1E] truncate">{game.title}</h4>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
-              <span className="text-xs text-text-secondary flex items-center gap-1">
+              <span className="text-xs text-[#8E8E93] flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {format(dt, 'h:mm a')}
               </span>
               {game.location && (
-                <span className="text-xs text-text-secondary flex items-center gap-1">
+                <span className="text-xs text-[#8E8E93] flex items-center gap-1">
                   <MapPin className="h-3 w-3" />
                   <span className="truncate max-w-[120px]">{game.location}</span>
                 </span>
               )}
-              <span className="text-xs text-text-secondary">
-                {spotsLeft <= 0 ? 'Full' : `${spotsLeft} spot${spotsLeft !== 1 ? 's' : ''}`}
+              <span className={`text-xs font-medium ${isFull ? 'text-[#FF3B30]' : 'text-[#8E8E93]'}`}>
+                {isFull ? 'Full' : `${spotsLeft} spot${spotsLeft !== 1 ? 's' : ''}`}
               </span>
             </div>
-            <div className="flex gap-1.5 mt-1">
+            <div className="flex gap-1.5 mt-1.5">
               <Badge label={SKILL_LEVEL_LABELS[game.skill_level]} color={SKILL_LEVEL_COLORS[game.skill_level]} />
               <Badge label={GAME_FORMAT_LABELS[game.game_format]} color="#5856D6" />
             </div>
           </div>
         </div>
-      </Card>
+      </div>
     </Link>
   );
 }

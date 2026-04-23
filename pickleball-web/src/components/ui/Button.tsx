@@ -14,22 +14,22 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<ButtonVariant, string> = {
-  // Emerald — primary CTA (Book, Join, Create)
-  primary: 'bg-success text-white hover:bg-success-dark active:scale-[0.98] shadow-[0_1px_3px_rgba(46,204,113,0.25)]',
-  // White with slate border — secondary actions
-  secondary: 'bg-white text-text-secondary border border-primary/25 hover:bg-primary/5 hover:border-primary/40 hover:text-primary active:scale-[0.98]',
-  // Transparent with slate border — outline style
-  outline: 'bg-transparent border border-primary/40 text-primary hover:bg-primary/8',
-  // Ghost — minimal, just text
-  ghost: 'bg-transparent text-primary hover:bg-primary/8',
+  // Black — primary CTA (Book, Join, Create) — matches iOS black action buttons
+  primary: 'bg-[#1C1C1E] text-white hover:bg-black active:scale-[0.98] shadow-[0_1px_4px_rgba(0,0,0,0.20)]',
+  // White with border — secondary actions
+  secondary: 'bg-white text-text-primary border border-border hover:bg-background active:scale-[0.98]',
+  // Transparent with border — tertiary/outline style
+  outline: 'bg-transparent border border-separator text-text-primary hover:bg-background',
+  // Ghost — minimal text-only
+  ghost: 'bg-transparent text-text-primary hover:bg-background',
   // Danger — destructive actions only
-  danger: 'bg-error text-white hover:bg-error/90 active:scale-[0.98] shadow-[0_1px_2px_rgba(0,0,0,0.1)]',
+  danger: 'bg-error text-white hover:bg-[#E0342A] active:scale-[0.98] shadow-[0_1px_2px_rgba(0,0,0,0.12)]',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: 'px-3.5 py-1.5 text-sm rounded-lg',
-  md: 'px-5 py-2.5 text-sm rounded-xl',
-  lg: 'px-6 py-3.5 text-base rounded-xl',
+  sm: 'px-3.5 py-1.5 text-sm rounded-xl',
+  md: 'px-5 py-2.5 text-sm rounded-2xl',
+  lg: 'px-6 py-3.5 text-base rounded-2xl',
 };
 
 export function Button({

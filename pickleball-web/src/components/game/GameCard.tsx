@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { format } from 'date-fns';
 import { MapPin, Clock, Users, DollarSign } from 'lucide-react';
 import { Game } from '@/types/database';
-import { Badge, Card } from '@/components/ui';
+import { Badge } from '@/components/ui';
 import { SKILL_LEVEL_COLORS, SKILL_LEVEL_LABELS, GAME_FORMAT_LABELS } from '@/constants/theme';
 
 interface GameCardProps {
@@ -18,49 +18,53 @@ export function GameCard({ game }: GameCardProps) {
 
   return (
     <Link href={`/dashboard/game/${game.id}`}>
-      <Card className="hover:shadow-md transition-shadow">
+      <div className="bg-white rounded-2xl border border-[#E5E5EA] shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_16px_rgba(0,0,0,0.04)] p-4 hover:shadow-[0_2px_8px_rgba(0,0,0,0.10),0_8px_24px_rgba(0,0,0,0.06)] hover:-translate-y-px transition-all duration-150">
         <div className="flex gap-4">
-          {/* Date box */}
-          <div className="flex flex-col items-center justify-center bg-primary/10 rounded-xl px-3 py-2 min-w-[60px]">
-            <span className="text-xs font-semibold text-primary uppercase">
+          {/* Date box — dark iOS-style */}
+          <div className="flex flex-col items-center justify-center bg-[#1C1C1E] rounded-2xl px-3 py-2 min-w-[56px]">
+            <span className="text-[10px] font-semibold text-white/60 uppercase tracking-wide">
               {format(dateTime, 'MMM')}
             </span>
-            <span className="text-2xl font-bold text-primary">
+            <span className="text-2xl font-bold text-white leading-tight">
               {format(dateTime, 'd')}
+            </span>
+            <span className="text-[10px] font-medium text-white/60 uppercase">
+              {format(dateTime, 'EEE')}
             </span>
           </div>
 
           {/* Details */}
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-text-primary truncate">{game.title}</h3>
+            <h3 className="font-bold text-[#1C1C1E] truncate">{game.title}</h3>
             {game.club && (
-              <p className="text-sm text-text-secondary truncate">{game.club.name}</p>
+              <p className="text-sm text-[#8E8E93] truncate">{game.club.name}</p>
             )}
 
-            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-text-secondary">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-[#8E8E93]">
               <span className="flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5" />
-                {format(dateTime, 'h:mm a')} ({game.duration_minutes}min)
+                <Clock className="h-3.5 w-3.5 flex-shrink-0" />
+                {format(dateTime, 'h:mm a')}
+                <span className="text-[#AEAEB2]">· {game.duration_minutes}min</span>
               </span>
               {game.location && (
                 <span className="flex items-center gap-1">
-                  <MapPin className="h-3.5 w-3.5" />
+                  <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
                   <span className="truncate max-w-[150px]">{game.location}</span>
                 </span>
               )}
               <span className="flex items-center gap-1">
-                <Users className="h-3.5 w-3.5" />
-                {isFull ? 'Full' : `${spotsLeft} spot${spotsLeft !== 1 ? 's' : ''} left`}
+                <Users className="h-3.5 w-3.5 flex-shrink-0" />
+                {isFull ? <span className="text-[#FF3B30] font-medium">Full</span> : `${spotsLeft} spot${spotsLeft !== 1 ? 's' : ''} left`}
               </span>
               {game.fee_amount > 0 && (
-                <span className="flex items-center gap-1">
-                  <DollarSign className="h-3.5 w-3.5" />
+                <span className="flex items-center gap-1 font-medium text-[#1C1C1E]">
+                  <DollarSign className="h-3.5 w-3.5 flex-shrink-0" />
                   {game.fee_amount.toFixed(2)}
                 </span>
               )}
             </div>
 
-            <div className="flex gap-2 mt-2">
+            <div className="flex gap-2 mt-2.5">
               <Badge
                 label={SKILL_LEVEL_LABELS[game.skill_level] || game.skill_level}
                 color={SKILL_LEVEL_COLORS[game.skill_level]}
@@ -72,7 +76,7 @@ export function GameCard({ game }: GameCardProps) {
             </div>
           </div>
         </div>
-      </Card>
+      </div>
     </Link>
   );
 }
