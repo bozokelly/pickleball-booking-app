@@ -23,26 +23,35 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // getUser() validates the JWT against Supabase — avoids trusting stale cookies.
+  // getUser() validates the JWT against Supabase, and may silently refresh
+  // an expiring token, writing new cookies into supabaseResponse. Those
+  // updated cookies MUST be forwarded on every response — including redirects —
+  // so the browser and subsequent middleware requests see the refreshed token.
   const { data: { user } } = await supabase.auth.getUser();
   const { pathname, search } = request.nextUrl;
   const requestedPath = `${pathname}${search || ''}`;
+
+  // Helper: build a redirect that carries over any cookie updates from getUser().
+  function redirectWithCookies(destination: URL | string): NextResponse {
+    const url = typeof destination === 'string' ? new URL(destination, request.url) : destination;
+    const res = NextResponse.redirect(url);
+    supabaseResponse.cookies.getAll().forEach((cookie) => res.cookies.set(cookie));
+    return res;
+  }
 
   // Protect all /dashboard routes — redirect unauthenticated users to login.
   if (!user && pathname.startsWith('/dashboard')) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('next', requestedPath);
-    return NextResponse.redirect(url);
+    return redirectWithCookies(url);
   }
 
   // Redirect authenticated users away from /login and /signup.
-  // Allow through if a ?next param is present — that's the recovery/redirect flow
-  // where the client needs to land on the auth page to pick up the ?next param.
   if (user && (pathname === '/login' || pathname === '/signup')) {
     const next = request.nextUrl.searchParams.get('next');
     const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
-    return NextResponse.redirect(new URL(safeNext, request.url));
+    return redirectWithCookies(new URL(safeNext, request.url));
   }
 
   return supabaseResponse;

@@ -34,24 +34,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   session: null, profile: null, loading: false, initialized: false,
 
   initialize: async () => {
-    if (get().initialized) return;
-    if (_initializePromise) return _initializePromise;
-
-    // Attach a single long-lived listener for all future auth events.
-    // onAuthStateChange covers token refresh, tab-sync sign-out, etc.
+    // Attach the long-lived listener BEFORE checking initialized, so that a
+    // module re-evaluation (e.g. deployment hard-reload) that resets
+    // _authListenerAttached doesn't lose the listener when initialized is
+    // already true and we would otherwise return early.
     if (!_authListenerAttached) {
       _authListenerAttached = true;
       supabase.auth.onAuthStateChange(async (_event, session) => {
         const prev = get().session;
         set({ session, initialized: true });
         if (session && session.user.id !== prev?.user?.id) {
-          // New user signed in (or different user)
           await get().fetchProfile();
         } else if (!session) {
           set({ profile: null });
         }
       });
     }
+
+    // Only run the one-shot session fetch once.
+    if (get().initialized) return;
+    if (_initializePromise) return _initializePromise;
 
     _initializePromise = (async () => {
       try {
@@ -109,15 +111,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
-    // Always clear local state even if the network call fails, so the user
-    // isn't left in a half-authenticated state that requires clearing storage.
+    // Clear local state immediately so UI updates are instant, regardless of
+    // whether the network call succeeds. Keep initialized: true so the
+    // dashboard layout's !session check fires the redirect right away without
+    // needing to re-run the full initialization cycle.
     try {
       await supabase.auth.signOut();
     } finally {
-      // Reset initialized so the next initialize() call re-reads session state
-      // from cookies rather than short-circuiting. Without this, a subsequent
-      // signIn() on the same page would race with onAuthStateChange.
-      set({ session: null, profile: null, initialized: false });
+      set({ session: null, profile: null });
     }
   },
 
@@ -171,7 +172,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await supabase.auth.signOut();
     } finally {
-      set({ session: null, profile: null, initialized: false });
+      set({ session: null, profile: null });
     }
   },
 }));

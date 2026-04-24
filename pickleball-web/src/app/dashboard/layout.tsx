@@ -111,15 +111,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     };
   }, [myMemberships, myAdminClubs]);
 
-  if (!initialized) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
-      </div>
-    );
-  }
-
-  if (!session) {
+  // Show a single loading state for both "still initializing" and "unauthenticated
+  // (redirect in flight)". Keeping them combined avoids a double-render cycle
+  // where !initialized → spinner → initialized, !session → spinner → redirect.
+  if (!initialized || !session) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
