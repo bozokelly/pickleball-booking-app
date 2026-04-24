@@ -95,9 +95,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   bookGame: async (gameId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Session expired. Please sign in again.');
+
     const { data, error } = await supabase.rpc('book_game', {
       p_game_id: gameId,
-      p_user_id: (await supabase.auth.getUser()).data.user!.id,
+      p_user_id: user.id,
     });
     if (error) throw error;
 
@@ -107,9 +110,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   cancelBooking: async (bookingId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Session expired. Please sign in again.');
+
     const { error } = await supabase.rpc('cancel_booking', {
       p_booking_id: bookingId,
-      p_user_id: (await supabase.auth.getUser()).data.user!.id,
+      p_user_id: user.id,
     });
     if (error) throw error;
 

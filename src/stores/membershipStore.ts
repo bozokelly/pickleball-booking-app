@@ -66,25 +66,27 @@ export const useMembershipStore = create<MembershipState>((set, get) => ({
   },
 
   requestMembership: async (clubId) => {
-    const userId = (await supabase.auth.getUser()).data.user!.id;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Session expired. Please sign in again.');
 
     const { error } = await supabase
       .from('club_members')
-      .insert({ club_id: clubId, user_id: userId, status: 'pending' });
+      .insert({ club_id: clubId, user_id: user.id, status: 'pending' });
 
     if (error) throw error;
     await get().fetchMyMemberships();
   },
 
   approveMember: async (memberId) => {
-    const userId = (await supabase.auth.getUser()).data.user!.id;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Session expired. Please sign in again.');
 
     const { error } = await supabase
       .from('club_members')
       .update({
         status: 'approved',
         responded_at: new Date().toISOString(),
-        responded_by: userId,
+        responded_by: user.id,
       })
       .eq('id', memberId);
 
@@ -92,7 +94,9 @@ export const useMembershipStore = create<MembershipState>((set, get) => ({
   },
 
   rejectMember: async (memberId) => {
-    const userId = (await supabase.auth.getUser()).data.user!.id;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Session expired. Please sign in again.');
+    const userId = user.id;
 
     const { error } = await supabase
       .from('club_members')

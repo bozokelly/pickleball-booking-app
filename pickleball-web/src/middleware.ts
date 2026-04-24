@@ -31,6 +31,10 @@ export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const requestedPath = `${pathname}${search || ''}`;
 
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[middleware]', pathname, user ? 'authenticated' : 'anonymous');
+  }
+
   // Helper: build a redirect that carries over any cookie updates from getUser().
   function redirectWithCookies(destination: URL | string): NextResponse {
     const url = typeof destination === 'string' ? new URL(destination, request.url) : destination;
@@ -48,9 +52,13 @@ export async function middleware(request: NextRequest) {
   }
 
   // Redirect authenticated users away from /login and /signup.
+  // Guard: next must not be a login/signup path — otherwise an authenticated
+  // user on /login?next=/login would loop forever.
   if (user && (pathname === '/login' || pathname === '/signup')) {
     const next = request.nextUrl.searchParams.get('next');
-    const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
+    const isNextSafe = next && next.startsWith('/') && !next.startsWith('//') &&
+                       !next.startsWith('/login') && !next.startsWith('/signup');
+    const safeNext = isNextSafe ? next : '/dashboard';
     return redirectWithCookies(new URL(safeNext, request.url));
   }
 

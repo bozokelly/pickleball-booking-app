@@ -37,6 +37,13 @@ export interface Club {
   created_by: string;
   created_at: string;
   updated_at: string;
+  // Added in migrations 005, 007, 015
+  latitude: number | null;
+  longitude: number | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  website: string | null;
+  manager_name: string | null;
 }
 
 export interface ClubAdmin {

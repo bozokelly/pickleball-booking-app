@@ -65,8 +65,9 @@ export default function GameDetailScreen() {
   const handleBook = async () => {
     if (!game) return;
     setActionLoading(true);
+    let booking: Booking | null = null;
     try {
-      const booking = await bookGame(game.id);
+      booking = await bookGame(game.id);
 
       // Handle payment if game has a fee and user got confirmed
       if (game.fee_amount > 0 && booking.status === 'confirmed') {
@@ -74,8 +75,8 @@ export default function GameDetailScreen() {
         if (!paymentResult.success) {
           // Payment cancelled — cancel the booking
           await cancelBooking(booking.id);
-          Alert.alert('Booking Cancelled', 'Payment was not completed.');
           await loadGame();
+          Alert.alert('Booking Cancelled', 'Payment was not completed.');
           return;
         }
       }
@@ -92,6 +93,11 @@ export default function GameDetailScreen() {
           : 'You\'re confirmed for this game!';
       Alert.alert(booking.status === 'waitlisted' ? 'Waitlisted' : 'Booked!', msg);
     } catch (error: any) {
+      // If booking was created but payment threw, roll back the booking
+      if (booking) {
+        try { await cancelBooking(booking.id); } catch {}
+      }
+      await loadGame();
       Alert.alert('Booking Failed', error.message);
     } finally {
       setActionLoading(false);

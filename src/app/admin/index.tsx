@@ -31,7 +31,7 @@ export default function AdminPanelScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <Card onPress={() => router.push(`/admin/create-game?clubId=${item.id}`)} style={styles.clubCard}>
+          <Card style={styles.clubCard}>
             <View style={styles.clubRow}>
               <View style={styles.clubIcon}>
                 <Ionicons name="tennisball" size={24} color={colors.primary} />
@@ -42,10 +42,26 @@ export default function AdminPanelScreen() {
                   <Text style={styles.clubLocation}>{item.location}</Text>
                 )}
               </View>
-              <View style={styles.clubActions}>
-                <Text style={styles.tapHint}>Tap to create game</Text>
-                <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
-              </View>
+            </View>
+            <View style={styles.clubActions}>
+              <Button
+                title="Create Game"
+                size="sm"
+                variant="secondary"
+                onPress={() => router.push(`/admin/create-game?clubId=${item.id}`)}
+              />
+              <Button
+                title="Members"
+                size="sm"
+                variant="secondary"
+                onPress={() => router.push(`/admin/club/${item.id}/members`)}
+              />
+              <Button
+                title="Settings"
+                size="sm"
+                variant="ghost"
+                onPress={() => router.push(`/admin/club/${item.id}/settings`)}
+              />
             </View>
           </Card>
         )}
@@ -72,7 +88,7 @@ const styles = StyleSheet.create({
   },
   title: { ...typography.title2, color: colors.textPrimary },
   clubCard: { marginBottom: spacing.sm },
-  clubRow: { flexDirection: 'row', alignItems: 'center' },
+  clubRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
   clubIcon: {
     width: 48,
     height: 48,
@@ -85,8 +101,7 @@ const styles = StyleSheet.create({
   clubInfo: { flex: 1 },
   clubName: { ...typography.headline, color: colors.textPrimary },
   clubLocation: { ...typography.subheadline, color: colors.textSecondary, marginTop: 2 },
-  clubActions: { alignItems: 'flex-end', gap: 2 },
-  tapHint: { ...typography.caption2, color: colors.textTertiary },
+  clubActions: { flexDirection: 'row', gap: spacing.xs },
   empty: {
     alignItems: 'center',
     marginTop: spacing.xxl,

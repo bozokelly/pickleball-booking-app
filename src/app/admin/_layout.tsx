@@ -14,6 +14,8 @@ export default function AdminLayout() {
       <Stack.Screen name="index" options={{ title: 'Admin Panel' }} />
       <Stack.Screen name="create-club" options={{ title: 'Create Club' }} />
       <Stack.Screen name="create-game" options={{ title: 'Create Game' }} />
+      <Stack.Screen name="club/[id]/members" options={{ title: 'Members' }} />
+      <Stack.Screen name="club/[id]/settings" options={{ title: 'Club Settings' }} />
     </Stack>
   );
 }

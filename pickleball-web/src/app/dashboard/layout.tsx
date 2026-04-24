@@ -47,11 +47,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [initialize]);
 
   useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[auth] dashboard: initialized=' + initialized + ' hasSession=' + !!session);
+    }
     if (initialized && !session) {
       const next = encodeURIComponent(pathname || '/dashboard');
       router.replace(`/login?next=${next}`);
     }
   }, [initialized, session, router, pathname]);
+
+  // Belt-and-suspenders: if authStore's 8s getUser() timeout fires but this
+  // component hasn't re-rendered to pick it up, force recovery at 12s.
+  // Clears state directly rather than calling signOut() over the network —
+  // if getUser() already hung, a second network call would hang too.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!useAuthStore.getState().initialized) {
+        console.warn('[auth] dashboard: init timeout exceeded, forcing recovery');
+        useAuthStore.setState({ session: null, profile: null, initialized: true });
+        router.replace('/login');
+      }
+    }, 12000);
+    return () => clearTimeout(timer);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Redirect to onboarding if profile is missing required fields
   useEffect(() => {

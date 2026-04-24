@@ -40,7 +40,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // already true and we would otherwise return early.
     if (!_authListenerAttached) {
       _authListenerAttached = true;
-      supabase.auth.onAuthStateChange(async (_event, session) => {
+      supabase.auth.onAuthStateChange(async (event, session) => {
+        // INITIAL_SESSION reflects local-storage state which may be stale — _initializePromise validates via getUser() instead.
+        if (event === 'INITIAL_SESSION') return;
         const prev = get().session;
         set({ session, initialized: true });
         if (session && session.user.id !== prev?.user?.id) {
@@ -57,17 +59,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     _initializePromise = (async () => {
       try {
-        const { data: { session } } = await withTimeout(
-          supabase.auth.getSession(),
+        // getUser() validates against the server — getSession() alone trusts local storage and can return stale/expired sessions.
+        const { data: { user }, error: userError } = await withTimeout(
+          supabase.auth.getUser(),
           AUTH_INIT_TIMEOUT_MS,
-          'supabase.auth.getSession()'
+          'supabase.auth.getUser()'
         );
+
+        if (userError || !user) {
+          if (process.env.NODE_ENV === 'development') console.log('[auth] init: no valid server session, clearing local state');
+          set({ session: null, profile: null, initialized: true });
+          return;
+        }
+
+        // User is server-confirmed; getSession() now returns the (possibly refreshed) token.
+        const { data: { session } } = await supabase.auth.getSession();
+        if (process.env.NODE_ENV === 'development') console.log('[auth] init: server session confirmed');
         set({ session, initialized: true });
         if (session) {
           await get().fetchProfile();
         }
       } catch (err) {
-        console.warn('Auth initialization failed:', err);
+        console.warn('[auth] init failed:', err);
         set({ session: null, profile: null, initialized: true });
       } finally {
         _initializePromise = null;
@@ -96,14 +109,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw new Error(error.message);
-      // Set session synchronously from the API response so any navigation
-      // that happens immediately after signIn() returns sees a valid session.
-      // Without this, callers that call router.replace() right after signIn()
-      // race against onAuthStateChange (which fires asynchronously) and the
-      // dashboard layout's !session guard bounces the user back to /login.
       if (data.session) {
-        set({ session: data.session, initialized: true });
-        await get().fetchProfile();
+        // Call getUser() to confirm the server acknowledges the new session before
+        // committing to the store and navigating. signInWithPassword already validates
+        // credentials, but this ensures cookies are fully set before any redirect.
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          set({ session: data.session, initialized: true });
+          await get().fetchProfile();
+        }
       }
     } finally {
       set({ loading: false });

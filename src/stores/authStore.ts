@@ -25,6 +25,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initialized: false,
 
   initialize: async () => {
+    // Guard against multiple calls registering duplicate listeners
+    if (get().initialized) return;
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       set({ session, initialized: true });
@@ -33,8 +36,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         await get().fetchProfile();
       }
 
-      // Listen for auth changes
-      supabase.auth.onAuthStateChange(async (_event, session) => {
+      // Listen for auth changes — capture subscription so it can be cleaned up
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
         set({ session });
         if (session) {
           await get().fetchProfile();
@@ -42,6 +45,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           set({ profile: null });
         }
       });
+
+      // Store unsubscribe on the window for cleanup (e.g. during hot reload)
+      (globalThis as any).__authSubscription?.unsubscribe();
+      (globalThis as any).__authSubscription = subscription;
     } catch {
       set({ initialized: true });
     }
