@@ -18,7 +18,7 @@ export const termsSections: LegalSection[] = [
   {
     title: '2. Accounts and profile information',
     body: [
-      'You must be old enough to use online services in your country or have permission from a parent or guardian. Bookadink is not directed to children.',
+      'You must be at least 16 years old to use Bookadink. If local law requires a higher age for online services, that higher age applies. Bookadink is not directed to children under 16.',
       'You are responsible for keeping your account details accurate and for keeping your sign-in credentials secure.',
       'Profile information, including your name, contact details, avatar, skill level, and DUPR information where supplied, may be shown to clubs, organisers, and other players where needed for bookings, memberships, chat, attendance, or game administration.',
     ],
@@ -201,7 +201,7 @@ export const privacySections: LegalSection[] = [
   {
     title: '12. Children',
     body: [
-      'Bookadink is not directed to children. If you believe a child has provided personal information without appropriate permission, contact us so we can review and take appropriate action.',
+      'Bookadink is not directed to children under 16. If you believe a child has provided personal information without appropriate permission, contact us so we can review and take appropriate action.',
     ],
   },
   {
