@@ -157,6 +157,12 @@ export default function SettingsPage() {
           >
             Privacy Policy
           </Link>
+          <Link
+            href="/account-deletion"
+            className="inline-flex items-center justify-center px-4 py-2 border border-primary/30 text-primary font-semibold rounded-xl text-sm hover:bg-primary/8 transition-all"
+          >
+            Account Deletion
+          </Link>
         </div>
       </Card>
 

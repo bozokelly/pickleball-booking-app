@@ -11,7 +11,7 @@ export default function TermsPage() {
   return (
     <LegalPage
       title="Terms of Service"
-      intro="These terms explain how players, clubs, and organisers may use Bookadink during launch and beta."
+      intro="These terms explain how players, clubs, and organisers may use Bookadink."
       sections={termsSections}
     />
   );

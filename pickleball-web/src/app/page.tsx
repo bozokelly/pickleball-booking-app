@@ -297,6 +297,9 @@ export default function LandingPage() {
             <Link href="/privacy" className="text-text-secondary hover:text-primary transition-colors">
               Privacy
             </Link>
+            <Link href="/account-deletion" className="text-text-secondary hover:text-primary transition-colors">
+              Account deletion
+            </Link>
           </div>
         </div>
       </footer>
