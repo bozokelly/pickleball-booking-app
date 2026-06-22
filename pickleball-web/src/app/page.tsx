@@ -286,9 +286,19 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-border py-8">
-        <p className="text-center text-sm text-text-tertiary">
-          Book a Dink
-        </p>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-sm text-text-tertiary">
+            Book a Dink
+          </p>
+          <div className="flex items-center gap-4 text-sm">
+            <Link href="/terms" className="text-text-secondary hover:text-primary transition-colors">
+              Terms
+            </Link>
+            <Link href="/privacy" className="text-text-secondary hover:text-primary transition-colors">
+              Privacy
+            </Link>
+          </div>
+        </div>
       </footer>
     </div>
   );

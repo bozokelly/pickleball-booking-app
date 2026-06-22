@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Card, Button } from '@/components/ui';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useToast } from '@/components/ui/Toast';
 import { useAuthStore } from '@/stores/authStore';
-import { Bell, Moon, Globe, Trash2 } from 'lucide-react';
+import { Bell, Moon, Globe, Trash2, ShieldCheck } from 'lucide-react';
 
 const LOCAL_SETTINGS_KEY = 'bookadink-web-settings-v1';
 const DEFAULT_LOCAL_SETTINGS = {
@@ -136,6 +137,27 @@ export default function SettingsPage() {
           <h3 className="text-lg font-semibold text-text-primary">Region</h3>
         </div>
         <p className="text-sm text-text-tertiary">Region and language settings coming soon.</p>
+      </Card>
+
+      <Card className="p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <ShieldCheck className="h-5 w-5 text-primary" />
+          <h3 className="text-lg font-semibold text-text-primary">Legal</h3>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Link
+            href="/terms"
+            className="inline-flex items-center justify-center px-4 py-2 border border-primary/30 text-primary font-semibold rounded-xl text-sm hover:bg-primary/8 transition-all"
+          >
+            Terms of Service
+          </Link>
+          <Link
+            href="/privacy"
+            className="inline-flex items-center justify-center px-4 py-2 border border-primary/30 text-primary font-semibold rounded-xl text-sm hover:bg-primary/8 transition-all"
+          >
+            Privacy Policy
+          </Link>
+        </div>
       </Card>
 
       <Card className="p-6 border-error/30">
