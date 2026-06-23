@@ -43,8 +43,25 @@ export async function middleware(request: NextRequest) {
     return res;
   }
 
-  // Protect all /dashboard and /admin routes — redirect unauthenticated users to login.
-  if (!user && (pathname.startsWith('/dashboard') || pathname.startsWith('/admin'))) {
+  const next = request.nextUrl.searchParams.get('next');
+  const isAdminNext = next && next.startsWith('/admin') && !next.startsWith('//');
+  const isPublicAuthRoute = pathname === '/signup' || pathname === '/forgot-password' || pathname === '/reset-password';
+
+  if (pathname.startsWith('/dashboard')) {
+    return redirectWithCookies(new URL('/', request.url));
+  }
+
+  // The public website is marketing-only. Keep login available only as the
+  // internal command-centre gate for /admin.
+  if (!user && pathname === '/login' && !isAdminNext) {
+    return redirectWithCookies(new URL('/', request.url));
+  }
+
+  if (!user && isPublicAuthRoute) {
+    return redirectWithCookies(new URL('/', request.url));
+  }
+
+  if (!user && pathname.startsWith('/admin')) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('next', requestedPath);
@@ -55,10 +72,9 @@ export async function middleware(request: NextRequest) {
   // Guard: next must not be a login/signup path — otherwise an authenticated
   // user on /login?next=/login would loop forever.
   if (user && (pathname === '/login' || pathname === '/signup')) {
-    const next = request.nextUrl.searchParams.get('next');
     const isNextSafe = next && next.startsWith('/') && !next.startsWith('//') &&
                        !next.startsWith('/login') && !next.startsWith('/signup');
-    const safeNext = isNextSafe ? next : '/dashboard';
+    const safeNext = isNextSafe && next.startsWith('/admin') ? next : '/';
     return redirectWithCookies(new URL(safeNext, request.url));
   }
 

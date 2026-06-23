@@ -14,7 +14,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (initialized && session) {
-      router.replace('/dashboard');
+      router.replace('/admin');
     }
   }, [initialized, session, router]);
 

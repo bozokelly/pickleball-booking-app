@@ -7,20 +7,20 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://bookadink.com'),
-  title: 'Book a Dink — Pickleball Booking Made Easy',
-  description: 'Find games, join clubs, and connect with players in your area. The easiest way to organize and book pickleball.',
+  title: 'Bookadink — Pickleball bookings without the admin headache',
+  description: 'Bookadink helps pickleball players find games and helps clubs manage sessions, waitlists, payments, memberships, chat, and reminders.',
   openGraph: {
-    title: 'Book a Dink — Pickleball Booking Made Easy',
-    description: 'Find games, join clubs, and connect with players in your area.',
+    title: 'Bookadink — Pickleball bookings without the admin headache',
+    description: 'Mobile-first pickleball booking software for players, clubs, and organisers.',
     url: 'https://bookadink.com',
-    siteName: 'Book a Dink',
+    siteName: 'Bookadink',
     images: [{ url: '/images/logo-wide.png', width: 1536, height: 1024 }],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Book a Dink',
-    description: 'Find games, join clubs, and connect with players in your area.',
+    title: 'Bookadink',
+    description: 'Pickleball bookings without the admin headache.',
     images: ['/images/logo-wide.png'],
   },
 };

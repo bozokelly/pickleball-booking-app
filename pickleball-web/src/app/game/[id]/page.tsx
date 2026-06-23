@@ -117,15 +117,12 @@ export default async function GameFallbackPage({ params }: { params: Promise<{ i
   const siteOrigin = getSiteOrigin();
   const shareUrl = `${siteOrigin}/game/${normalizedId}`;
   const appStoreUrl = getAppStoreUrl();
-  const webTarget = `/dashboard/game/${normalizedId}`;
-  const continueOnWebUrl = `/login?next=${encodeURIComponent(webTarget)}`;
-  const createAccountUrl = `/signup?next=${encodeURIComponent(webTarget)}`;
 
   return (
     <main className="min-h-screen bg-background">
       <div className="max-w-3xl mx-auto px-4 py-10 sm:py-14">
         <div className="rounded-2xl border border-border bg-white p-6 sm:p-8 shadow-sm">
-          <p className="text-xs font-semibold tracking-wide uppercase text-primary mb-3">Book a Dink</p>
+          <p className="text-xs font-semibold tracking-wide uppercase text-primary mb-3">Bookadink</p>
           <h1 className="text-2xl sm:text-3xl font-bold text-text-primary">
             {game?.title || 'Game not found'}
           </h1>
@@ -156,21 +153,18 @@ export default async function GameFallbackPage({ params }: { params: Promise<{ i
                 </a>
               </div>
 
-              <div className="mt-4">
-                <Link href={continueOnWebUrl} className="text-sm text-text-secondary hover:text-primary underline underline-offset-4">
-                  Continue on Web
-                </Link>
-                <span className="mx-2 text-text-tertiary">·</span>
-                <Link href={createAccountUrl} className="text-sm text-text-secondary hover:text-primary underline underline-offset-4">
-                  Create Account
+              <div className="mt-4 text-sm text-text-secondary">
+                Web booking has moved to the mobile app.{' '}
+                <Link href="/" className="font-semibold text-primary hover:underline">
+                  Learn about Bookadink
                 </Link>
               </div>
             </>
           ) : (
             <div className="mt-6">
               <p className="text-sm text-text-secondary">This game link may be invalid or no longer available.</p>
-              <Link href="/dashboard/games" className="inline-block mt-4 text-sm text-primary hover:underline">
-                Browse Games on Web
+              <Link href="/" className="inline-block mt-4 text-sm text-primary hover:underline">
+                Learn about Bookadink
               </Link>
             </div>
           )}

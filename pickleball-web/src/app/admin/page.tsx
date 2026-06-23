@@ -1008,8 +1008,8 @@ function AccessDenied({ email, reason }: { email: string | null; reason: string 
         <h1 className="text-2xl font-bold text-text-primary">Access denied</h1>
         <p className="mt-3 text-sm text-text-secondary">{reason}</p>
         {email && <p className="mt-2 text-xs text-text-tertiary">Signed in as {email}</p>}
-        <Link href="/dashboard" className="mt-6 inline-flex rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white">
-          Return to dashboard
+        <Link href="/" className="mt-6 inline-flex rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white">
+          Return home
         </Link>
       </Card>
     </main>

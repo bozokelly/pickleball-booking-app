@@ -26,7 +26,7 @@ export default function LoginPage() {
       const next = typeof window !== 'undefined'
         ? new URLSearchParams(window.location.search).get('next')
         : null;
-      const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
+      const safeNext = next && next.startsWith('/admin') && !next.startsWith('//') ? next : '/admin';
       router.replace(safeNext);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Sign in failed';
@@ -43,20 +43,10 @@ export default function LoginPage() {
         </Link>
       </div>
 
-      {/* Tab toggle */}
-      <div className="flex bg-background rounded-xl p-1 mb-6">
-        <div className="flex-1 text-center py-2.5 rounded-lg bg-white text-primary font-semibold text-sm shadow-sm">
-          Sign In
-        </div>
-        <Link href="/signup" className="flex-1 text-center py-2.5 rounded-lg text-text-tertiary font-medium text-sm hover:text-text-secondary transition-colors">
-          Create Account
-        </Link>
-      </div>
-
       <Card className="p-8">
         <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-text-primary">Welcome Back</h2>
-          <p className="text-text-secondary mt-1 text-sm">Sign in to your account</p>
+          <h2 className="text-2xl font-bold text-text-primary">Internal access</h2>
+          <p className="text-text-secondary mt-1 text-sm">Sign in to the Bookadink command centre</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -79,14 +69,8 @@ export default function LoginPage() {
             autoComplete="current-password"
           />
 
-          <div className="text-right">
-            <Link href="/forgot-password" className="text-sm text-primary hover:underline">
-              Forgot password?
-            </Link>
-          </div>
-
           <Button type="submit" loading={loading} className="w-full">
-            Sign In
+            Sign in to admin
           </Button>
         </form>
       </Card>
