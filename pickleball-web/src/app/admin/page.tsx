@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
+  Activity,
   AlertTriangle,
+  ArrowUpRight,
   Bell,
   Building2,
   CheckCircle2,
@@ -11,6 +13,7 @@ import {
   HeartPulse,
   Lock,
   Search,
+  ShieldCheck,
   Ticket,
   Users,
 } from 'lucide-react';
@@ -71,66 +74,149 @@ export default async function AdminPage({ searchParams }: PageProps) {
 
   const dashboard = await loadAdminDashboard(admin.supabase, query);
 
+  const navItems = [
+    { id: 'overview', label: 'Overview', icon: Database },
+    { id: 'clubs', label: 'Clubs', icon: Building2 },
+    { id: 'players', label: 'Players', icon: Users },
+    { id: 'bookings', label: 'Bookings', icon: Ticket },
+    { id: 'payments', label: 'Payments', icon: CreditCard },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'compliance', label: 'Compliance', icon: FileText },
+    { id: 'system-health', label: 'Health', icon: HeartPulse },
+  ];
+
   return (
-    <main className="min-h-screen bg-background">
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <header className="mb-6 flex flex-col gap-4 border-b border-border pb-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <StatusPill label="Internal" tone="dark" />
-              <StatusPill label="Read-only" tone="neutral" />
-              <StatusPill label={admin.role} tone="info" />
+    <main className="min-h-screen bg-[#F5F5F7] text-text-primary">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1520px] gap-0 px-3 py-3 sm:px-4 lg:px-6">
+        <aside className="sticky top-3 hidden h-[calc(100vh-1.5rem)] w-64 flex-shrink-0 flex-col rounded-2xl border border-black/10 bg-[#111113] p-4 text-white shadow-[0_24px_80px_rgba(0,0,0,0.18)] lg:flex print:hidden">
+          <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-sm font-black text-[#111113]">B</div>
+            <div>
+              <p className="text-sm font-semibold leading-tight">Bookadink</p>
+              <p className="text-xs text-white/50">Internal command</p>
             </div>
-            <h1 className="text-3xl font-bold tracking-tight text-text-primary">Command Centre</h1>
-            <p className="mt-2 max-w-3xl text-sm text-text-secondary">
-              Beta operations across clubs, players, bookings, payments, notifications, compliance, and system health.
-            </p>
           </div>
-          <div className="text-sm text-text-secondary">
-            Signed in as <span className="font-semibold text-text-primary">{admin.email || admin.userId}</span>
+          <nav className="mt-5 space-y-1">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <a
+                  key={item.id}
+                  href={`#${item.id}`}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.label}
+                </a>
+              );
+            })}
+          </nav>
+          <div className="mt-auto rounded-xl border border-white/10 bg-white/[0.06] p-3">
+            <div className="mb-3 flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-success" />
+              <span className="text-xs font-semibold uppercase tracking-wide text-white/60">Read-only owner access</span>
+            </div>
+            <p className="truncate text-sm font-semibold">{admin.email || admin.userId}</p>
+            <p className="mt-1 text-xs text-white/45">Refreshed {dashboard.generatedAt}</p>
           </div>
-        </header>
+        </aside>
 
-        <form action="/admin" className="mb-6 flex max-w-xl items-center gap-2">
-          <label className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
-            <input
-              name="q"
-              defaultValue={query}
-              placeholder="Search clubs, players, bookings, payments..."
-              className="w-full rounded-xl border border-border bg-white py-3 pl-10 pr-4 text-sm text-text-primary outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/15"
-            />
-          </label>
-          <button className="rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:bg-black">
-            Search
-          </button>
-        </form>
-
-        {dashboard.warnings.length > 0 && (
-          <Card className="mb-6 border-warning/30 bg-warning/5">
-            <div className="flex gap-3">
-              <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-warning" />
-              <div>
-                <h2 className="text-sm font-semibold text-text-primary">Some admin data could not be loaded</h2>
-                <ul className="mt-2 space-y-1 text-sm text-text-secondary">
-                  {dashboard.warnings.map((warning) => (
-                    <li key={warning}>{warning}</li>
-                  ))}
-                </ul>
+        <div className="min-w-0 flex-1 lg:pl-5">
+          <header className="sticky top-0 z-30 -mx-3 mb-4 border-b border-border bg-[#F5F5F7]/95 px-3 py-3 backdrop-blur-xl sm:-mx-4 sm:px-4 lg:-mx-5 lg:px-5 print:static print:bg-white">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+              <div className="min-w-0">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <StatusPill label="Internal" tone="dark" />
+                  <StatusPill label="Read-only" tone="neutral" />
+                  <StatusPill label={admin.role} tone="info" />
+                </div>
+                <h1 className="text-2xl font-semibold tracking-tight text-text-primary sm:text-3xl">Command Centre</h1>
+                <p className="mt-1 max-w-3xl text-sm text-text-secondary">
+                  Live beta operations across clubs, players, bookings, payments, notifications, compliance, and system health.
+                </p>
               </div>
+              <form action="/admin" className="flex w-full max-w-2xl items-center gap-2 print:hidden">
+                <label className="relative min-w-0 flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
+                  <input
+                    name="q"
+                    defaultValue={query}
+                    placeholder="Search clubs, players, bookings, payments..."
+                    className="h-11 w-full rounded-xl border border-border bg-white pl-10 pr-4 text-sm text-text-primary outline-none shadow-sm transition focus:border-primary/40 focus:ring-4 focus:ring-primary/10"
+                  />
+                </label>
+                <button className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-black">
+                  <Search className="h-4 w-4" />
+                  <span className="hidden sm:inline">Search</span>
+                </button>
+              </form>
             </div>
-          </Card>
-        )}
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:hidden print:hidden">
+              {navItems.map((item) => (
+                <a key={item.id} href={`#${item.id}`} className="whitespace-nowrap rounded-full border border-border bg-white px-3 py-1.5 text-xs font-semibold text-text-secondary">
+                  {item.label}
+                </a>
+              ))}
+            </div>
+          </header>
 
-        <Section id="overview" title="Overview" icon={<Database className="h-5 w-5" />}>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {dashboard.metrics.map((metric) => (
-              <MetricCard key={metric.label} metric={metric} />
-            ))}
-          </div>
-        </Section>
+          {dashboard.warnings.length > 0 && (
+            <Panel className="mb-4 border-warning/30 bg-warning/5 p-4">
+              <div className="flex gap-3">
+                <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-warning" />
+                <div>
+                  <h2 className="text-sm font-semibold text-text-primary">Some required admin data could not be loaded</h2>
+                  <ul className="mt-2 space-y-1 text-sm text-text-secondary">
+                    {dashboard.warnings.map((warning) => (
+                      <li key={warning}>{warning}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </Panel>
+          )}
 
-        <Section id="clubs" title="Clubs" icon={<Building2 className="h-5 w-5" />}>
+          <Section
+            id="overview"
+            title="Overview"
+            icon={<Database className="h-5 w-5" />}
+            description="High-signal numbers for the current operating week."
+          >
+            <div className="grid gap-3 md:grid-cols-[1.2fr_0.8fr] xl:grid-cols-[1.5fr_0.9fr]">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {dashboard.metrics.map((metric) => (
+                  <MetricCard key={metric.label} metric={metric} />
+                ))}
+              </div>
+              <Panel className="p-0">
+                <div className="border-b border-border px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-text-primary">Attention queue</h3>
+                      <p className="mt-0.5 text-xs text-text-secondary">Items worth checking before launch traffic grows.</p>
+                    </div>
+                    <Activity className="h-5 w-5 text-text-tertiary" />
+                  </div>
+                </div>
+                <div className="divide-y divide-border">
+                  {dashboard.attention.map((item) => (
+                    <a key={item.label} href={item.href} className="flex items-center justify-between gap-3 px-4 py-3 transition hover:bg-surface-tint">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-text-primary">{item.label}</p>
+                        <p className="mt-0.5 truncate text-xs text-text-secondary">{item.detail}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <StatusPill label={item.value} tone={item.tone} />
+                        <ArrowUpRight className="h-3.5 w-3.5 text-text-tertiary" />
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </Panel>
+            </div>
+          </Section>
+
+          <Section id="clubs" title="Clubs" icon={<Building2 className="h-5 w-5" />} description={`${dashboard.clubs.length} clubs in this view`}>
           <DataTable
             empty="No clubs matched this view."
             columns={['Club', 'Location', 'Subscription', 'Stripe', 'Members', 'Admins', 'Upcoming', 'Created', 'Last activity']}
@@ -148,7 +234,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
           />
         </Section>
 
-        <Section id="players" title="Players" icon={<Users className="h-5 w-5" />}>
+          <Section id="players" title="Players" icon={<Users className="h-5 w-5" />} description={`${dashboard.players.length} player profiles in this view`}>
           <DataTable
             empty="No players matched this view."
             columns={['Player', 'Email', 'DUPR', 'Joined clubs', 'Upcoming bookings', 'Credits', 'Created', 'Last active']}
@@ -165,7 +251,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
           />
         </Section>
 
-        <Section id="bookings" title="Bookings" icon={<Ticket className="h-5 w-5" />}>
+          <Section id="bookings" title="Bookings" icon={<Ticket className="h-5 w-5" />} description={`${dashboard.bookings.length} recent bookings in this view`}>
           <DataTable
             empty="No bookings matched this view."
             columns={['Game', 'Club', 'Player', 'Game time', 'Booking', 'Payment', 'Fee', 'Credits', 'Waitlist', 'Created']}
@@ -184,7 +270,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
           />
         </Section>
 
-        <Section id="payments" title="Payments" icon={<CreditCard className="h-5 w-5" />}>
+          <Section id="payments" title="Payments" icon={<CreditCard className="h-5 w-5" />} description={`${dashboard.payments.length} Stripe-linked booking records`}>
           <DataTable
             empty="No paid or Stripe-linked bookings matched this view."
             columns={['Created', 'Player', 'Club', 'Payment intent', 'Connected account', 'Amount', 'Payment', 'Refund', 'Booking']}
@@ -202,7 +288,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
           />
         </Section>
 
-        <Section id="notifications" title="Notifications" icon={<Bell className="h-5 w-5" />}>
+          <Section id="notifications" title="Notifications" icon={<Bell className="h-5 w-5" />} description={dashboard.notificationsConfigured ? `${dashboard.notifications.length} notification records` : 'Notification table not available to this admin view'}>
           <DataTable
             empty={dashboard.notificationsConfigured ? 'No notifications matched this view.' : 'Notification health is unavailable until admin notification RLS is deployed.'}
             columns={['Created', 'Recipient', 'Type', 'Title', 'Read', 'Email', 'Reference']}
@@ -218,8 +304,8 @@ export default async function AdminPage({ searchParams }: PageProps) {
           />
         </Section>
 
-        <Section id="compliance" title="Compliance" icon={<FileText className="h-5 w-5" />}>
-          <div className="grid gap-4 lg:grid-cols-3">
+          <Section id="compliance" title="Compliance" icon={<FileText className="h-5 w-5" />} description="Launch-readiness surfaces for privacy, legal, and support signals">
+          <div className="grid gap-3 lg:grid-cols-3">
             <ComplianceCard
               title="Account deletion requests"
               configured={dashboard.compliance.deletions.configured}
@@ -241,13 +327,14 @@ export default async function AdminPage({ searchParams }: PageProps) {
           </div>
         </Section>
 
-        <Section id="system-health" title="System Health" icon={<HeartPulse className="h-5 w-5" />}>
+          <Section id="system-health" title="System Health" icon={<HeartPulse className="h-5 w-5" />} description="Read-only checks for payment, venue, game, and notification data quality">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {dashboard.health.map((item) => (
               <HealthCard key={item.label} label={item.label} value={item.value} detail={item.detail} tone={item.tone} />
             ))}
           </div>
         </Section>
+        </div>
       </div>
     </main>
   );
@@ -499,6 +586,11 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     const status = text(row, 'status');
     return !status || status === 'pending' || status === 'open';
   }).length;
+  const stuckPendingPayments = pendingPaymentBookings(bookings);
+  const expiredActiveHolds = expiredHolds(bookings, now);
+  const upcomingGamesWithNoPlayers = emptyUpcomingGames(games, bookings, now);
+  const paidGamesWithoutStripe = paidGamesMissingStripe(games, clubs, stripeAccounts);
+  const clubsWithoutLocation = clubsMissingLocation(clubs, venueByClubId);
 
   const metrics: Metric[] = [
     { label: 'Total clubs', value: formatCount(totalClubs.count ?? clubs.length), hint: 'All clubs visible to admin' },
@@ -519,33 +611,33 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
   const health: { label: string; value: string; detail: string; tone: HealthTone }[] = [
     {
       label: 'Stuck pending payments',
-      value: formatCount(pendingPaymentBookings(bookings).length),
+      value: formatCount(stuckPendingPayments.length),
       detail: 'Bookings with a Stripe intent but no paid flag.',
-      tone: pendingPaymentBookings(bookings).length > 0 ? 'warn' : 'good',
+      tone: stuckPendingPayments.length > 0 ? 'warn' : 'good',
     },
     {
       label: 'Expired active holds',
-      value: formatCount(expiredHolds(bookings, now).length),
+      value: formatCount(expiredActiveHolds.length),
       detail: 'Active booking holds past expiry.',
-      tone: expiredHolds(bookings, now).length > 0 ? 'bad' : 'good',
+      tone: expiredActiveHolds.length > 0 ? 'bad' : 'good',
     },
     {
       label: 'Upcoming games with zero players',
-      value: formatCount(emptyUpcomingGames(games, bookings, now).length),
+      value: formatCount(upcomingGamesWithNoPlayers.length),
       detail: 'Future games with no confirmed bookings.',
-      tone: emptyUpcomingGames(games, bookings, now).length > 0 ? 'warn' : 'good',
+      tone: upcomingGamesWithNoPlayers.length > 0 ? 'warn' : 'good',
     },
     {
       label: 'Paid games missing Stripe account',
-      value: formatCount(paidGamesMissingStripe(games, clubs, stripeAccounts).length),
+      value: formatCount(paidGamesWithoutStripe.length),
       detail: 'Fee-charging games whose club has no connected account row.',
-      tone: paidGamesMissingStripe(games, clubs, stripeAccounts).length > 0 ? 'bad' : 'good',
+      tone: paidGamesWithoutStripe.length > 0 ? 'bad' : 'good',
     },
     {
       label: 'Clubs missing venue/location',
-      value: formatCount(clubsMissingLocation(clubs, venueByClubId).length),
+      value: formatCount(clubsWithoutLocation.length),
       detail: 'Clubs without structured address or venue fallback.',
-      tone: clubsMissingLocation(clubs, venueByClubId).length > 0 ? 'warn' : 'good',
+      tone: clubsWithoutLocation.length > 0 ? 'warn' : 'good',
     },
     {
       label: 'Invalid capacity games',
@@ -560,9 +652,41 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
       tone: failedNotifications > 0 ? 'bad' : 'good',
     },
   ];
+  const attention: { label: string; value: string; detail: string; tone: StatusTone; href: string }[] = [
+    {
+      label: 'Pending payments',
+      value: formatCount(stuckPendingPayments.length),
+      detail: 'Stripe intents that have not resolved as paid.',
+      tone: stuckPendingPayments.length > 0 ? 'warn' : 'good',
+      href: '#payments',
+    },
+    {
+      label: 'Payment setup gaps',
+      value: formatCount(paidGamesWithoutStripe.length),
+      detail: 'Fee-charging games where club payout setup needs attention.',
+      tone: paidGamesWithoutStripe.length > 0 ? 'bad' : 'good',
+      href: '#system-health',
+    },
+    {
+      label: 'Compliance requests',
+      value: deletionRequestsResult.configured ? formatCount(pendingDeletionRequests) : 'Not configured',
+      detail: deletionRequestsResult.configured ? 'Open account deletion requests.' : 'Optional deletion-request table not deployed.',
+      tone: pendingDeletionRequests > 0 ? 'warn' : 'neutral',
+      href: '#compliance',
+    },
+    {
+      label: 'Failed notifications',
+      value: notificationsResult.configured ? formatCount(failedNotifications) : 'Not configured',
+      detail: notificationsResult.configured ? 'Delivery errors if notification status is tracked.' : 'Notification health is not exposed to this view.',
+      tone: failedNotifications > 0 ? 'bad' : 'neutral',
+      href: '#notifications',
+    },
+  ];
 
   return {
     warnings,
+    generatedAt: format(now, 'd MMM yyyy, h:mm a'),
+    attention,
     metrics,
     clubs: clubRows,
     players: playerRows,
@@ -602,7 +726,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
 async function safeRows(label: string, run: () => PromiseLike<PostgrestRows>, optional = false): Promise<QueryResult> {
   const result = await run();
   if (result.error) {
-    const missing = result.error.code === '42P01' || result.error.message.toLowerCase().includes('does not exist');
+    const missing = isMissingTableError(result.error);
     return {
       data: [],
       configured: !(optional && missing) && !missing,
@@ -615,6 +739,18 @@ async function safeRows(label: string, run: () => PromiseLike<PostgrestRows>, op
     configured: true,
     warning: null,
   };
+}
+
+function isMissingTableError(error: { code?: string; message: string }) {
+  const message = error.message.toLowerCase();
+  return (
+    error.code === '42P01' ||
+    error.code === 'PGRST205' ||
+    message.includes('does not exist') ||
+    message.includes('schema cache') ||
+    message.includes('could not find table') ||
+    message.includes('could not find the table')
+  );
 }
 
 async function safeCount(label: string, run: () => PromiseLike<PostgrestCount>): Promise<CountResult> {
@@ -643,16 +779,35 @@ function AccessDenied({ email, reason }: { email: string | null; reason: string 
   );
 }
 
-function Section({ id, title, icon, children }: { id: string; title: string; icon: React.ReactNode; children: React.ReactNode }) {
+function Section({
+  id,
+  title,
+  icon,
+  description,
+  children,
+}: {
+  id: string;
+  title: string;
+  icon: React.ReactNode;
+  description?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section id={id} className="mb-8">
-      <div className="mb-3 flex items-center gap-2 text-text-primary">
-        <span className="text-text-secondary">{icon}</span>
-        <h2 className="text-lg font-bold">{title}</h2>
+    <section id={id} className="scroll-mt-28 pb-5">
+      <div className="mb-3 flex flex-col gap-1 border-t border-border pt-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex items-center gap-2 text-text-primary">
+          <span className="text-text-secondary">{icon}</span>
+          <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+        </div>
+        {description && <p className="text-xs text-text-secondary">{description}</p>}
       </div>
       {children}
     </section>
   );
+}
+
+function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <div className={`rounded-xl border border-border bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${className}`}>{children}</div>;
 }
 
 function MetricCard({ metric }: { metric: Metric }) {
@@ -666,41 +821,41 @@ function MetricCard({ metric }: { metric: Metric }) {
           : '';
 
   return (
-    <Card className={`p-4 ${toneClass}`}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">{metric.label}</p>
-      <p className="mt-2 text-2xl font-bold text-text-primary">{metric.value}</p>
-      <p className="mt-1 text-xs text-text-secondary">{metric.hint}</p>
-    </Card>
+    <Panel className={`p-4 ${toneClass}`}>
+      <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-text-tertiary">{metric.label}</p>
+      <p className="mt-2 truncate text-2xl font-semibold leading-none text-text-primary">{metric.value}</p>
+      <p className="mt-2 min-h-8 text-xs leading-4 text-text-secondary">{metric.hint}</p>
+    </Panel>
   );
 }
 
 function DataTable({ columns, rows, empty }: { columns: string[]; rows: React.ReactNode[][]; empty: string }) {
   return (
-    <Card className="overflow-hidden p-0">
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-border text-sm">
-          <thead className="bg-surface-tint">
+    <Panel className="overflow-hidden p-0">
+      <div className="overflow-x-auto print:overflow-visible">
+        <table className="w-full min-w-[980px] border-separate border-spacing-0 text-[13px] print:min-w-0">
+          <thead>
             <tr>
               {columns.map((column) => (
-                <th key={column} className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+                <th key={column} className="border-b border-border bg-[#FAFAFB] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-text-tertiary first:pl-4 last:pr-4">
                   {column}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-border bg-white">
+          <tbody className="bg-white">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-8 text-center text-sm text-text-secondary">
+                <td colSpan={columns.length} className="px-4 py-10 text-center text-sm text-text-secondary">
                   {empty}
                 </td>
               </tr>
             ) : (
               rows.map((row, index) => (
-                <tr key={index} className="align-top">
+                <tr key={index} className="align-top transition odd:bg-white even:bg-[#FCFCFD] hover:bg-surface-tint">
                   {row.map((cell, cellIndex) => (
-                    <td key={cellIndex} className="max-w-[260px] whitespace-nowrap px-4 py-3 text-text-secondary">
-                      {typeof cell === 'string' ? <span className="block truncate">{cell}</span> : cell}
+                    <td key={cellIndex} className="max-w-[240px] border-b border-border/80 px-3 py-2.5 text-text-secondary first:pl-4 last:pr-4">
+                      {typeof cell === 'string' ? <span className="block truncate" title={cell}>{cell}</span> : cell}
                     </td>
                   ))}
                 </tr>
@@ -709,23 +864,23 @@ function DataTable({ columns, rows, empty }: { columns: string[]; rows: React.Re
           </tbody>
         </table>
       </div>
-    </Card>
+    </Panel>
   );
 }
 
 function ComplianceCard({ title, configured, rows, empty }: { title: string; configured: boolean; rows: string[][]; empty: string }) {
   return (
-    <Card className="p-4">
+    <Panel className="p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="font-semibold text-text-primary">{title}</h3>
+        <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
         <StatusPill label={configured ? 'available' : 'not configured'} tone={configured ? 'good' : 'neutral'} />
       </div>
       {rows.length === 0 ? (
-        <p className="text-sm text-text-secondary">{empty}</p>
+        <p className="min-h-12 text-sm leading-5 text-text-secondary">{empty}</p>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {rows.map((row, index) => (
-            <div key={index} className="rounded-lg border border-border bg-surface-tint p-3">
+            <div key={index} className="rounded-lg border border-border bg-surface-tint px-3 py-2">
               <p className="truncate text-sm font-medium text-text-primary">{row[0]}</p>
               <p className="mt-1 text-xs text-text-secondary">{row[1]}</p>
               <p className="mt-1 text-xs text-text-tertiary">{row[2]}</p>
@@ -733,7 +888,7 @@ function ComplianceCard({ title, configured, rows, empty }: { title: string; con
           ))}
         </div>
       )}
-    </Card>
+    </Panel>
   );
 }
 
@@ -741,16 +896,16 @@ function HealthCard({ label, value, detail, tone }: { label: string; value: stri
   const Icon = tone === 'good' ? CheckCircle2 : AlertTriangle;
   const toneClass = tone === 'good' ? 'text-success' : tone === 'warn' ? 'text-warning' : 'text-error';
   return (
-    <Card className="p-4">
+    <Panel className="p-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold text-text-primary">{label}</p>
-          <p className="mt-1 text-xs text-text-secondary">{detail}</p>
+          <p className="text-sm font-semibold leading-5 text-text-primary">{label}</p>
+          <p className="mt-1 text-xs leading-4 text-text-secondary">{detail}</p>
         </div>
         <Icon className={`h-5 w-5 flex-shrink-0 ${toneClass}`} />
       </div>
-      <p className="mt-4 text-2xl font-bold text-text-primary">{value}</p>
-    </Card>
+      <p className="mt-4 text-2xl font-semibold leading-none text-text-primary">{value}</p>
+    </Panel>
   );
 }
 
@@ -763,11 +918,15 @@ function StatusPill({ label, tone }: { label: string; tone: StatusTone }) {
     warn: 'bg-warning/10 text-warning',
     bad: 'bg-error/10 text-error',
   }[tone];
-  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${classes}`}>{label}</span>;
+  return <span className={`inline-flex max-w-full whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${classes}`}>{label}</span>;
 }
 
 function Mono({ value }: { value: string }) {
-  return <code className="block max-w-[180px] truncate rounded bg-background px-2 py-1 text-xs text-text-secondary">{value}</code>;
+  return (
+    <code className="block max-w-[180px] truncate rounded-md border border-border bg-background px-2 py-1 font-mono text-[11px] text-text-secondary" title={value}>
+      {value}
+    </code>
+  );
 }
 
 function toRow(valueToConvert: unknown): Row {
