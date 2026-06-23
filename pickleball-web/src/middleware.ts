@@ -43,8 +43,8 @@ export async function middleware(request: NextRequest) {
     return res;
   }
 
-  // Protect all /dashboard routes — redirect unauthenticated users to login.
-  if (!user && pathname.startsWith('/dashboard')) {
+  // Protect all /dashboard and /admin routes — redirect unauthenticated users to login.
+  if (!user && (pathname.startsWith('/dashboard') || pathname.startsWith('/admin'))) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('next', requestedPath);
