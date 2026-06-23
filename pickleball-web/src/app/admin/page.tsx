@@ -71,6 +71,17 @@ type StatusTone = 'dark' | 'neutral' | 'info' | 'good' | 'warn' | 'bad';
 type HealthTone = 'good' | 'warn' | 'bad';
 type PlatformTone = 'good' | 'warn' | 'bad' | 'neutral';
 type PlatformItem = { label: string; value: string; detail: string; tone: PlatformTone };
+type RevenueCardItem = { label: string; value: string; detail: string; tone: StatusTone };
+type SubscriptionRevenueRow = {
+  clubName: string;
+  plan: string;
+  status: string;
+  source: string;
+  periodEnd: string;
+  mrr: string;
+  mrrTracked: boolean;
+};
+type SubscriptionPlanRow = { plan: string; status: string; count: string; tone: StatusTone };
 type AdminTab = 'overview' | 'clubs' | 'players' | 'bookings' | 'payments' | 'notifications' | 'compliance' | 'platform' | 'issues';
 
 export default async function AdminPage({ searchParams }: PageProps) {
@@ -221,7 +232,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
                     <h3 className="text-sm font-semibold text-text-primary">Revenue picture</h3>
                     <p className="mt-0.5 text-xs text-text-secondary">{dashboard.revenue.scope}</p>
                   </div>
-                  <div className="grid gap-0 divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+                  <div className="grid gap-0 divide-y divide-border sm:grid-cols-2 xl:grid-cols-3">
                     {dashboard.revenue.cards.map((item) => (
                       <RevenueCard key={item.label} item={item} />
                     ))}
@@ -307,6 +318,11 @@ export default async function AdminPage({ searchParams }: PageProps) {
                   <RevenueCard key={item.label} item={item} />
                 ))}
               </div>
+              <SubscriptionRevenuePanel
+                rows={dashboard.revenue.subscriptionRows}
+                planRows={dashboard.revenue.subscriptionPlanRows}
+                note={dashboard.revenue.subscriptionNote}
+              />
               <DataTable
                 empty="No paid or Stripe-linked bookings matched this view."
                 columns={['Created', 'Player', 'Club', 'Payment intent', 'Connected account', 'Amount', 'Payment', 'Refund', 'Booking']}
@@ -656,24 +672,77 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
   const paidGamesWithoutStripe = paidGamesMissingStripe(games, clubs, stripeAccounts);
   const clubsWithoutLocation = clubsMissingLocation(clubs, venueByClubId);
   const paidBookingRows = bookings.filter((booking) => isPaidBooking(booking));
+  const monthStart = startOfMonth(now);
+  const currentMonthPaidBookingRows = paidBookingRows.filter((booking) => bookingPaidAt(booking) >= monthStart.getTime());
   const grossPaidCents = paidBookingRows.reduce((sum, booking) => {
     const game = gameById.get(text(booking, 'game_id'));
     return sum + bookingGrossCents(booking, game);
   }, 0);
   const platformRevenueCents = paidBookingRows.reduce((sum, booking) => sum + number(booking, 'platform_fee_cents'), 0);
+  const currentMonthPlatformRevenueCents = currentMonthPaidBookingRows.reduce((sum, booking) => sum + number(booking, 'platform_fee_cents'), 0);
   const clubPayoutCents = paidBookingRows.reduce((sum, booking) => sum + number(booking, 'club_payout_cents'), 0);
   const revenueTrackedCount = paidBookingRows.filter((booking) => number(booking, 'platform_fee_cents') > 0).length;
+  const subscriptionRows = subscriptions
+    .map((subscription) => {
+      const club = clubById.get(text(subscription, 'club_id'));
+      const plan = normalizedSubscriptionPlan(subscription, club);
+      const status = text(subscription, 'status') || 'unknown';
+      const mrrCents = subscriptionMonthlyCents(subscription);
+      return {
+        clubName: text(club, 'name') || 'Unknown club',
+        plan,
+        status,
+        source: text(subscription, 'subscription_source') || 'not tracked',
+        periodEnd: formatDate(text(subscription, 'current_period_end')),
+        mrr: mrrCents > 0 ? formatCents(mrrCents) : 'Not tracked',
+        mrrTracked: mrrCents > 0,
+      } satisfies SubscriptionRevenueRow;
+    })
+    .filter((subscription) => include([subscription.clubName, subscription.plan, subscription.status, subscription.source]));
+  const activeSubscriptionRows = subscriptionRows.filter((subscription) => isActiveSubscriptionStatus(subscription.status));
+  const cancelingSubscriptionRows = subscriptionRows.filter((subscription) => isCancelingSubscriptionStatus(subscription.status));
+  const subscriptionMrrCents = subscriptions.reduce((sum, subscription) => {
+    const status = text(subscription, 'status') || 'unknown';
+    return isActiveSubscriptionStatus(status) ? sum + subscriptionMonthlyCents(subscription) : sum;
+  }, 0);
+  const subscriptionMrrTracked = subscriptionMrrCents > 0;
+  const subscriptionPlanRows = planBreakdown(subscriptionRows);
   const revenue = {
-    scope: `Based on ${formatCount(paidBookingRows.length)} loaded paid booking${paidBookingRows.length === 1 ? '' : 's'}. Stripe fees, refunds, and bank settlement timing are not included.`,
+    scope: `Subscriptions are counted from club_subscriptions. Game processing fees use platform_fee_cents on ${formatCount(paidBookingRows.length)} paid booking${paidBookingRows.length === 1 ? '' : 's'}.`,
+    subscriptionRows,
+    subscriptionPlanRows,
+    subscriptionNote: subscriptionMrrTracked
+      ? 'Subscription MRR is calculated from stored monthly price fields on active subscriptions.'
+      : 'Subscription count and plan mix are visible, but MRR is not calculable until plan price/currency fields are stored or Stripe prices are queried.',
     cards: [
       {
-        label: 'Platform revenue',
+        label: 'Active subscribers',
+        value: formatCount(activeSubscriptionRows.length),
+        detail: `${formatCount(subscriptionRows.length)} total subscription row${subscriptionRows.length === 1 ? '' : 's'}, ${formatCount(cancelingSubscriptionRows.length)} canceling.`,
+        tone: activeSubscriptionRows.length > 0 ? 'good' : 'neutral',
+      },
+      {
+        label: 'Subscription MRR',
+        value: subscriptionMrrTracked ? formatCents(subscriptionMrrCents) : 'Not tracked',
+        detail: subscriptionMrrTracked
+          ? 'Monthly recurring subscription value from active subscription price fields.'
+          : 'club_subscriptions does not currently expose amount, price, currency, or interval fields.',
+        tone: subscriptionMrrTracked ? 'good' : 'warn',
+      },
+      {
+        label: 'Game processing fees',
         value: formatCents(platformRevenueCents),
         detail:
           revenueTrackedCount > 0
             ? 'Known platform_fee_cents recorded on paid bookings.'
             : 'No platform_fee_cents are recorded yet, so true platform take may not be tracked in this table.',
         tone: platformRevenueCents > 0 ? 'good' : 'warn',
+      },
+      {
+        label: 'This month game fees',
+        value: formatCents(currentMonthPlatformRevenueCents),
+        detail: `${formatCount(currentMonthPaidBookingRows.length)} paid booking${currentMonthPaidBookingRows.length === 1 ? '' : 's'} in the current month.`,
+        tone: currentMonthPlatformRevenueCents > 0 ? 'good' : 'neutral',
       },
       {
         label: 'Gross paid bookings',
@@ -693,7 +762,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
         detail: 'Paid or succeeded booking records loaded into this admin view.',
         tone: paidBookingRows.length > 0 ? 'good' : 'neutral',
       },
-    ] satisfies { label: string; value: string; detail: string; tone: StatusTone }[],
+    ] satisfies RevenueCardItem[],
   };
 
   const metrics: Metric[] = [
@@ -866,7 +935,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
       value: formatCents(platformRevenueCents),
       detail:
         revenueTrackedCount > 0
-          ? 'This is the recorded platform fee from paid bookings loaded into this view.'
+          ? `Game processing fees are tracked. Subscription MRR is ${subscriptionMrrTracked ? formatCents(subscriptionMrrCents) : 'not tracked until plan prices are stored'}.`
           : 'Platform fee fields are not populated yet, so revenue may be understated until fee capture is written consistently.',
       tone: platformRevenueCents > 0 ? 'good' : 'warn',
       href: '/admin?tab=payments',
@@ -1130,6 +1199,90 @@ function RevenueCard({ item }: { item: { label: string; value: string; detail: s
   );
 }
 
+function SubscriptionRevenuePanel({
+  rows,
+  planRows,
+  note,
+}: {
+  rows: SubscriptionRevenueRow[];
+  planRows: SubscriptionPlanRow[];
+  note: string;
+}) {
+  return (
+    <div className="mb-3 grid gap-3 xl:grid-cols-[0.7fr_1.3fr]">
+      <Panel className="overflow-hidden p-0">
+        <div className="border-b border-border px-4 py-3">
+          <h3 className="text-sm font-semibold text-text-primary">Subscription plan mix</h3>
+          <p className="mt-0.5 text-xs text-text-secondary">{note}</p>
+        </div>
+        <div className="divide-y divide-border">
+          {planRows.length === 0 ? (
+            <p className="px-4 py-6 text-sm text-text-secondary">No club subscription rows matched this view.</p>
+          ) : (
+            planRows.map((row) => (
+              <div key={`${row.plan}-${row.status}`} className="grid grid-cols-[1fr_auto] gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-text-primary">{row.plan}</p>
+                  <p className="mt-0.5 text-xs text-text-secondary">{row.status}</p>
+                </div>
+                <StatusPill label={row.count} tone={row.tone} />
+              </div>
+            ))
+          )}
+        </div>
+      </Panel>
+
+      <Panel className="overflow-hidden p-0">
+        <div className="border-b border-border px-4 py-3">
+          <h3 className="text-sm font-semibold text-text-primary">Club subscriptions</h3>
+          <p className="mt-0.5 text-xs text-text-secondary">Which clubs are subscribed, their plan, status, billing source, and tracked MRR.</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] border-separate border-spacing-0 text-[13px]">
+            <thead>
+              <tr>
+                {['Club', 'Plan', 'Status', 'Source', 'Period end', 'MRR'].map((column) => (
+                  <th key={column} className="border-b border-border bg-[#FAFAFB] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-text-tertiary first:pl-4 last:pr-4">
+                    {column}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="bg-white">
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-6 text-center text-sm text-text-secondary">
+                    No club subscription rows matched this view.
+                  </td>
+                </tr>
+              ) : (
+                rows.map((row) => (
+                  <tr key={`${row.clubName}-${row.plan}-${row.status}`} className="align-top transition odd:bg-white even:bg-[#FCFCFD] hover:bg-surface-tint">
+                    <td className="max-w-[220px] border-b border-border/80 px-3 py-2.5 text-text-secondary first:pl-4">
+                      <span className="block truncate" title={row.clubName}>{row.clubName}</span>
+                    </td>
+                    <td className="border-b border-border/80 px-3 py-2.5 text-text-secondary">
+                      <StatusPill label={row.plan} tone="neutral" />
+                    </td>
+                    <td className="border-b border-border/80 px-3 py-2.5 text-text-secondary">
+                      <StatusPill label={row.status} tone={subscriptionStatusTone(row.status)} />
+                    </td>
+                    <td className="border-b border-border/80 px-3 py-2.5 text-text-secondary">{row.source}</td>
+                    <td className="border-b border-border/80 px-3 py-2.5 text-text-secondary">{row.periodEnd}</td>
+                    <td className="border-b border-border/80 px-3 py-2.5 text-text-secondary last:pr-4">
+                      <StatusPill label={row.mrr} tone={row.mrrTracked ? 'good' : 'warn'} />
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
 function DataTable({ columns, rows, empty }: { columns: string[]; rows: React.ReactNode[][]; empty: string }) {
   return (
     <Panel className="overflow-hidden p-0">
@@ -1355,6 +1508,10 @@ function startOfWeekIso(date: Date) {
   return copy.toISOString();
 }
 
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
 function isUpcomingGame(game: Row | undefined, now: Date) {
   const dateTime = text(game, 'date_time');
   if (!dateTime) return false;
@@ -1407,6 +1564,12 @@ function isPaidBooking(booking: Row) {
   return bool(booking, 'fee_paid') || status === 'paid' || status === 'succeeded';
 }
 
+function bookingPaidAt(booking: Row) {
+  const raw = text(booking, 'paid_at') || text(booking, 'charge_captured_at') || text(booking, 'created_at');
+  const timestamp = raw ? new Date(raw).getTime() : 0;
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
 function bookingGrossCents(booking: Row, game: Row | undefined) {
   const amount = number(booking, 'amount_cents');
   if (amount > 0) return amount;
@@ -1443,6 +1606,55 @@ function formatPaymentAmount(booking: Row, game: Row | undefined) {
   const cents = number(booking, 'amount_cents') || number(booking, 'platform_fee_cents') + number(booking, 'club_payout_cents');
   if (cents > 0) return formatCents(cents);
   return formatBookingFee(booking, game);
+}
+
+function normalizedSubscriptionPlan(subscription: Row, club: Row | undefined) {
+  return text(subscription, 'plan_type') || text(subscription, 'tier') || text(subscription, 'plan') || text(club, 'subscription_tier') || 'unknown';
+}
+
+function subscriptionMonthlyCents(subscription: Row) {
+  const directMonthly = number(subscription, 'monthly_amount_cents') || number(subscription, 'mrr_cents') || number(subscription, 'monthly_price_cents');
+  if (directMonthly > 0) return directMonthly;
+
+  const amount = number(subscription, 'price_cents') || number(subscription, 'amount_cents') || number(subscription, 'unit_amount_cents');
+  if (amount <= 0) return 0;
+
+  const interval = text(subscription, 'billing_interval') || text(subscription, 'interval');
+  if (interval === 'year' || interval === 'annual' || interval === 'yearly') return Math.round(amount / 12);
+  return amount;
+}
+
+function isActiveSubscriptionStatus(status: string) {
+  return status === 'active' || status === 'trialing';
+}
+
+function isCancelingSubscriptionStatus(status: string) {
+  return status === 'canceling' || status === 'cancelling' || status === 'cancel_at_period_end';
+}
+
+function subscriptionStatusTone(status: string): StatusTone {
+  if (isActiveSubscriptionStatus(status)) return 'good';
+  if (isCancelingSubscriptionStatus(status)) return 'warn';
+  if (status === 'past_due' || status === 'unpaid' || status === 'incomplete') return 'bad';
+  return 'neutral';
+}
+
+function planBreakdown(rows: SubscriptionRevenueRow[]) {
+  const groups = new Map<string, { plan: string; status: string; count: number; tone: StatusTone }>();
+  rows.forEach((row) => {
+    const key = `${row.plan}::${row.status}`;
+    const existing = groups.get(key) || { plan: row.plan, status: row.status, count: 0, tone: subscriptionStatusTone(row.status) };
+    existing.count += 1;
+    groups.set(key, existing);
+  });
+  return Array.from(groups.values())
+    .sort((a, b) => b.count - a.count || a.plan.localeCompare(b.plan) || a.status.localeCompare(b.status))
+    .map((row) => ({
+      plan: row.plan,
+      status: row.status,
+      count: formatCount(row.count),
+      tone: row.tone,
+    })) satisfies SubscriptionPlanRow[];
 }
 
 function formatDollars(valueToFormat: number) {
