@@ -10,9 +10,11 @@ import {
   CreditCard,
   Database,
   FileText,
+  Gauge,
   HeartPulse,
   Lock,
   Search,
+  Server,
   ShieldCheck,
   Ticket,
   Users,
@@ -37,11 +39,16 @@ type QueryResult = {
   data: Row[];
   warning: string | null;
   configured: boolean;
+  elapsedMs: number;
+  limit: number | null;
+  label: string;
 };
 
 type CountResult = {
   count: CountValue;
   warning: string | null;
+  elapsedMs: number;
+  label: string;
 };
 
 type PostgrestRows = {
@@ -62,6 +69,8 @@ type Metric = {
 };
 type StatusTone = 'dark' | 'neutral' | 'info' | 'good' | 'warn' | 'bad';
 type HealthTone = 'good' | 'warn' | 'bad';
+type PlatformTone = 'good' | 'warn' | 'bad' | 'neutral';
+type PlatformItem = { label: string; value: string; detail: string; tone: PlatformTone };
 
 export default async function AdminPage({ searchParams }: PageProps) {
   const params = searchParams ? await searchParams : {};
@@ -82,6 +91,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
     { id: 'payments', label: 'Payments', icon: CreditCard },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'compliance', label: 'Compliance', icon: FileText },
+    { id: 'platform-health', label: 'Platform', icon: Server },
     { id: 'system-health', label: 'Health', icon: HeartPulse },
   ];
 
@@ -327,7 +337,40 @@ export default async function AdminPage({ searchParams }: PageProps) {
           </div>
         </Section>
 
-          <Section id="system-health" title="System Health" icon={<HeartPulse className="h-5 w-5" />} description="Read-only checks for payment, venue, game, and notification data quality">
+          <Section id="platform-health" title="Platform Health" icon={<Server className="h-5 w-5" />} description="Read-only service reachability, query timing, schema availability, and load pressure">
+          <div className="grid gap-3 xl:grid-cols-[0.9fr_1.1fr]">
+            <Panel className="p-4">
+              <div className="mb-4 flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-text-primary">Server and backend status</h3>
+                  <p className="mt-1 text-xs leading-4 text-text-secondary">
+                    Live CPU, memory, request volume, and cold-start metrics require Vercel/Supabase telemetry access. This panel shows what the app can verify safely from the admin server render.
+                  </p>
+                </div>
+                <Gauge className="h-5 w-5 text-text-tertiary" />
+              </div>
+              <div className="space-y-2">
+                {dashboard.platform.status.map((item) => (
+                  <StatusRow key={item.label} label={item.label} value={item.value} detail={item.detail} tone={item.tone} />
+                ))}
+              </div>
+            </Panel>
+
+            <Panel className="overflow-hidden p-0">
+              <div className="border-b border-border px-4 py-3">
+                <h3 className="text-sm font-semibold text-text-primary">Constraints and load</h3>
+                <p className="mt-0.5 text-xs text-text-secondary">Query timings, loaded rows, and row caps for this admin view.</p>
+              </div>
+              <div className="divide-y divide-border">
+                {dashboard.platform.load.map((item) => (
+                  <LoadRow key={item.label} item={item} />
+                ))}
+              </div>
+            </Panel>
+          </div>
+        </Section>
+
+          <Section id="system-health" title="Warning Issues" icon={<HeartPulse className="h-5 w-5" />} description="Read-only checks for payment, venue, game, and notification data quality">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {dashboard.health.map((item) => (
               <HealthCard key={item.label} label={item.label} value={item.value} detail={item.detail} tone={item.tone} />
@@ -341,6 +384,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
 }
 
 async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/lib/supabaseServer').createSupabaseServerClient>>, query: string) {
+  const loadStartedAt = Date.now();
   const now = new Date();
   const weekStart = startOfWeekIso(now);
   const nowIso = now.toISOString();
@@ -367,25 +411,27 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     paidBookingsThisWeek,
     pendingPayments,
   ] = await Promise.all([
-    safeRows('clubs', () => supabase.from('clubs').select('*').order('created_at', { ascending: false }).limit(300)),
+    safeRows('clubs', () => supabase.from('clubs').select('*').order('created_at', { ascending: false }).limit(300), false, 300),
     safeRows('profiles', () =>
       supabase
         .from('profiles')
         .select('id,email,full_name,dupr_rating,created_at,updated_at')
         .order('created_at', { ascending: false })
         .limit(500),
+      false,
+      500,
     ),
-    safeRows('games', () => supabase.from('games').select('*').order('date_time', { ascending: false }).limit(500)),
-    safeRows('bookings', () => supabase.from('bookings').select('*').order('created_at', { ascending: false }).limit(600)),
-    safeRows('notifications', () => supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(250), true),
-    safeRows('club_members', () => supabase.from('club_members').select('*').limit(1000), true),
-    safeRows('club_admins', () => supabase.from('club_admins').select('*').limit(500), true),
-    safeRows('player_credits', () => supabase.from('player_credits').select('*').limit(1000), true),
-    safeRows('club_stripe_accounts', () => supabase.from('club_stripe_accounts').select('*').limit(500), true),
-    safeRows('club_subscriptions', () => supabase.from('club_subscriptions').select('*').limit(500), true),
-    safeRows('account_deletion_requests', () => supabase.from('account_deletion_requests').select('*').order('created_at', { ascending: false }).limit(100), true),
-    safeRows('legal_documents', () => supabase.from('legal_documents').select('*').order('created_at', { ascending: false }).limit(20), true),
-    safeRows('club_venues', () => supabase.from('club_venues').select('*').limit(500), true),
+    safeRows('games', () => supabase.from('games').select('*').order('date_time', { ascending: false }).limit(500), false, 500),
+    safeRows('bookings', () => supabase.from('bookings').select('*').order('created_at', { ascending: false }).limit(600), false, 600),
+    safeRows('notifications', () => supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(250), true, 250),
+    safeRows('club_members', () => supabase.from('club_members').select('*').limit(1000), true, 1000),
+    safeRows('club_admins', () => supabase.from('club_admins').select('*').limit(500), true, 500),
+    safeRows('player_credits', () => supabase.from('player_credits').select('*').limit(1000), true, 1000),
+    safeRows('club_stripe_accounts', () => supabase.from('club_stripe_accounts').select('*').limit(500), true, 500),
+    safeRows('club_subscriptions', () => supabase.from('club_subscriptions').select('*').limit(500), true, 500),
+    safeRows('account_deletion_requests', () => supabase.from('account_deletion_requests').select('*').order('created_at', { ascending: false }).limit(100), true, 100),
+    safeRows('legal_documents', () => supabase.from('legal_documents').select('*').order('created_at', { ascending: false }).limit(20), true, 20),
+    safeRows('club_venues', () => supabase.from('club_venues').select('*').limit(500), true, 500),
     safeCount('clubs', () => supabase.from('clubs').select('id', { count: 'exact', head: true })),
     safeCount('profiles', () => supabase.from('profiles').select('id', { count: 'exact', head: true })),
     safeCount('upcoming games', () =>
@@ -682,11 +728,86 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
       href: '#notifications',
     },
   ];
+  const rowResults = [
+    clubsResult,
+    profilesResult,
+    gamesResult,
+    bookingsResult,
+    notificationsResult,
+    membersResult,
+    adminsResult,
+    creditsResult,
+    stripeAccountsResult,
+    subscriptionsResult,
+    deletionRequestsResult,
+    legalDocumentsResult,
+    venuesResult,
+  ];
+  const countResults = [totalClubs, totalPlayers, upcomingGames, bookingsThisWeek, paidBookingsThisWeek, pendingPayments];
+  const optionalTables = [notificationsResult, membersResult, adminsResult, creditsResult, stripeAccountsResult, subscriptionsResult, deletionRequestsResult, legalDocumentsResult, venuesResult];
+  const configuredOptionalTables = optionalTables.filter((result) => result.configured).length;
+  const slowestQuery = [...rowResults, ...countResults].sort((a, b) => b.elapsedMs - a.elapsedMs)[0];
+  const cappedLoads = rowResults.filter((result) => result.limit !== null && result.data.length >= result.limit);
+  const nearCappedLoads = rowResults.filter((result) => result.limit !== null && result.data.length / result.limit >= 0.8 && result.data.length < result.limit);
+  const platformWarningCount = warnings.length + cappedLoads.length + nearCappedLoads.length;
+  const loadElapsedMs = Date.now() - loadStartedAt;
+  const platform: { status: PlatformItem[]; load: PlatformItem[] } = {
+    status: [
+      {
+        label: 'Admin server render',
+        value: `${loadElapsedMs}ms`,
+        detail: 'Time to read data and compose this command-centre view.',
+        tone: loadElapsedMs > 3500 ? 'warn' : 'good',
+      },
+      {
+        label: 'Supabase database',
+        value: warnings.length > 0 ? 'Degraded' : 'Connected',
+        detail: warnings.length > 0 ? `${warnings.length} required read warning${warnings.length === 1 ? '' : 's'}.` : 'Required read checks completed successfully.',
+        tone: warnings.length > 0 ? 'warn' : 'good',
+      },
+      {
+        label: 'Slowest query',
+        value: slowestQuery ? `${slowestQuery.elapsedMs}ms` : '-',
+        detail: slowestQuery ? slowestQuery.label : 'No query timing captured.',
+        tone: slowestQuery && slowestQuery.elapsedMs > 1500 ? 'warn' : 'good',
+      },
+      {
+        label: 'Optional admin surfaces',
+        value: `${configuredOptionalTables}/${optionalTables.length}`,
+        detail: 'Notifications, memberships, credits, Stripe, compliance, legal, and venue tables visible to this admin view.',
+        tone: configuredOptionalTables === optionalTables.length ? 'good' : 'neutral',
+      },
+      {
+        label: 'Provider CPU/RAM/load',
+        value: 'Not wired',
+        detail: 'Connect Vercel/Supabase metrics APIs or log drains for live infrastructure load.',
+        tone: 'neutral',
+      },
+    ],
+    load: [
+      ...rowResults.map((result) => {
+        const loadRatio = result.limit ? result.data.length / result.limit : 0;
+        return {
+          label: result.label,
+          value: result.configured ? `${formatCount(result.data.length)}${result.limit ? `/${formatCount(result.limit)}` : ''}` : 'Not configured',
+          detail: result.warning || `${result.elapsedMs}ms query${result.limit ? `, ${Math.round(loadRatio * 100)}% of row cap` : ''}`,
+          tone: result.warning ? 'warn' : result.limit && result.data.length >= result.limit ? 'bad' : loadRatio >= 0.8 ? 'warn' : 'good',
+        } satisfies PlatformItem;
+      }),
+      {
+        label: 'Warnings detected',
+        value: formatCount(platformWarningCount),
+        detail: platformWarningCount > 0 ? 'Required read warnings or row-cap pressure need review.' : 'No required read warnings or row-cap pressure detected.',
+        tone: platformWarningCount > 0 ? 'warn' : 'good',
+      },
+    ],
+  };
 
   return {
     warnings,
     generatedAt: format(now, 'd MMM yyyy, h:mm a'),
     attention,
+    platform,
     metrics,
     clubs: clubRows,
     players: playerRows,
@@ -723,14 +844,19 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
   };
 }
 
-async function safeRows(label: string, run: () => PromiseLike<PostgrestRows>, optional = false): Promise<QueryResult> {
+async function safeRows(label: string, run: () => PromiseLike<PostgrestRows>, optional = false, limit: number | null = null): Promise<QueryResult> {
+  const startedAt = Date.now();
   const result = await run();
+  const elapsedMs = Date.now() - startedAt;
   if (result.error) {
     const missing = isMissingTableError(result.error);
     return {
       data: [],
       configured: !(optional && missing) && !missing,
       warning: optional && missing ? null : `${label}: ${result.error.message}`,
+      elapsedMs,
+      limit,
+      label,
     };
   }
 
@@ -738,6 +864,9 @@ async function safeRows(label: string, run: () => PromiseLike<PostgrestRows>, op
     data: Array.isArray(result.data) ? result.data.map((row) => toRow(row)) : [],
     configured: true,
     warning: null,
+    elapsedMs,
+    limit,
+    label,
   };
 }
 
@@ -754,10 +883,13 @@ function isMissingTableError(error: { code?: string; message: string }) {
 }
 
 async function safeCount(label: string, run: () => PromiseLike<PostgrestCount>): Promise<CountResult> {
+  const startedAt = Date.now();
   const result = await run();
   return {
     count: result.error ? null : result.count,
     warning: result.error ? `${label}: ${result.error.message}` : null,
+    elapsedMs: Date.now() - startedAt,
+    label,
   };
 }
 
@@ -907,6 +1039,47 @@ function HealthCard({ label, value, detail, tone }: { label: string; value: stri
       <p className="mt-4 text-2xl font-semibold leading-none text-text-primary">{value}</p>
     </Panel>
   );
+}
+
+function StatusRow({ label, value, detail, tone }: { label: string; value: string; detail: string; tone: PlatformTone }) {
+  return (
+    <div className="rounded-lg border border-border bg-surface-tint px-3 py-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="truncate text-sm font-semibold text-text-primary">{label}</p>
+        <StatusPill label={value} tone={platformToneToStatus(tone)} />
+      </div>
+      <p className="mt-1 text-xs leading-4 text-text-secondary">{detail}</p>
+    </div>
+  );
+}
+
+function LoadRow({ item }: { item: PlatformItem }) {
+  const indicatorClass = {
+    good: 'bg-success',
+    warn: 'bg-warning',
+    bad: 'bg-error',
+    neutral: 'bg-disabled',
+  }[item.tone];
+
+  return (
+    <div className="grid gap-2 px-4 py-3 sm:grid-cols-[1fr_auto] sm:items-center">
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className={`h-2 w-2 flex-shrink-0 rounded-full ${indicatorClass}`} />
+          <p className="truncate text-sm font-semibold text-text-primary">{item.label}</p>
+        </div>
+        <p className="mt-1 truncate text-xs text-text-secondary">{item.detail}</p>
+      </div>
+      <StatusPill label={item.value} tone={platformToneToStatus(item.tone)} />
+    </div>
+  );
+}
+
+function platformToneToStatus(tone: PlatformTone): StatusTone {
+  if (tone === 'bad') return 'bad';
+  if (tone === 'warn') return 'warn';
+  if (tone === 'good') return 'good';
+  return 'neutral';
 }
 
 function StatusPill({ label, tone }: { label: string; tone: StatusTone }) {
