@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   description: 'Bookadink internal beta operations command centre.',
 };
 
-type SearchParams = Promise<{ q?: string }>;
+type SearchParams = Promise<{ q?: string; tab?: string }>;
 type PageProps = { searchParams?: SearchParams };
 type Row = Record<string, unknown>;
 type CountValue = number | null;
@@ -71,10 +71,12 @@ type StatusTone = 'dark' | 'neutral' | 'info' | 'good' | 'warn' | 'bad';
 type HealthTone = 'good' | 'warn' | 'bad';
 type PlatformTone = 'good' | 'warn' | 'bad' | 'neutral';
 type PlatformItem = { label: string; value: string; detail: string; tone: PlatformTone };
+type AdminTab = 'overview' | 'clubs' | 'players' | 'bookings' | 'payments' | 'notifications' | 'compliance' | 'platform' | 'issues';
 
 export default async function AdminPage({ searchParams }: PageProps) {
   const params = searchParams ? await searchParams : {};
   const query = (params.q || '').trim();
+  const activeTab = normalizeTab(params.tab);
   const admin = await requireBusinessAdmin();
 
   if (!admin.allowed) {
@@ -84,16 +86,17 @@ export default async function AdminPage({ searchParams }: PageProps) {
   const dashboard = await loadAdminDashboard(admin.supabase, query);
 
   const navItems = [
-    { id: 'overview', label: 'Overview', icon: Database },
-    { id: 'clubs', label: 'Clubs', icon: Building2 },
-    { id: 'players', label: 'Players', icon: Users },
-    { id: 'bookings', label: 'Bookings', icon: Ticket },
-    { id: 'payments', label: 'Payments', icon: CreditCard },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'compliance', label: 'Compliance', icon: FileText },
-    { id: 'platform-health', label: 'Platform', icon: Server },
-    { id: 'system-health', label: 'Health', icon: HeartPulse },
+    { id: 'overview' as const, label: 'Overview', icon: Database },
+    { id: 'clubs' as const, label: 'Clubs', icon: Building2 },
+    { id: 'players' as const, label: 'Players', icon: Users },
+    { id: 'bookings' as const, label: 'Bookings', icon: Ticket },
+    { id: 'payments' as const, label: 'Payments', icon: CreditCard },
+    { id: 'notifications' as const, label: 'Notifications', icon: Bell },
+    { id: 'compliance' as const, label: 'Compliance', icon: FileText },
+    { id: 'platform' as const, label: 'Platform', icon: Server },
+    { id: 'issues' as const, label: 'Issues', icon: HeartPulse },
   ];
+  const tabHref = (tab: AdminTab) => `/admin?tab=${tab}${query ? `&q=${encodeURIComponent(query)}` : ''}`;
 
   return (
     <main className="min-h-screen bg-[#F5F5F7] text-text-primary">
@@ -112,8 +115,10 @@ export default async function AdminPage({ searchParams }: PageProps) {
               return (
                 <a
                   key={item.id}
-                  href={`#${item.id}`}
-                  className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
+                  href={tabHref(item.id)}
+                  className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition ${
+                    activeTab === item.id ? 'bg-white text-[#111113]' : 'text-white/70 hover:bg-white/10 hover:text-white'
+                  }`}
                 >
                   <Icon className="h-4 w-4" />
                   {item.label}
@@ -146,6 +151,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
                 </p>
               </div>
               <form action="/admin" className="flex w-full max-w-2xl items-center gap-2 print:hidden">
+                <input type="hidden" name="tab" value={activeTab} />
                 <label className="relative min-w-0 flex-1">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
                   <input
@@ -163,7 +169,13 @@ export default async function AdminPage({ searchParams }: PageProps) {
             </div>
             <div className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:hidden print:hidden">
               {navItems.map((item) => (
-                <a key={item.id} href={`#${item.id}`} className="whitespace-nowrap rounded-full border border-border bg-white px-3 py-1.5 text-xs font-semibold text-text-secondary">
+                <a
+                  key={item.id}
+                  href={tabHref(item.id)}
+                  className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                    activeTab === item.id ? 'border-primary bg-primary text-white' : 'border-border bg-white text-text-secondary'
+                  }`}
+                >
                   {item.label}
                 </a>
               ))}
@@ -186,197 +198,203 @@ export default async function AdminPage({ searchParams }: PageProps) {
             </Panel>
           )}
 
-          <Section
-            id="overview"
-            title="Overview"
-            icon={<Database className="h-5 w-5" />}
-            description="High-signal numbers for the current operating week."
-          >
-            <div className="grid gap-3 md:grid-cols-[1.2fr_0.8fr] xl:grid-cols-[1.5fr_0.9fr]">
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {dashboard.metrics.map((metric) => (
-                  <MetricCard key={metric.label} metric={metric} />
-                ))}
-              </div>
-              <Panel className="p-0">
-                <div className="border-b border-border px-4 py-3">
-                  <div className="flex items-center justify-between gap-3">
+          {activeTab === 'overview' && (
+            <Section id="overview" title="Overview" icon={<Database className="h-5 w-5" />} description="The short version: money, risk, growth, and what needs your attention.">
+              <div className="grid gap-3 xl:grid-cols-[1fr_0.9fr]">
+                <Panel className="p-4">
+                  <div className="mb-4 flex items-start justify-between gap-4">
                     <div>
-                      <h3 className="text-sm font-semibold text-text-primary">Attention queue</h3>
-                      <p className="mt-0.5 text-xs text-text-secondary">Items worth checking before launch traffic grows.</p>
+                      <h3 className="text-sm font-semibold text-text-primary">Overseer brief</h3>
+                      <p className="mt-1 text-xs leading-4 text-text-secondary">Plain-English readout of the numbers that matter most today.</p>
                     </div>
                     <Activity className="h-5 w-5 text-text-tertiary" />
                   </div>
-                </div>
-                <div className="divide-y divide-border">
-                  {dashboard.attention.map((item) => (
-                    <a key={item.label} href={item.href} className="flex items-center justify-between gap-3 px-4 py-3 transition hover:bg-surface-tint">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-text-primary">{item.label}</p>
-                        <p className="mt-0.5 truncate text-xs text-text-secondary">{item.detail}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <StatusPill label={item.value} tone={item.tone} />
-                        <ArrowUpRight className="h-3.5 w-3.5 text-text-tertiary" />
-                      </div>
-                    </a>
+                  <div className="space-y-2">
+                    {dashboard.briefing.map((item) => (
+                      <MeaningRow key={item.label} item={item} />
+                    ))}
+                  </div>
+                </Panel>
+
+                <Panel className="p-0">
+                  <div className="border-b border-border px-4 py-3">
+                    <h3 className="text-sm font-semibold text-text-primary">Revenue picture</h3>
+                    <p className="mt-0.5 text-xs text-text-secondary">{dashboard.revenue.scope}</p>
+                  </div>
+                  <div className="grid gap-0 divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+                    {dashboard.revenue.cards.map((item) => (
+                      <RevenueCard key={item.label} item={item} />
+                    ))}
+                  </div>
+                </Panel>
+              </div>
+
+              <div className="mt-3 grid gap-3 md:grid-cols-[1.2fr_0.8fr] xl:grid-cols-[1.5fr_0.9fr]">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  {dashboard.metrics.map((metric) => (
+                    <MetricCard key={metric.label} metric={metric} />
                   ))}
                 </div>
-              </Panel>
-            </div>
-          </Section>
-
-          <Section id="clubs" title="Clubs" icon={<Building2 className="h-5 w-5" />} description={`${dashboard.clubs.length} clubs in this view`}>
-          <DataTable
-            empty="No clubs matched this view."
-            columns={['Club', 'Location', 'Subscription', 'Stripe', 'Members', 'Admins', 'Upcoming', 'Created', 'Last activity']}
-            rows={dashboard.clubs.map((club) => [
-              club.name,
-              club.location,
-              <StatusPill key="tier" label={club.subscriptionTier} tone="neutral" />,
-              <StatusPill key="stripe" label={club.stripeStatus} tone={club.stripeTone} />,
-              club.memberCount,
-              club.adminCount,
-              club.upcomingGames,
-              club.createdAt,
-              club.lastActivity,
-            ])}
-          />
-        </Section>
-
-          <Section id="players" title="Players" icon={<Users className="h-5 w-5" />} description={`${dashboard.players.length} player profiles in this view`}>
-          <DataTable
-            empty="No players matched this view."
-            columns={['Player', 'Email', 'DUPR', 'Joined clubs', 'Upcoming bookings', 'Credits', 'Created', 'Last active']}
-            rows={dashboard.players.map((player) => [
-              player.name,
-              player.email,
-              player.dupr,
-              player.joinedClubs,
-              player.upcomingBookings,
-              player.credits,
-              player.createdAt,
-              player.lastActive,
-            ])}
-          />
-        </Section>
-
-          <Section id="bookings" title="Bookings" icon={<Ticket className="h-5 w-5" />} description={`${dashboard.bookings.length} recent bookings in this view`}>
-          <DataTable
-            empty="No bookings matched this view."
-            columns={['Game', 'Club', 'Player', 'Game time', 'Booking', 'Payment', 'Fee', 'Credits', 'Waitlist', 'Created']}
-            rows={dashboard.bookings.map((booking) => [
-              booking.gameTitle,
-              booking.clubName,
-              booking.playerName,
-              booking.gameTime,
-              <StatusPill key="booking" label={booking.status} tone={booking.bookingTone} />,
-              <StatusPill key="payment" label={booking.paymentStatus} tone={booking.paymentTone} />,
-              booking.fee,
-              booking.credits,
-              booking.waitlist,
-              booking.createdAt,
-            ])}
-          />
-        </Section>
-
-          <Section id="payments" title="Payments" icon={<CreditCard className="h-5 w-5" />} description={`${dashboard.payments.length} Stripe-linked booking records`}>
-          <DataTable
-            empty="No paid or Stripe-linked bookings matched this view."
-            columns={['Created', 'Player', 'Club', 'Payment intent', 'Connected account', 'Amount', 'Payment', 'Refund', 'Booking']}
-            rows={dashboard.payments.map((payment) => [
-              payment.createdAt,
-              payment.playerName,
-              payment.clubName,
-              <Mono key="pi" value={payment.paymentIntent} />,
-              <Mono key="acct" value={payment.connectedAccount} />,
-              payment.amount,
-              <StatusPill key="payment" label={payment.paymentStatus} tone={payment.paymentTone} />,
-              <StatusPill key="refund" label={payment.refundStatus} tone={payment.refundTone} />,
-              payment.bookingStatus,
-            ])}
-          />
-        </Section>
-
-          <Section id="notifications" title="Notifications" icon={<Bell className="h-5 w-5" />} description={dashboard.notificationsConfigured ? `${dashboard.notifications.length} notification records` : 'Notification table not available to this admin view'}>
-          <DataTable
-            empty={dashboard.notificationsConfigured ? 'No notifications matched this view.' : 'Notification health is unavailable until admin notification RLS is deployed.'}
-            columns={['Created', 'Recipient', 'Type', 'Title', 'Read', 'Email', 'Reference']}
-            rows={dashboard.notifications.map((notification) => [
-              notification.createdAt,
-              notification.recipient,
-              <StatusPill key="type" label={notification.type} tone="neutral" />,
-              notification.title,
-              <StatusPill key="read" label={notification.read} tone={notification.readTone} />,
-              <StatusPill key="email" label={notification.email} tone={notification.emailTone} />,
-              <Mono key="ref" value={notification.reference} />,
-            ])}
-          />
-        </Section>
-
-          <Section id="compliance" title="Compliance" icon={<FileText className="h-5 w-5" />} description="Launch-readiness surfaces for privacy, legal, and support signals">
-          <div className="grid gap-3 lg:grid-cols-3">
-            <ComplianceCard
-              title="Account deletion requests"
-              configured={dashboard.compliance.deletions.configured}
-              rows={dashboard.compliance.deletions.rows}
-              empty="No account deletion request table or pending requests found."
-            />
-            <ComplianceCard
-              title="Legal documents"
-              configured={dashboard.compliance.legal.configured}
-              rows={dashboard.compliance.legal.rows}
-              empty="No legal_documents table found. Website pages are still available at /terms and /privacy."
-            />
-            <ComplianceCard
-              title="Support signals"
-              configured
-              rows={dashboard.compliance.support.rows}
-              empty="No dedicated support request table found in this first read-only version."
-            />
-          </div>
-        </Section>
-
-          <Section id="platform-health" title="Platform Health" icon={<Server className="h-5 w-5" />} description="Read-only service reachability, query timing, schema availability, and load pressure">
-          <div className="grid gap-3 xl:grid-cols-[0.9fr_1.1fr]">
-            <Panel className="p-4">
-              <div className="mb-4 flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="text-sm font-semibold text-text-primary">Server and backend status</h3>
-                  <p className="mt-1 text-xs leading-4 text-text-secondary">
-                    Live CPU, memory, request volume, and cold-start metrics require Vercel/Supabase telemetry access. This panel shows what the app can verify safely from the admin server render.
-                  </p>
-                </div>
-                <Gauge className="h-5 w-5 text-text-tertiary" />
+                <AttentionQueue items={dashboard.attention} />
               </div>
-              <div className="space-y-2">
-                {dashboard.platform.status.map((item) => (
-                  <StatusRow key={item.label} label={item.label} value={item.value} detail={item.detail} tone={item.tone} />
+            </Section>
+          )}
+
+          {activeTab === 'clubs' && (
+            <Section id="clubs" title="Clubs" icon={<Building2 className="h-5 w-5" />} description={`${dashboard.clubs.length} clubs in this view`}>
+              <DataTable
+                empty="No clubs matched this view."
+                columns={['Club', 'Location', 'Subscription', 'Stripe', 'Members', 'Admins', 'Upcoming', 'Created', 'Last activity']}
+                rows={dashboard.clubs.map((club) => [
+                  club.name,
+                  club.location,
+                  <StatusPill key="tier" label={club.subscriptionTier} tone="neutral" />,
+                  <StatusPill key="stripe" label={club.stripeStatus} tone={club.stripeTone} />,
+                  club.memberCount,
+                  club.adminCount,
+                  club.upcomingGames,
+                  club.createdAt,
+                  club.lastActivity,
+                ])}
+              />
+            </Section>
+          )}
+
+          {activeTab === 'players' && (
+            <Section id="players" title="Players" icon={<Users className="h-5 w-5" />} description={`${dashboard.players.length} player profiles in this view`}>
+              <DataTable
+                empty="No players matched this view."
+                columns={['Player', 'Email', 'DUPR', 'Joined clubs', 'Upcoming bookings', 'Credits', 'Created', 'Last active']}
+                rows={dashboard.players.map((player) => [
+                  player.name,
+                  player.email,
+                  player.dupr,
+                  player.joinedClubs,
+                  player.upcomingBookings,
+                  player.credits,
+                  player.createdAt,
+                  player.lastActive,
+                ])}
+              />
+            </Section>
+          )}
+
+          {activeTab === 'bookings' && (
+            <Section id="bookings" title="Bookings" icon={<Ticket className="h-5 w-5" />} description={`${dashboard.bookings.length} recent bookings in this view`}>
+              <DataTable
+                empty="No bookings matched this view."
+                columns={['Game', 'Club', 'Player', 'Game time', 'Booking', 'Payment', 'Fee', 'Credits', 'Waitlist', 'Created']}
+                rows={dashboard.bookings.map((booking) => [
+                  booking.gameTitle,
+                  booking.clubName,
+                  booking.playerName,
+                  booking.gameTime,
+                  <StatusPill key="booking" label={booking.status} tone={booking.bookingTone} />,
+                  <StatusPill key="payment" label={booking.paymentStatus} tone={booking.paymentTone} />,
+                  booking.fee,
+                  booking.credits,
+                  booking.waitlist,
+                  booking.createdAt,
+                ])}
+              />
+            </Section>
+          )}
+
+          {activeTab === 'payments' && (
+            <Section id="payments" title="Payments" icon={<CreditCard className="h-5 w-5" />} description={`${dashboard.payments.length} Stripe-linked booking records`}>
+              <div className="mb-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {dashboard.revenue.cards.map((item) => (
+                  <RevenueCard key={item.label} item={item} />
                 ))}
               </div>
-            </Panel>
+              <DataTable
+                empty="No paid or Stripe-linked bookings matched this view."
+                columns={['Created', 'Player', 'Club', 'Payment intent', 'Connected account', 'Amount', 'Payment', 'Refund', 'Booking']}
+                rows={dashboard.payments.map((payment) => [
+                  payment.createdAt,
+                  payment.playerName,
+                  payment.clubName,
+                  <Mono key="pi" value={payment.paymentIntent} />,
+                  <Mono key="acct" value={payment.connectedAccount} />,
+                  payment.amount,
+                  <StatusPill key="payment" label={payment.paymentStatus} tone={payment.paymentTone} />,
+                  <StatusPill key="refund" label={payment.refundStatus} tone={payment.refundTone} />,
+                  payment.bookingStatus,
+                ])}
+              />
+            </Section>
+          )}
 
-            <Panel className="overflow-hidden p-0">
-              <div className="border-b border-border px-4 py-3">
-                <h3 className="text-sm font-semibold text-text-primary">Constraints and load</h3>
-                <p className="mt-0.5 text-xs text-text-secondary">Query timings, loaded rows, and row caps for this admin view.</p>
+          {activeTab === 'notifications' && (
+            <Section id="notifications" title="Notifications" icon={<Bell className="h-5 w-5" />} description={dashboard.notificationsConfigured ? `${dashboard.notifications.length} notification records` : 'Notification table not available to this admin view'}>
+              <DataTable
+                empty={dashboard.notificationsConfigured ? 'No notifications matched this view.' : 'Notification health is unavailable until admin notification RLS is deployed.'}
+                columns={['Created', 'Recipient', 'Type', 'Title', 'Read', 'Email', 'Reference']}
+                rows={dashboard.notifications.map((notification) => [
+                  notification.createdAt,
+                  notification.recipient,
+                  <StatusPill key="type" label={notification.type} tone="neutral" />,
+                  notification.title,
+                  <StatusPill key="read" label={notification.read} tone={notification.readTone} />,
+                  <StatusPill key="email" label={notification.email} tone={notification.emailTone} />,
+                  <Mono key="ref" value={notification.reference} />,
+                ])}
+              />
+            </Section>
+          )}
+
+          {activeTab === 'compliance' && (
+            <Section id="compliance" title="Compliance" icon={<FileText className="h-5 w-5" />} description="Launch-readiness surfaces for privacy, legal, and support signals">
+              <div className="grid gap-3 lg:grid-cols-3">
+                <ComplianceCard title="Account deletion requests" configured={dashboard.compliance.deletions.configured} rows={dashboard.compliance.deletions.rows} empty="No account deletion request table or pending requests found." />
+                <ComplianceCard title="Legal documents" configured={dashboard.compliance.legal.configured} rows={dashboard.compliance.legal.rows} empty="No legal_documents table found. Website pages are still available at /terms and /privacy." />
+                <ComplianceCard title="Support signals" configured rows={dashboard.compliance.support.rows} empty="No dedicated support request table found in this first read-only version." />
               </div>
-              <div className="divide-y divide-border">
-                {dashboard.platform.load.map((item) => (
-                  <LoadRow key={item.label} item={item} />
+            </Section>
+          )}
+
+          {activeTab === 'platform' && (
+            <Section id="platform-health" title="Platform Health" icon={<Server className="h-5 w-5" />} description="Read-only service reachability, query timing, schema availability, and load pressure">
+              <div className="grid gap-3 xl:grid-cols-[0.9fr_1.1fr]">
+                <Panel className="p-4">
+                  <div className="mb-4 flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-sm font-semibold text-text-primary">Server and backend status</h3>
+                      <p className="mt-1 text-xs leading-4 text-text-secondary">Live CPU, memory, request volume, and cold-start metrics require Vercel/Supabase telemetry access. This panel shows what the app can verify safely from the admin server render.</p>
+                    </div>
+                    <Gauge className="h-5 w-5 text-text-tertiary" />
+                  </div>
+                  <div className="space-y-2">
+                    {dashboard.platform.status.map((item) => (
+                      <StatusRow key={item.label} label={item.label} value={item.value} detail={item.detail} tone={item.tone} />
+                    ))}
+                  </div>
+                </Panel>
+
+                <Panel className="overflow-hidden p-0">
+                  <div className="border-b border-border px-4 py-3">
+                    <h3 className="text-sm font-semibold text-text-primary">Constraints and load</h3>
+                    <p className="mt-0.5 text-xs text-text-secondary">Query timings, loaded rows, and row caps for this admin view.</p>
+                  </div>
+                  <div className="divide-y divide-border">
+                    {dashboard.platform.load.map((item) => (
+                      <LoadRow key={item.label} item={item} />
+                    ))}
+                  </div>
+                </Panel>
+              </div>
+            </Section>
+          )}
+
+          {activeTab === 'issues' && (
+            <Section id="system-health" title="Warning Issues" icon={<HeartPulse className="h-5 w-5" />} description="Read-only checks for payment, venue, game, and notification data quality">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {dashboard.health.map((item) => (
+                  <HealthCard key={item.label} label={item.label} value={item.value} detail={item.detail} tone={item.tone} />
                 ))}
               </div>
-            </Panel>
-          </div>
-        </Section>
-
-          <Section id="system-health" title="Warning Issues" icon={<HeartPulse className="h-5 w-5" />} description="Read-only checks for payment, venue, game, and notification data quality">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {dashboard.health.map((item) => (
-              <HealthCard key={item.label} label={item.label} value={item.value} detail={item.detail} tone={item.tone} />
-            ))}
-          </div>
-        </Section>
+            </Section>
+          )}
         </div>
       </div>
     </main>
@@ -637,6 +655,46 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
   const upcomingGamesWithNoPlayers = emptyUpcomingGames(games, bookings, now);
   const paidGamesWithoutStripe = paidGamesMissingStripe(games, clubs, stripeAccounts);
   const clubsWithoutLocation = clubsMissingLocation(clubs, venueByClubId);
+  const paidBookingRows = bookings.filter((booking) => isPaidBooking(booking));
+  const grossPaidCents = paidBookingRows.reduce((sum, booking) => {
+    const game = gameById.get(text(booking, 'game_id'));
+    return sum + bookingGrossCents(booking, game);
+  }, 0);
+  const platformRevenueCents = paidBookingRows.reduce((sum, booking) => sum + number(booking, 'platform_fee_cents'), 0);
+  const clubPayoutCents = paidBookingRows.reduce((sum, booking) => sum + number(booking, 'club_payout_cents'), 0);
+  const revenueTrackedCount = paidBookingRows.filter((booking) => number(booking, 'platform_fee_cents') > 0).length;
+  const revenue = {
+    scope: `Based on ${formatCount(paidBookingRows.length)} loaded paid booking${paidBookingRows.length === 1 ? '' : 's'}. Stripe fees, refunds, and bank settlement timing are not included.`,
+    cards: [
+      {
+        label: 'Platform revenue',
+        value: formatCents(platformRevenueCents),
+        detail:
+          revenueTrackedCount > 0
+            ? 'Known platform_fee_cents recorded on paid bookings.'
+            : 'No platform_fee_cents are recorded yet, so true platform take may not be tracked in this table.',
+        tone: platformRevenueCents > 0 ? 'good' : 'warn',
+      },
+      {
+        label: 'Gross paid bookings',
+        value: formatCents(grossPaidCents),
+        detail: 'Total paid booking value before club payout and processing costs.',
+        tone: grossPaidCents > 0 ? 'good' : 'neutral',
+      },
+      {
+        label: 'Club payouts',
+        value: formatCents(clubPayoutCents),
+        detail: 'Known club_payout_cents attached to paid bookings.',
+        tone: clubPayoutCents > 0 ? 'neutral' : 'warn',
+      },
+      {
+        label: 'Paid booking count',
+        value: formatCount(paidBookingRows.length),
+        detail: 'Paid or succeeded booking records loaded into this admin view.',
+        tone: paidBookingRows.length > 0 ? 'good' : 'neutral',
+      },
+    ] satisfies { label: string; value: string; detail: string; tone: StatusTone }[],
+  };
 
   const metrics: Metric[] = [
     { label: 'Total clubs', value: formatCount(totalClubs.count ?? clubs.length), hint: 'All clubs visible to admin' },
@@ -704,28 +762,28 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
       value: formatCount(stuckPendingPayments.length),
       detail: 'Stripe intents that have not resolved as paid.',
       tone: stuckPendingPayments.length > 0 ? 'warn' : 'good',
-      href: '#payments',
+      href: '/admin?tab=payments',
     },
     {
       label: 'Payment setup gaps',
       value: formatCount(paidGamesWithoutStripe.length),
       detail: 'Fee-charging games where club payout setup needs attention.',
       tone: paidGamesWithoutStripe.length > 0 ? 'bad' : 'good',
-      href: '#system-health',
+      href: '/admin?tab=issues',
     },
     {
       label: 'Compliance requests',
       value: deletionRequestsResult.configured ? formatCount(pendingDeletionRequests) : 'Not configured',
       detail: deletionRequestsResult.configured ? 'Open account deletion requests.' : 'Optional deletion-request table not deployed.',
       tone: pendingDeletionRequests > 0 ? 'warn' : 'neutral',
-      href: '#compliance',
+      href: '/admin?tab=compliance',
     },
     {
       label: 'Failed notifications',
       value: notificationsResult.configured ? formatCount(failedNotifications) : 'Not configured',
       detail: notificationsResult.configured ? 'Delivery errors if notification status is tracked.' : 'Notification health is not exposed to this view.',
       tone: failedNotifications > 0 ? 'bad' : 'neutral',
-      href: '#notifications',
+      href: '/admin?tab=notifications',
     },
   ];
   const rowResults = [
@@ -802,11 +860,53 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
       },
     ],
   };
+  const briefing = [
+    {
+      label: 'What Bookadink has made',
+      value: formatCents(platformRevenueCents),
+      detail:
+        revenueTrackedCount > 0
+          ? 'This is the recorded platform fee from paid bookings loaded into this view.'
+          : 'Platform fee fields are not populated yet, so revenue may be understated until fee capture is written consistently.',
+      tone: platformRevenueCents > 0 ? 'good' : 'warn',
+      href: '/admin?tab=payments',
+    },
+    {
+      label: 'Money that needs attention',
+      value: formatCount(stuckPendingPayments.length),
+      detail: 'Pending Stripe intents can mean abandoned checkout, webhook delay, or booking/payment state mismatch.',
+      tone: stuckPendingPayments.length > 0 ? 'warn' : 'good',
+      href: '/admin?tab=payments',
+    },
+    {
+      label: 'Launch blocker to watch',
+      value: formatCount(paidGamesWithoutStripe.length),
+      detail: 'Fee-charging games without connected payout setup can create payment or reconciliation pain.',
+      tone: paidGamesWithoutStripe.length > 0 ? 'bad' : 'good',
+      href: '/admin?tab=issues',
+    },
+    {
+      label: 'Marketplace health',
+      value: `${formatCount(activeClubs)} active clubs`,
+      detail: `${formatCount(upcomingGames.count ?? games.filter((game) => isUpcomingGame(game, now)).length)} upcoming games are the supply players can actually book.`,
+      tone: activeClubs > 0 ? 'good' : 'warn',
+      href: '/admin?tab=clubs',
+    },
+    {
+      label: 'Operational warning level',
+      value: formatCount(platformWarningCount + failedNotifications + expiredActiveHolds.length),
+      detail: 'Combines platform warnings, failed notification signals, and expired active holds.',
+      tone: platformWarningCount + failedNotifications + expiredActiveHolds.length > 0 ? 'warn' : 'good',
+      href: '/admin?tab=issues',
+    },
+  ] satisfies { label: string; value: string; detail: string; tone: StatusTone; href: string }[];
 
   return {
     warnings,
     generatedAt: format(now, 'd MMM yyyy, h:mm a'),
+    briefing,
     attention,
+    revenue,
     platform,
     metrics,
     clubs: clubRows,
@@ -893,6 +993,11 @@ async function safeCount(label: string, run: () => PromiseLike<PostgrestCount>):
   };
 }
 
+function normalizeTab(raw: string | undefined): AdminTab {
+  const allowed: AdminTab[] = ['overview', 'clubs', 'players', 'bookings', 'payments', 'notifications', 'compliance', 'platform', 'issues'];
+  return allowed.includes(raw as AdminTab) ? (raw as AdminTab) : 'overview';
+}
+
 function AccessDenied({ email, reason }: { email: string | null; reason: string }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -958,6 +1063,70 @@ function MetricCard({ metric }: { metric: Metric }) {
       <p className="mt-2 truncate text-2xl font-semibold leading-none text-text-primary">{metric.value}</p>
       <p className="mt-2 min-h-8 text-xs leading-4 text-text-secondary">{metric.hint}</p>
     </Panel>
+  );
+}
+
+function AttentionQueue({ items }: { items: { label: string; value: string; detail: string; tone: StatusTone; href: string }[] }) {
+  return (
+    <Panel className="p-0">
+      <div className="border-b border-border px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-text-primary">Attention queue</h3>
+            <p className="mt-0.5 text-xs text-text-secondary">Items worth checking before launch traffic grows.</p>
+          </div>
+          <Activity className="h-5 w-5 text-text-tertiary" />
+        </div>
+      </div>
+      <div className="divide-y divide-border">
+        {items.map((item) => (
+          <a key={item.label} href={item.href} className="flex items-center justify-between gap-3 px-4 py-3 transition hover:bg-surface-tint">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-text-primary">{item.label}</p>
+              <p className="mt-0.5 truncate text-xs text-text-secondary">{item.detail}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <StatusPill label={item.value} tone={item.tone} />
+              <ArrowUpRight className="h-3.5 w-3.5 text-text-tertiary" />
+            </div>
+          </a>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function MeaningRow({ item }: { item: { label: string; value: string; detail: string; tone: StatusTone; href: string } }) {
+  return (
+    <a href={item.href} className="grid gap-2 rounded-lg border border-border bg-surface-tint px-3 py-2.5 transition hover:bg-white sm:grid-cols-[1fr_auto] sm:items-center">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold text-text-primary">{item.label}</p>
+        <p className="mt-1 text-xs leading-4 text-text-secondary">{item.detail}</p>
+      </div>
+      <div className="flex items-center gap-2 sm:justify-end">
+        <StatusPill label={item.value} tone={item.tone} />
+        <ArrowUpRight className="h-3.5 w-3.5 text-text-tertiary" />
+      </div>
+    </a>
+  );
+}
+
+function RevenueCard({ item }: { item: { label: string; value: string; detail: string; tone: StatusTone } }) {
+  const toneClass =
+    item.tone === 'good'
+      ? 'border-success/25 bg-success/5'
+      : item.tone === 'warn'
+        ? 'border-warning/25 bg-warning/5'
+        : item.tone === 'bad'
+          ? 'border-error/25 bg-error/5'
+          : 'bg-white';
+
+  return (
+    <div className={`min-h-32 p-4 ${toneClass}`}>
+      <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-text-tertiary">{item.label}</p>
+      <p className="mt-2 truncate text-2xl font-semibold leading-none text-text-primary">{item.value}</p>
+      <p className="mt-2 text-xs leading-4 text-text-secondary">{item.detail}</p>
+    </div>
   );
 }
 
@@ -1231,6 +1400,20 @@ function bookingPaymentStatus(booking: Row) {
   if (bool(booking, 'fee_paid')) return { label: 'paid', tone: 'good' } as const;
   if (text(booking, 'stripe_payment_intent_id')) return { label: 'pending_payment', tone: 'warn' } as const;
   return { label: 'not paid', tone: 'neutral' } as const;
+}
+
+function isPaidBooking(booking: Row) {
+  const status = text(booking, 'payment_status');
+  return bool(booking, 'fee_paid') || status === 'paid' || status === 'succeeded';
+}
+
+function bookingGrossCents(booking: Row, game: Row | undefined) {
+  const amount = number(booking, 'amount_cents');
+  if (amount > 0) return amount;
+  const splitAmount = number(booking, 'platform_fee_cents') + number(booking, 'club_payout_cents');
+  if (splitAmount > 0) return splitAmount;
+  const gameFee = number(game, 'fee_amount');
+  return gameFee > 0 ? Math.round(gameFee * 100) : 0;
 }
 
 function refundStatus(booking: Row) {
