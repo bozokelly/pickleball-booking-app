@@ -2,270 +2,514 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   Bell,
-  Building2,
   CalendarCheck,
   CheckCircle2,
-  MapPin,
+  ChevronRight,
+  CreditCard,
+  Crown,
   MessageCircle,
-  Smartphone,
+  Search,
   Sparkles,
+  Trophy,
   Users,
+  Zap,
 } from 'lucide-react';
 
-const playerFeatures = [
-  {
-    icon: MapPin,
-    title: 'Find games nearby',
-    description: 'Discover club sessions, social hits, and competitive games without chasing group chats.',
-  },
+const contactEmail = 'bozokelly@gmail.com';
+const mailto = (subject: string) => `mailto:${contactEmail}?subject=${encodeURIComponent(subject)}`;
+
+const featureCards = [
   {
     icon: CalendarCheck,
-    title: 'Book in seconds',
-    description: 'Reserve your spot, join waitlists, and keep your pickleball week organised from your phone.',
+    title: 'Book games fast',
+    copy: 'Find open sessions, reserve your spot, and see what is coming up.',
+  },
+  {
+    icon: Zap,
+    title: 'Smart waitlists',
+    copy: 'Players can join the queue and clubs can keep games full.',
+  },
+  {
+    icon: MessageCircle,
+    title: 'Club chat',
+    copy: 'Keep members connected around real clubs, sessions, and updates.',
   },
   {
     icon: Bell,
-    title: 'Never miss the update',
-    description: 'Get booking changes, waitlist movement, reminders, and club notices where you already are.',
+    title: 'Announcements',
+    copy: 'Send timely reminders, changes, and club news to the right players.',
+  },
+  {
+    icon: CreditCard,
+    title: 'Payments & credits',
+    copy: 'Support paid bookings, credits, and cleaner club reconciliation.',
+  },
+  {
+    icon: Trophy,
+    title: 'Profiles & results',
+    copy: 'Show player profiles, DUPR context, results, and session history.',
   },
 ];
 
-const clubFeatures = [
-  'Create sessions and control capacity',
-  'Manage members, waitlists, credits, and cancellations',
-  'Take paid bookings through Stripe without handling card details',
-  'Keep players updated with club posts, chat, and notifications',
+const playerBenefits = [
+  'Discover games and courts near you',
+  'Join waitlists and never miss a spot',
+  'Chat with your club and fellow players',
+  'Track results and climb leaderboards',
+  'Secure payments in one tap',
 ];
 
-const launchSignals = [
-  { value: 'iOS + Android', label: 'Mobile-first player app' },
-  { value: 'Stripe', label: 'Payments for paid bookings' },
-  { value: 'Clubs', label: 'Built around real venues and organisers' },
-  { value: 'Australia', label: 'Designed for local pickleball communities' },
+const clubBenefits = [
+  'Simplify bookings and court management',
+  'Automate waitlists and notifications',
+  'Engage members with in-app chat',
+  'Announce events and updates instantly',
+  'Grow your club and delight members',
+];
+
+const showcase = [
+  {
+    title: 'Find & join games',
+    image: '/images/app/home-next-game.png',
+    alt: 'Book a Dink home screen showing the next game and pinned clubs',
+  },
+  {
+    title: 'Manage sessions',
+    image: '/images/app/manage-club.png',
+    alt: 'Club management screen showing games, members, analytics and settings',
+  },
+  {
+    title: 'Track live play',
+    image: '/images/app/live-session.png',
+    alt: 'Live DUPR King of the Court session screen with courts and score entry',
+  },
+  {
+    title: 'Pay and manage players',
+    image: '/images/app/manage-players.png',
+    alt: 'Manage players screen showing confirmed, waitlisted and cancelled players',
+  },
+];
+
+const steps = [
+  { icon: Search, title: 'Find', copy: 'Browse games and clubs near you.' },
+  { icon: CalendarCheck, title: 'Book or Join', copy: 'Book instantly or join a waitlist.' },
+  { icon: MessageCircle, title: 'Play & Connect', copy: 'Get updates, chat, and enjoy your game.' },
+  { icon: CreditCard, title: 'Pay & Track', copy: 'Pay securely and track results.' },
+];
+
+const pricing = [
+  { name: 'Free', copy: 'For small clubs getting started', tone: 'bg-white' },
+  { name: 'Starter', copy: 'For regular weekly sessions', tone: 'bg-[#FFF8EC]' },
+  { name: 'Pro', copy: 'For growing clubs that need advanced tools', tone: 'bg-[#F2FFE1]' },
 ];
 
 export default function MarketingHomePage() {
   return (
-    <main className="min-h-screen bg-[#F5F5F7] text-text-primary">
-      <header className="sticky top-0 z-30 border-b border-border/70 bg-white/85 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" aria-label="Bookadink home" className="flex items-center gap-3">
-            <Image src="/images/logo.png" alt="Bookadink" width={42} height={42} className="object-contain" priority />
-            <div>
-              <p className="text-sm font-semibold leading-tight text-text-primary">Bookadink</p>
-              <p className="text-xs text-text-tertiary">Pickleball, organised</p>
-            </div>
-          </Link>
-          <nav className="hidden items-center gap-6 text-sm font-medium text-text-secondary sm:flex">
-            <a href="#players" className="transition hover:text-text-primary">Players</a>
-            <a href="#clubs" className="transition hover:text-text-primary">Clubs</a>
-            <a href="#launch" className="transition hover:text-text-primary">Launch</a>
-          </nav>
-          <a
-            href="mailto:support@bookadink.com?subject=Bookadink%20beta%20interest"
-            className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-black"
-          >
-            Join beta
-          </a>
-        </div>
-      </header>
+    <main className="min-h-screen overflow-hidden bg-[#FBF6EC] text-[#101214]">
+      <PublicNav />
 
-      <section className="relative overflow-hidden bg-white">
-        <Image
-          src="/images/pickleball-hero.jpg"
-          alt="Pickleball court"
-          fill
-          priority
-          className="object-cover opacity-[0.18]"
-          sizes="100vw"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-white/80 via-white/88 to-white" />
-        <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-24">
-          <div>
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-border bg-white/80 px-3 py-1.5 text-xs font-semibold text-text-secondary shadow-sm">
-              <Sparkles className="h-3.5 w-3.5 text-success" />
-              Mobile beta preparing for launch
+      <section className="relative border-b border-[#161616]/10">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute left-[-10%] top-16 h-72 w-72 rounded-full bg-[#C8FF2E]/30 blur-3xl" />
+          <div className="absolute right-[-12%] top-36 h-80 w-80 rounded-full bg-[#FF6A3D]/10 blur-3xl" />
+          <div className="absolute inset-x-0 bottom-0 h-px bg-[#101214]/10" />
+          <div className="absolute inset-0 opacity-[0.055] [background-image:linear-gradient(90deg,#101214_1px,transparent_1px),linear-gradient(#101214_1px,transparent_1px)] [background-size:64px_64px]" />
+        </div>
+
+        <div className="relative mx-auto grid min-h-[calc(100vh-76px)] max-w-7xl gap-10 px-5 pb-12 pt-10 sm:px-8 lg:grid-cols-[0.96fr_1.04fr] lg:items-center lg:pb-16 lg:pt-16">
+          <div className="max-w-3xl">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#101214]/10 bg-white/70 px-3 py-1.5 text-sm font-semibold shadow-sm backdrop-blur">
+              <Sparkles className="h-4 w-4 text-[#72B600]" />
+              The all-in-one pickleball app
             </div>
-            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-text-primary sm:text-5xl lg:text-6xl">
-              Pickleball bookings without the admin headache.
+            <h1 className="max-w-4xl text-5xl font-semibold leading-[0.95] tracking-normal text-[#101214] sm:text-6xl lg:text-7xl">
+              Pickleball bookings, waitlists, chat and payments, all in one app.
             </h1>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-text-secondary">
-              Bookadink helps players find games and helps clubs run sessions, waitlists, payments, memberships, chat, and reminders from one clean mobile app.
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-[#5D6470] sm:text-xl">
+              Book a Dink helps players book games, join waitlists, chat with clubs, pay, track results, and stay updated. Clubs get the tools to run sessions without spreadsheet chaos.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <a
-                href="mailto:support@bookadink.com?subject=Bookadink%20beta%20access"
-                className="inline-flex h-12 items-center justify-center rounded-xl bg-primary px-6 text-base font-semibold text-white shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition hover:bg-black"
+                href={mailto('Book a Dink iPhone beta access')}
+                className="inline-flex h-[52px] items-center justify-center rounded-2xl bg-[#101214] px-6 text-base font-semibold text-white shadow-[0_18px_45px_rgba(16,18,20,0.22)] transition hover:-translate-y-0.5 hover:bg-black"
               >
-                Request beta access
+                Download on iPhone
+              </a>
+              <a
+                href={mailto('Book a Dink Android beta access')}
+                className="inline-flex h-[52px] items-center justify-center rounded-2xl border border-[#101214]/12 bg-white px-6 text-base font-semibold text-[#101214] shadow-sm transition hover:-translate-y-0.5 hover:border-[#101214]/30"
+              >
+                Get it on Android
               </a>
               <a
                 href="#clubs"
-                className="inline-flex h-12 items-center justify-center rounded-xl border border-border bg-white px-6 text-base font-semibold text-text-primary shadow-sm transition hover:border-separator"
+                className="inline-flex h-[52px] items-center justify-center rounded-2xl px-4 text-base font-semibold text-[#101214] transition hover:bg-white/70"
               >
                 For clubs
+                <ChevronRight className="ml-1 h-4 w-4" />
               </a>
             </div>
-          </div>
-
-          <div className="mx-auto w-full max-w-sm lg:max-w-md">
-            <div className="rounded-[2.25rem] border border-black/10 bg-[#111113] p-3 shadow-[0_30px_100px_rgba(0,0,0,0.28)]">
-              <div className="overflow-hidden rounded-[1.75rem] bg-[#F5F5F7]">
-                <div className="flex items-center justify-between bg-white px-5 py-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Nearby today</p>
-                    <p className="text-lg font-semibold">Perth Pickleball</p>
-                  </div>
-                  <Smartphone className="h-5 w-5 text-text-tertiary" />
-                </div>
-                <div className="space-y-3 p-4">
-                  {[
-                    ['Social doubles', '6:30 PM', '4 spots left'],
-                    ['Sunday DUPR', '8:30 AM', 'Waitlist open'],
-                    ['Beginner hit', '10:00 AM', '2 spots left'],
-                  ].map(([title, time, status]) => (
-                    <div key={title} className="rounded-2xl border border-border bg-white p-4 shadow-sm">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-semibold">{title}</p>
-                          <p className="mt-1 text-sm text-text-secondary">{time} · Club session</p>
-                        </div>
-                        <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">{status}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="border-t border-border bg-white px-5 py-4">
-                  <p className="text-sm font-semibold">Booked players</p>
-                  <div className="mt-3 flex -space-x-2">
-                    {['BK', 'RW', 'SM', 'JL'].map((initials) => (
-                      <span key={initials} className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-primary text-xs font-semibold text-white">
-                        {initials}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="launch" className="border-y border-border bg-primary py-8">
-        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-4 text-center sm:px-6 lg:grid-cols-4">
-          {launchSignals.map((item) => (
-            <div key={item.label}>
-              <p className="text-xl font-semibold text-white">{item.value}</p>
-              <p className="mt-1 text-sm text-white/65">{item.label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section id="players" className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-        <div className="mb-10 max-w-2xl">
-          <p className="text-sm font-semibold uppercase tracking-wide text-text-tertiary">For players</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Find the right game, then just show up.</h2>
-          <p className="mt-4 text-base leading-7 text-text-secondary">
-            No spreadsheet links, no message-thread chaos, no wondering if your spot is confirmed.
-          </p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          {playerFeatures.map((feature) => (
-            <div key={feature.title} className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-background">
-                <feature.icon className="h-5 w-5 text-text-primary" />
-              </div>
-              <h3 className="text-base font-semibold">{feature.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-text-secondary">{feature.description}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section id="clubs" className="border-y border-border bg-white py-16 sm:py-20">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-text-tertiary">For clubs</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Run sessions like a proper operation.</h2>
-            <p className="mt-4 text-base leading-7 text-text-secondary">
-              Bookadink gives organisers the controls clubs naturally need as they grow: capacity, waitlists, paid bookings, memberships, credits, and player communication.
-            </p>
-            <a
-              href="mailto:support@bookadink.com?subject=Bookadink%20club%20demo"
-              className="mt-6 inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-white transition hover:bg-black"
-            >
-              Ask about club setup
-            </a>
-          </div>
-          <div className="rounded-2xl border border-border bg-[#F9F9F9] p-5">
-            <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-sm">
-                <Building2 className="h-5 w-5 text-text-primary" />
-              </div>
-              <div>
-                <p className="font-semibold">Club tools</p>
-                <p className="text-sm text-text-secondary">Built for repeated weekly operations</p>
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {clubFeatures.map((feature) => (
-                <div key={feature} className="flex gap-3 rounded-xl border border-border bg-white p-3">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-success" />
-                  <p className="text-sm leading-5 text-text-secondary">{feature}</p>
+            <div className="mt-10 grid max-w-xl grid-cols-3 gap-3">
+              {[
+                ['Players', 'Book, chat, play'],
+                ['Clubs', 'Manage every session'],
+                ['Payments', 'Powered by Stripe'],
+              ].map(([label, copy]) => (
+                <div key={label} className="rounded-2xl border border-[#101214]/10 bg-white/65 p-3 shadow-sm backdrop-blur">
+                  <p className="text-sm font-semibold text-[#101214]">{label}</p>
+                  <p className="mt-1 text-xs leading-4 text-[#727985]">{copy}</p>
                 </div>
               ))}
             </div>
           </div>
+
+          <div className="relative mx-auto min-h-[650px] w-full max-w-[620px] sm:min-h-[720px] lg:min-h-[760px]">
+            <PhoneMockup
+              className="absolute left-[8%] top-8 z-20 w-[58%] max-w-[320px] rotate-[-5deg]"
+              image="/images/app/home-next-game.png"
+              alt="Book a Dink app home screen"
+              priority
+            />
+            <PhoneMockup
+              className="absolute right-[3%] top-24 z-30 w-[54%] max-w-[300px] rotate-[6deg]"
+              image="/images/app/booking-confirmed.png"
+              alt="Booking confirmation screen"
+              priority
+            />
+            <PhoneMockup
+              className="absolute bottom-0 left-[23%] z-10 w-[55%] max-w-[310px] rotate-[2deg]"
+              image="/images/app/enter-score.png"
+              alt="Enter score screen"
+              priority
+            />
+            <div className="absolute bottom-16 right-0 z-40 hidden rounded-3xl border border-[#101214]/10 bg-white/90 p-4 shadow-[0_20px_60px_rgba(16,18,20,0.18)] backdrop-blur sm:block">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#C8FF2E]">
+                  <CheckCircle2 className="h-6 w-6 text-[#101214]" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">Bookings confirmed</p>
+                  <p className="text-xs text-[#727985]">Waitlists, payments and reminders included</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-            <Users className="mb-4 h-6 w-6 text-text-secondary" />
-            <h3 className="font-semibold">Membership-aware</h3>
-            <p className="mt-2 text-sm leading-6 text-text-secondary">Clubs can manage who joins, who books, and how member activity appears.</p>
-          </div>
-          <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-            <MessageCircle className="mb-4 h-6 w-6 text-text-secondary" />
-            <h3 className="font-semibold">Community built in</h3>
-            <p className="mt-2 text-sm leading-6 text-text-secondary">Club chat, posts, comments, and images keep players connected around real sessions.</p>
-          </div>
-          <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
-            <CalendarCheck className="mb-4 h-6 w-6 text-text-secondary" />
-            <h3 className="font-semibold">Booking-first</h3>
-            <p className="mt-2 text-sm leading-6 text-text-secondary">Waitlists, credits, cancellations, and notifications are treated as core flows, not afterthoughts.</p>
+      <section id="features" className="mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:py-18">
+        <div className="rounded-[2rem] border border-[#101214]/10 bg-white/80 p-4 shadow-[0_20px_80px_rgba(16,18,20,0.07)] backdrop-blur">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            {featureCards.map((feature) => {
+              const Icon = feature.icon;
+              return (
+                <div key={feature.title} className="rounded-3xl border border-[#101214]/8 bg-[#FBF8F0] p-4">
+                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-sm">
+                    <Icon className="h-5 w-5 text-[#101214]" />
+                  </div>
+                  <h2 className="text-base font-semibold">{feature.title}</h2>
+                  <p className="mt-2 text-sm leading-5 text-[#66707C]">{feature.copy}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      <section className="bg-[#111113] py-16 text-white sm:py-20">
-        <div className="mx-auto max-w-4xl px-4 text-center sm:px-6">
-          <Image src="/images/logo-wide.png" alt="Bookadink" width={220} height={147} className="mx-auto mb-6 h-auto w-44 brightness-0 invert" />
-          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Preparing for beta across iOS and Android.</h2>
-          <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-white/65">
-            Interested players, clubs, and organisers can contact Bookadink for early access and launch updates.
+      <section id="players" className="mx-auto max-w-7xl px-5 py-10 sm:px-8 lg:py-14">
+        <div className="mx-auto max-w-3xl text-center">
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#7A8190]">For every court</p>
+          <h2 className="mt-3 text-4xl font-semibold tracking-normal sm:text-5xl">Built for players and clubs</h2>
+          <p className="mt-4 text-lg leading-8 text-[#66707C]">
+            The player experience and the organiser tools belong in the same place. Book a Dink keeps the whole club loop connected.
           </p>
-          <a
-            href="mailto:support@bookadink.com?subject=Bookadink%20beta%20interest"
-            className="mt-8 inline-flex h-12 items-center justify-center rounded-xl bg-white px-6 text-base font-semibold text-primary transition hover:bg-background"
-          >
-            Contact Bookadink
-          </a>
+        </div>
+        <div className="mt-10 grid gap-5 lg:grid-cols-2">
+          <AudienceCard
+            id="players-card"
+            eyebrow="For players"
+            title="Everything you need before, during and after the game."
+            benefits={playerBenefits}
+            tint="bg-[#F2FFE1]"
+            icon={<Users className="h-6 w-6" />}
+          />
+          <AudienceCard
+            id="clubs"
+            eyebrow="For club owners"
+            title="A cleaner way to run weekly sessions and growing communities."
+            benefits={clubBenefits}
+            tint="bg-[#FFF4E8]"
+            icon={<Crown className="h-6 w-6" />}
+          />
         </div>
       </section>
 
-      <footer className="border-t border-border bg-white py-8">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 sm:flex-row sm:px-6">
-          <p className="text-sm text-text-tertiary">Bookadink</p>
-          <div className="flex items-center gap-4 text-sm">
-            <Link href="/terms" className="text-text-secondary transition hover:text-primary">Terms</Link>
-            <Link href="/privacy" className="text-text-secondary transition hover:text-primary">Privacy</Link>
-            <Link href="/account-deletion" className="text-text-secondary transition hover:text-primary">Account deletion</Link>
+      <section id="showcase" className="bg-[#101214] py-16 text-white sm:py-20">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-white/45">App preview</p>
+              <h2 className="mt-3 text-4xl font-semibold tracking-normal sm:text-5xl">See Book a Dink in action</h2>
+            </div>
+            <p className="max-w-xl text-base leading-7 text-white/60">
+              Real mobile screens from booking, club management, live sessions and player operations.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {showcase.map((item) => (
+              <div key={item.title} className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-3 shadow-[0_24px_90px_rgba(0,0,0,0.25)]">
+                <div className="overflow-hidden rounded-[1.55rem] bg-white">
+                  <Image src={item.image} alt={item.alt} width={1179} height={2556} className="h-auto w-full" sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 90vw" />
+                </div>
+                <p className="px-2 pb-2 pt-4 text-center text-sm font-semibold text-white">{item.title}</p>
+              </div>
+            ))}
           </div>
         </div>
-      </footer>
+      </section>
+
+      <section id="how-it-works" className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
+        <div className="grid gap-8 lg:grid-cols-[0.7fr_1.3fr] lg:items-start">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#7A8190]">How it works</p>
+            <h2 className="mt-3 text-4xl font-semibold tracking-normal sm:text-5xl">From discovery to the final score.</h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {steps.map((step, index) => {
+              const Icon = step.icon;
+              return (
+                <div key={step.title} className="rounded-[1.5rem] border border-[#101214]/10 bg-white p-5 shadow-sm">
+                  <div className="mb-5 flex items-center justify-between">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#C8FF2E]">
+                      <Icon className="h-5 w-5 text-[#101214]" />
+                    </div>
+                    <span className="text-sm font-semibold text-[#A6ADB7]">{String(index + 1).padStart(2, '0')}</span>
+                  </div>
+                  <h3 className="text-xl font-semibold">{step.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-[#66707C]">{step.copy}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section id="pricing" className="border-y border-[#101214]/10 bg-white/70 py-16 sm:py-20">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#7A8190]">Club access</p>
+              <h2 className="mt-3 text-4xl font-semibold tracking-normal sm:text-5xl">Plans for clubs as they grow.</h2>
+            </div>
+            <a
+              href={mailto('Book a Dink club access')}
+              className="inline-flex h-12 items-center justify-center rounded-2xl bg-[#101214] px-6 text-base font-semibold text-white transition hover:bg-black"
+            >
+              Contact us about club access
+            </a>
+          </div>
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            {pricing.map((plan) => (
+              <div key={plan.name} className={`rounded-[1.75rem] border border-[#101214]/10 p-6 shadow-sm ${plan.tone}`}>
+                <h3 className="text-2xl font-semibold">{plan.name}</h3>
+                <p className="mt-3 text-base leading-7 text-[#66707C]">{plan.copy}</p>
+                <div className="mt-8 h-px bg-[#101214]/10" />
+                <p className="mt-4 text-sm font-semibold text-[#101214]">Club booking tools, member workflows and support options.</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="contact" className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
+        <div className="overflow-hidden rounded-[2rem] border border-[#101214]/10 bg-[#101214] text-white shadow-[0_28px_100px_rgba(16,18,20,0.22)]">
+          <div className="grid gap-8 p-6 sm:p-8 lg:grid-cols-[1fr_auto] lg:items-center lg:p-10">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#C8FF2E]">Club owners</p>
+              <h2 className="mt-3 max-w-3xl text-4xl font-semibold tracking-normal sm:text-5xl">Run a club? Let&apos;s grow together.</h2>
+              <p className="mt-4 max-w-2xl text-base leading-7 text-white/62">
+                Book a Dink helps clubs save time, manage bookings, engage members, and grow their community.
+              </p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
+              <a
+                href={mailto('I run a pickleball club')}
+                className="inline-flex h-12 items-center justify-center rounded-2xl bg-[#C8FF2E] px-6 text-base font-semibold text-[#101214] transition hover:bg-[#D8FF5D]"
+              >
+                I run a club
+              </a>
+              <a
+                href={mailto('Book a Dink sales enquiry')}
+                className="inline-flex h-12 items-center justify-center rounded-2xl border border-white/15 px-6 text-base font-semibold text-white transition hover:bg-white/10"
+              >
+                Contact sales
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <SiteFooter />
     </main>
+  );
+}
+
+function PublicNav() {
+  return (
+    <header className="sticky top-0 z-50 border-b border-[#101214]/10 bg-[#FBF6EC]/86 backdrop-blur-xl">
+      <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-5 sm:px-8">
+        <Link href="/" aria-label="Book a Dink home" className="flex items-center gap-3">
+          <Image src="/images/app/bookadink-app-icon.png" alt="" width={44} height={44} className="rounded-xl shadow-sm" priority />
+          <div className="leading-tight">
+            <p className="text-base font-semibold">Book a Dink</p>
+            <p className="text-xs font-medium text-[#737B86]">Pickleball, organised</p>
+          </div>
+        </Link>
+        <nav className="hidden items-center gap-7 text-sm font-semibold text-[#58616D] lg:flex" aria-label="Public navigation">
+          <a href="#features" className="transition hover:text-[#101214]">Features</a>
+          <a href="#players" className="transition hover:text-[#101214]">For Players</a>
+          <a href="#clubs" className="transition hover:text-[#101214]">For Clubs</a>
+          <a href="#pricing" className="transition hover:text-[#101214]">Pricing</a>
+          <a href="#contact" className="transition hover:text-[#101214]">Contact</a>
+        </nav>
+        <a
+          href={mailto('Book a Dink app download')}
+          className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#101214] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-black"
+        >
+          Download App
+        </a>
+      </div>
+    </header>
+  );
+}
+
+function PhoneMockup({
+  image,
+  alt,
+  className,
+  priority = false,
+}: {
+  image: string;
+  alt: string;
+  className: string;
+  priority?: boolean;
+}) {
+  return (
+    <div className={className}>
+      <div className="rounded-[2.4rem] border-[10px] border-[#101214] bg-[#101214] shadow-[0_30px_90px_rgba(16,18,20,0.28)]">
+        <div className="overflow-hidden rounded-[1.75rem] bg-white">
+          <Image src={image} alt={alt} width={1179} height={2556} priority={priority} className="h-auto w-full" sizes="(min-width: 1024px) 300px, 55vw" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AudienceCard({
+  id,
+  eyebrow,
+  title,
+  benefits,
+  tint,
+  icon,
+}: {
+  id: string;
+  eyebrow: string;
+  title: string;
+  benefits: string[];
+  tint: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <article id={id} className={`rounded-[2rem] border border-[#101214]/10 p-6 shadow-sm ${tint}`}>
+      <div className="mb-6 flex items-center gap-3">
+        <div className="flex h-[52px] w-[52px] items-center justify-center rounded-2xl bg-white shadow-sm">{icon}</div>
+        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#69717B]">{eyebrow}</p>
+      </div>
+      <h3 className="max-w-xl text-3xl font-semibold tracking-normal">{title}</h3>
+      <div className="mt-6 grid gap-3">
+        {benefits.map((benefit) => (
+          <div key={benefit} className="flex items-center gap-3 rounded-2xl border border-[#101214]/8 bg-white/80 px-4 py-3">
+            <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-[#3BC86A]" />
+            <p className="text-sm font-semibold text-[#24282D]">{benefit}</p>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function SiteFooter() {
+  const year = new Date().getFullYear();
+  return (
+    <footer className="border-t border-[#101214]/10 bg-[#FBF6EC]">
+      <div className="mx-auto grid max-w-7xl gap-10 px-5 py-10 sm:px-8 lg:grid-cols-[1.1fr_0.9fr_0.9fr_0.9fr]">
+        <div>
+          <Link href="/" aria-label="Book a Dink home" className="flex items-center gap-3">
+            <Image src="/images/app/bookadink-app-icon.png" alt="" width={44} height={44} className="rounded-xl" />
+            <div>
+              <p className="font-semibold">Book a Dink</p>
+              <p className="text-sm text-[#66707C]">Pickleball, organised</p>
+            </div>
+          </Link>
+          <p className="mt-4 max-w-sm text-sm leading-6 text-[#66707C]">
+            A mobile-first booking, waitlist, chat, payment and club management app for pickleball players and organisers.
+          </p>
+        </div>
+
+        <FooterGroup
+          title="Product"
+          links={[
+            ['Features', '#features'],
+            ['For Players', '#players'],
+            ['For Clubs', '#clubs'],
+            ['Pricing', '#pricing'],
+          ]}
+        />
+        <FooterGroup
+          title="Company"
+          links={[
+            ['Contact', '#contact'],
+            ['Club enquiries', mailto('Book a Dink club enquiry')],
+            [contactEmail, `mailto:${contactEmail}`],
+          ]}
+        />
+        <FooterGroup
+          title="Support"
+          links={[
+            ['Privacy Policy', '/privacy'],
+            ['Terms of Service', '/terms'],
+            ['Account deletion', '/account-deletion'],
+          ]}
+        />
+      </div>
+      <div className="border-t border-[#101214]/10 px-5 py-5 sm:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 text-sm text-[#66707C] sm:flex-row sm:items-center sm:justify-between">
+          <p>&copy; {year} Book a Dink. All rights reserved.</p>
+          <div className="flex gap-4">
+            <Link href="/privacy" className="transition hover:text-[#101214]">Privacy</Link>
+            <Link href="/terms" className="transition hover:text-[#101214]">Terms</Link>
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+function FooterGroup({ title, links }: { title: string; links: [string, string][] }) {
+  return (
+    <div>
+      <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-[#8A929C]">{title}</h2>
+      <ul className="mt-4 space-y-3">
+        {links.map(([label, href]) => (
+          <li key={label}>
+            <Link href={href} className="text-sm font-medium text-[#4D5662] transition hover:text-[#101214]">
+              {label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

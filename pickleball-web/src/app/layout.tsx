@@ -7,21 +7,21 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://bookadink.com'),
-  title: 'Bookadink — Pickleball bookings without the admin headache',
-  description: 'Bookadink helps pickleball players find games and helps clubs manage sessions, waitlists, payments, memberships, chat, and reminders.',
+  title: 'Book a Dink - Pickleball bookings, waitlists, chat and payments',
+  description: 'Book a Dink promotes the mobile app for pickleball players and clubs, with bookings, waitlists, payments, memberships, chat, reminders, and results.',
   openGraph: {
-    title: 'Bookadink — Pickleball bookings without the admin headache',
-    description: 'Mobile-first pickleball booking software for players, clubs, and organisers.',
+    title: 'Book a Dink - Pickleball bookings, waitlists, chat and payments',
+    description: 'A mobile-first pickleball app for players, clubs, and organisers.',
     url: 'https://bookadink.com',
-    siteName: 'Bookadink',
-    images: [{ url: '/images/logo-wide.png', width: 1536, height: 1024 }],
+    siteName: 'Book a Dink',
+    images: [{ url: '/images/app/bookadink-app-icon.png', width: 1024, height: 1024 }],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Bookadink',
-    description: 'Pickleball bookings without the admin headache.',
-    images: ['/images/logo-wide.png'],
+    title: 'Book a Dink',
+    description: 'Pickleball bookings, waitlists, chat and payments, all in one app.',
+    images: ['/images/app/bookadink-app-icon.png'],
   },
 };
 
