@@ -1,10 +1,12 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import {
+  BarChart3,
   Bell,
   CalendarCheck,
   CheckCircle2,
   ChevronRight,
+  ClipboardList,
   CreditCard,
   Crown,
   MessageCircle,
@@ -67,6 +69,40 @@ const clubBenefits = [
   'Grow your club and delight members',
 ];
 
+const clubOutcomeCards = [
+  {
+    icon: CalendarCheck,
+    title: 'Fill sessions with less chasing',
+    copy: 'Publish games, control capacity, move players through waitlists, and keep everyone pointed at the same source of truth.',
+  },
+  {
+    icon: CreditCard,
+    title: 'Make paid sessions cleaner',
+    copy: 'Support Stripe-powered bookings, player credits, cash/card status, and cleaner reconciliation for club admins.',
+  },
+  {
+    icon: BarChart3,
+    title: 'See what your club should run next',
+    copy: 'Use session patterns, fill rates, demand signals, and member activity to make better scheduling calls.',
+  },
+];
+
+const adminBeforeAfter = [
+  ['Manual group chats', 'One booking page per session'],
+  ['Screenshots and spreadsheets', 'Live player, waitlist and cancellation lists'],
+  ['Guessing what times work', 'Analytics for demand, fill and operations'],
+  ['Payment follow-up after the fact', 'Payment status, credits and admin actions in the flow'],
+];
+
+const clubToolkit = [
+  'Recurring weekly games and special events',
+  'Member approvals, roles and contact context',
+  'Waitlist promotion and attendance workflows',
+  'Club announcements, chat, posts and images',
+  'DUPR-aware sessions, results and live scoring',
+  'Settings for images, courts, rules and visibility',
+];
+
 const showcase = [
   {
     title: 'Find & join games',
@@ -91,16 +127,31 @@ const showcase = [
 ];
 
 const steps = [
-  { icon: Search, title: 'Find', copy: 'Browse games and clubs near you.' },
-  { icon: CalendarCheck, title: 'Book or Join', copy: 'Book instantly or join a waitlist.' },
-  { icon: MessageCircle, title: 'Play & Connect', copy: 'Get updates, chat, and enjoy your game.' },
-  { icon: CreditCard, title: 'Pay & Track', copy: 'Pay securely and track results.' },
+  { icon: Search, title: 'Publish', copy: 'Create sessions, set details, and make games discoverable.' },
+  { icon: CalendarCheck, title: 'Fill', copy: 'Let players book instantly or join a managed waitlist.' },
+  { icon: MessageCircle, title: 'Run', copy: 'Send updates, manage players, chat, score, and keep the night moving.' },
+  { icon: CreditCard, title: 'Reconcile', copy: 'Track payments, credits, attendance, and results after play.' },
 ];
 
 const pricing = [
-  { name: 'Free', copy: 'For small clubs getting started', tone: 'bg-white' },
-  { name: 'Starter', copy: 'For regular weekly sessions', tone: 'bg-[#FFF8EC]' },
-  { name: 'Pro', copy: 'For growing clubs that need advanced tools', tone: 'bg-[#F2FFE1]' },
+  {
+    name: 'Free',
+    copy: 'For small clubs getting started',
+    tone: 'bg-white',
+    points: ['Basic club presence', 'Simple game discovery', 'A low-friction path to trial the app'],
+  },
+  {
+    name: 'Starter',
+    copy: 'For regular weekly sessions',
+    tone: 'bg-[#FFF8EC]',
+    points: ['Recurring session workflows', 'Member and waitlist operations', 'Better communication around club nights'],
+  },
+  {
+    name: 'Pro',
+    copy: 'For growing clubs that need advanced tools',
+    tone: 'bg-[#F2FFE1]',
+    points: ['Payments and admin controls', 'Analytics for demand and fill', 'Tools for larger player communities'],
+  },
 ];
 
 export default function MarketingHomePage() {
@@ -244,6 +295,85 @@ export default function MarketingHomePage() {
         </div>
       </section>
 
+      <section className="mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16">
+        <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-stretch">
+          <div className="rounded-[2rem] border border-[#101214]/10 bg-[#101214] p-6 text-white shadow-[0_28px_100px_rgba(16,18,20,0.18)] sm:p-8">
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#C8FF2E]">For club operators</p>
+            <h2 className="mt-4 max-w-xl text-4xl font-semibold leading-tight tracking-normal sm:text-5xl">
+              Turn club nights into a system, not a scramble.
+            </h2>
+            <p className="mt-4 max-w-xl text-base leading-7 text-white/62">
+              Book a Dink is built around the recurring work club owners actually do: publish sessions, fill courts, manage payments, communicate changes, and learn what members want next.
+            </p>
+            <div className="mt-8 grid gap-3">
+              {adminBeforeAfter.map(([before, after]) => (
+                <div key={before} className="grid gap-3 rounded-2xl border border-white/10 bg-white/[0.06] p-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+                  <p className="text-sm text-white/55">{before}</p>
+                  <ChevronRight className="hidden h-4 w-4 text-[#C8FF2E] sm:block" />
+                  <p className="text-sm font-semibold text-white">{after}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-5">
+            <div className="grid gap-4 md:grid-cols-3">
+              {clubOutcomeCards.map((card) => {
+                const Icon = card.icon;
+                return (
+                  <div key={card.title} className="rounded-[1.5rem] border border-[#101214]/10 bg-white p-5 shadow-sm">
+                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F2FFE1]">
+                      <Icon className="h-5 w-5 text-[#101214]" />
+                    </div>
+                    <h3 className="text-lg font-semibold leading-6">{card.title}</h3>
+                    <p className="mt-3 text-sm leading-6 text-[#66707C]">{card.copy}</p>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-[0.9fr_1.1fr]">
+              <div className="rounded-[2rem] border border-[#101214]/10 bg-[#FFF8EC] p-5 shadow-sm">
+                <div className="mb-5 flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-sm">
+                    <ClipboardList className="h-5 w-5 text-[#101214]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#7A8190]">Club toolkit</p>
+                    <p className="text-sm text-[#66707C]">The workflows clubs ask for as they grow.</p>
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  {clubToolkit.map((item) => (
+                    <div key={item} className="flex items-start gap-3 rounded-2xl bg-white/75 px-3 py-2.5">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#3BC86A]" />
+                      <p className="text-sm font-medium leading-5 text-[#30353B]">{item}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="relative min-h-[520px] overflow-hidden rounded-[2rem] border border-[#101214]/10 bg-[#F2FFE1] p-5 shadow-sm">
+                <div className="relative z-10 max-w-xs">
+                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#66707C]">Admin view</p>
+                  <h3 className="mt-2 text-2xl font-semibold tracking-normal">Analytics and operations in the same club flow.</h3>
+                </div>
+                <PhoneMockup
+                  className="absolute -bottom-20 left-6 w-[48%] max-w-[230px] rotate-[-7deg]"
+                  image="/images/app/club-analytics.png"
+                  alt="Club analytics screen"
+                />
+                <PhoneMockup
+                  className="absolute -bottom-10 right-5 w-[50%] max-w-[240px] rotate-[7deg]"
+                  image="/images/app/manage-players-menu.png"
+                  alt="Manage players payment action menu"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section id="showcase" className="bg-[#101214] py-16 text-white sm:py-20">
         <div className="mx-auto max-w-7xl px-5 sm:px-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -315,7 +445,14 @@ export default function MarketingHomePage() {
                 <h3 className="text-2xl font-semibold">{plan.name}</h3>
                 <p className="mt-3 text-base leading-7 text-[#66707C]">{plan.copy}</p>
                 <div className="mt-8 h-px bg-[#101214]/10" />
-                <p className="mt-4 text-sm font-semibold text-[#101214]">Club booking tools, member workflows and support options.</p>
+                <ul className="mt-4 space-y-2">
+                  {plan.points.map((point) => (
+                    <li key={point} className="flex gap-2 text-sm leading-5 text-[#30353B]">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#3BC86A]" />
+                      <span>{point}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             ))}
           </div>
@@ -374,10 +511,10 @@ function PublicNav() {
           <a href="#contact" className="transition hover:text-[#101214]">Contact</a>
         </nav>
         <a
-          href={mailto('Book a Dink app download')}
+          href={mailto('Book a Dink club demo')}
           className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#101214] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-black"
         >
-          Download App
+          Book club demo
         </a>
       </div>
     </header>
