@@ -136,21 +136,61 @@ const steps = [
 const pricing = [
   {
     name: 'Free',
-    copy: 'For small clubs getting started',
+    price: '$0',
+    tagline: 'A simple way to bring your club online.',
+    description: 'For small clubs getting started.',
+    limits: ['Up to 3 active sessions', 'Up to 20 club members'],
     tone: 'bg-white',
-    points: ['Basic club presence', 'Simple game discovery', 'A low-friction path to trial the app'],
+    points: [
+      'Basic club profile',
+      'Game discovery',
+      'Create and manage basic sessions',
+      'Player bookings',
+      'Waitlist support',
+      'Club member management',
+      'Basic notifications',
+      'Reviews and club reputation',
+      'Venue and session details',
+      'Manual / free session workflows',
+    ],
   },
   {
     name: 'Starter',
-    copy: 'For regular weekly sessions',
+    price: '$19',
+    tagline: 'Take the hassle out of weekly club management.',
+    description: 'For clubs running regular weekly sessions.',
+    limits: ['Up to 10 active sessions', 'Up to 100 club members'],
     tone: 'bg-[#FFF8EC]',
-    points: ['Recurring session workflows', 'Member and waitlist operations', 'Better communication around club nights'],
+    points: [
+      'Everything in Free',
+      'Recurring session workflows',
+      'More capacity for growing weekly sessions',
+      'Member and waitlist operations',
+      'Better communication around club nights',
+      'Club membership management at a larger scale',
+      'Early-access style member workflows, where enabled',
+      'Operational tools for weekly play',
+    ],
   },
   {
     name: 'Pro',
-    copy: 'For growing clubs that need advanced tools',
+    price: '$49',
+    tagline: 'Built for clubs ready to scale with confidence.',
+    description: 'For growing clubs that need advanced tools.',
+    limits: ['Unlimited active sessions', 'Unlimited club members'],
     tone: 'bg-[#F2FFE1]',
-    points: ['Payments and admin controls', 'Analytics for demand and fill', 'Tools for larger player communities'],
+    featured: true,
+    points: [
+      'Everything in Starter',
+      'Payments',
+      'Stripe / Apple Pay payment workflows',
+      'Admin payment controls',
+      'Analytics access',
+      'Delayed publishing / scheduled game release',
+      'Advanced club operations',
+      'Tools for larger player communities',
+      'Best fit for clubs running frequent sessions, paid games, memberships, or high-volume bookings',
+    ],
   },
 ];
 
@@ -441,18 +481,51 @@ export default function MarketingHomePage() {
           </div>
           <div className="mt-8 grid gap-4 md:grid-cols-3">
             {pricing.map((plan) => (
-              <div key={plan.name} className={`rounded-[1.75rem] border border-[#101214]/10 p-6 shadow-sm ${plan.tone}`}>
-                <h3 className="text-2xl font-semibold">{plan.name}</h3>
-                <p className="mt-3 text-base leading-7 text-[#66707C]">{plan.copy}</p>
+              <div
+                key={plan.name}
+                className={`flex h-full flex-col rounded-[1.75rem] border p-6 shadow-sm ${
+                  plan.featured
+                    ? 'border-[#101214]/18 bg-[#F2FFE1] shadow-[0_24px_80px_rgba(114,182,0,0.16)]'
+                    : `border-[#101214]/10 ${plan.tone}`
+                }`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#7A8190]">{plan.name}</p>
+                  {plan.featured && (
+                    <span className="rounded-full bg-[#101214] px-3 py-1 text-xs font-semibold text-white">Best for growth</span>
+                  )}
+                </div>
+                <div className="mt-5 flex items-baseline gap-1">
+                  <span className="text-5xl font-semibold leading-none tracking-normal">{plan.price}</span>
+                  <span className="text-base font-semibold text-[#66707C]">/month</span>
+                </div>
+                <p className="mt-5 text-xl font-semibold leading-7 text-[#101214]">{plan.tagline}</p>
+                <p className="mt-3 text-sm leading-6 text-[#66707C]">{plan.description}</p>
                 <div className="mt-8 h-px bg-[#101214]/10" />
-                <ul className="mt-4 space-y-2">
-                  {plan.points.map((point) => (
-                    <li key={point} className="flex gap-2 text-sm leading-5 text-[#30353B]">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#3BC86A]" />
-                      <span>{point}</span>
-                    </li>
-                  ))}
-                </ul>
+
+                <div className="mt-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8A929C]">Limits</p>
+                  <ul className="mt-3 space-y-2">
+                    {plan.limits.map((limit) => (
+                      <li key={limit} className="flex gap-2 text-sm font-semibold leading-5 text-[#30353B]">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#3BC86A]" />
+                        <span>{limit}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="mt-6">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8A929C]">Features</p>
+                  <ul className="mt-3 space-y-2">
+                    {plan.points.map((point) => (
+                      <li key={point} className="flex gap-2 text-sm leading-5 text-[#30353B]">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#3BC86A]" />
+                        <span>{point}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
             ))}
           </div>
