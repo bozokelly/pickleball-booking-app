@@ -10,12 +10,12 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: '#4F6FA3',
     icons: [
       {
-        src: '/images/logo.png',
+        src: '/images/app/bookadink-app-icon-192.png',
         sizes: '192x192',
         type: 'image/png',
       },
       {
-        src: '/images/logo.png',
+        src: '/images/app/bookadink-app-icon-512.png',
         sizes: '512x512',
         type: 'image/png',
       },
