@@ -6,47 +6,131 @@
   --color-primary-light: #48484A;
   --color-primary-dark: #000000;
 
-  /* Accent — iOS system blue (links, interactive elements) */
-  --color-accent: #007AFF;
+  /* Accent — neon lime (primary CTA / highlight) */
+  --color-accent: #80FF00;
 
   /* Semantic — iOS system colours */
   --color-success: #34C759;
   --color-success-dark: #248A3D;
-  --color-warning: #FF9500;
+  --color-warning: #FF9F0A;
   --color-error: #FF3B30;
   --color-info: #007AFF;
 
-  /* Surfaces — iOS grouped background */
+  /* Surfaces */
   --color-surface: #FFFFFF;
-  --color-surface-tint: #F9F9F9;
-  --color-background: #F2F2F7;
-  --color-border: #E5E5EA;
+  --color-surface-2: #FAFAFA;
+  --color-background: #F7F7F7;
+  --color-border: #E5E5E5;
+  --color-border-strong: #D9D9D9;
   --color-separator: #C6C6C8;
 
-  /* Typography — iOS label hierarchy */
-  --color-text-primary: #1C1C1E;
-  --color-text-secondary: #8E8E93;
-  --color-text-tertiary: #AEAEB2;
+  /* Typography */
+  --color-text-primary: #111111;
+  --color-text-secondary: #666666;
+  --color-text-tertiary: #999999;
   --color-disabled: #C7C7CC;
 
-  /* Skill level colours — iOS-native palette */
+  /* Skill level colours */
   --color-skill-all: #8E8E93;
   --color-skill-beginner: #34C759;
   --color-skill-intermediate: #007AFF;
   --color-skill-advanced: #FF9500;
   --color-skill-pro: #FF3B30;
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "SF Mono", ui-monospace, Menlo, Monaco, "Roboto Mono", monospace;
+}
+
+/* Design-system CSS custom properties */
+:root {
+  --bg: #F7F7F7;
+  --surface: #FFFFFF;
+  --surface-2: #FAFAFA;
+  --border: #E5E5E5;
+  --border-strong: #D9D9D9;
+  --text: #111111;
+  --text-2: #666666;
+  --text-3: #999999;
+  --accent: #80FF00;
+  --accent-ink: #0A0A0A;
+  --warn: #FF9F0A;
+  --danger: #FF3B30;
+
+  --grad-graphite: linear-gradient(135deg, #2C2C2E 0%, #8E8E93 100%);
+  --grad-emerald:  linear-gradient(135deg, #0F3D2E 0%, #1C1C1E 100%);
+  --grad-navy:     linear-gradient(135deg, #1B263B 0%, #415A77 100%);
+  --grad-sand:     linear-gradient(135deg, #D8C3A5 0%, #8D6E63 100%);
+
+  --shadow-1: 0 1px 2px rgba(17,17,17,.04);
+  --shadow-2: 0 4px 16px rgba(17,17,17,.06);
+  --shadow-3: 0 16px 48px rgba(17,17,17,.10);
+
+  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-lg: 22px;
+  --radius-xl: 28px;
 }
 
 body {
-  background: #F2F2F7;
-  color: var(--color-text-primary);
+  background: var(--bg);
+  color: var(--text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "ss01", "cv11";
+  letter-spacing: -0.005em;
   overflow-x: hidden;
 }
+
+/* Photo placeholder — striped gradient with label */
+.photo {
+  position: relative;
+  background:
+    repeating-linear-gradient(135deg, rgba(17,17,17,.04) 0 1px, transparent 1px 14px),
+    linear-gradient(180deg, #EFEFEF, #DCDCDC);
+  overflow: hidden;
+}
+.photo[data-tone="emerald"] {
+  background:
+    repeating-linear-gradient(135deg, rgba(255,255,255,.06) 0 1px, transparent 1px 14px),
+    linear-gradient(160deg, #0F3D2E, #1C1C1E);
+}
+.photo[data-tone="navy"] {
+  background:
+    repeating-linear-gradient(135deg, rgba(255,255,255,.06) 0 1px, transparent 1px 14px),
+    linear-gradient(160deg, #1B263B, #415A77);
+}
+.photo[data-tone="sand"] {
+  background:
+    repeating-linear-gradient(135deg, rgba(0,0,0,.05) 0 1px, transparent 1px 14px),
+    linear-gradient(160deg, #D8C3A5, #8D6E63);
+}
+.photo[data-tone="graphite"] {
+  background:
+    repeating-linear-gradient(135deg, rgba(255,255,255,.05) 0 1px, transparent 1px 14px),
+    linear-gradient(160deg, #2C2C2E, #8E8E93);
+}
+.photo-label {
+  position: absolute; left: 12px; bottom: 12px;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  background: rgba(0,0,0,0.55); color: #fff; padding: 4px 8px; border-radius: 6px;
+  backdrop-filter: blur(4px);
+}
+
+/* Avatar circles */
+.av { border-radius: 50%; display: inline-block; }
+.av-graphite { background: var(--grad-graphite); }
+.av-emerald  { background: var(--grad-emerald); }
+.av-navy     { background: var(--grad-navy); }
+.av-sand     { background: var(--grad-sand); }
+
+/* Subtle fill bar */
+.fill-bar { height: 4px; background: var(--border); border-radius: 999px; overflow: hidden; }
+.fill-bar > span { display: block; height: 100%; border-radius: 999px; }
+
+/* Page fade-up */
+.page-enter { animation: fadeUp .35s cubic-bezier(.2,.7,.2,1); }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 /* Prevent iOS Safari from zooming on input focus */
 @supports (-webkit-touch-callout: none) {

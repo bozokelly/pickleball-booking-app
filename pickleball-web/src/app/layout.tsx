@@ -1,26 +1,24 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import { ToastProvider } from '@/components/ui/Toast';
-
-const inter = Inter({ subsets: ['latin'] });
+import DevAuthDebug from '@/components/ui/DevAuthDebug';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://bookadink.com'),
-  title: 'Book a Dink — Pickleball Booking Made Easy',
-  description: 'Find games, join clubs, and connect with players in your area. The easiest way to organize and book pickleball.',
+  title: 'Book A Dink — Premium pickleball, beautifully booked.',
+  description: 'Discover clubs, book social games, and meet players at your level — across Perth and beyond.',
   openGraph: {
-    title: 'Book a Dink — Pickleball Booking Made Easy',
-    description: 'Find games, join clubs, and connect with players in your area.',
+    title: 'Book A Dink — Premium pickleball, beautifully booked.',
+    description: 'Discover clubs, book social games, and meet players at your level.',
     url: 'https://bookadink.com',
-    siteName: 'Book a Dink',
+    siteName: 'Book A Dink',
     images: [{ url: '/images/logo-wide.png', width: 1536, height: 1024 }],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Book a Dink',
-    description: 'Find games, join clubs, and connect with players in your area.',
+    title: 'Book A Dink',
+    description: 'Discover clubs, book social games, and meet players at your level.',
     images: ['/images/logo-wide.png'],
   },
 };
@@ -28,8 +26,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
-        <ToastProvider>{children}</ToastProvider>
+      <body>
+        <ToastProvider>
+          {process.env.NODE_ENV === 'development' && <DevAuthDebug />}
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );
