@@ -11,46 +11,44 @@ type LegalPageProps = {
 
 export function LegalPage({ title, intro, sections }: LegalPageProps) {
   return (
-    <main className="min-h-screen">
-      <div className="fixed inset-0 flex items-center justify-center pointer-events-none select-none z-0" aria-hidden="true">
-        <Image
-          src="/images/logo-wide.png"
-          alt=""
-          width={1100}
-          height={733}
-          className="w-[90vw] max-w-[1100px] h-auto opacity-[0.05]"
-        />
-      </div>
-
-      <nav className="relative border-b border-border/50 bg-white/75 backdrop-blur-xl sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3">
-            <Image src="/images/logo.png" alt="Book a Dink" width={40} height={40} className="object-contain" />
-            <span className="text-sm font-semibold text-text-primary">Book a Dink</span>
+    <main className="min-h-screen bg-[#FBF6EC] text-[#101214]">
+      <nav className="sticky top-0 z-10 border-b border-[#101214]/10 bg-[#FBF6EC]/86 backdrop-blur-xl">
+        <div className="mx-auto flex h-[76px] max-w-5xl items-center justify-between px-5 sm:px-8">
+          <Link href="/" aria-label="Book a Dink home" className="flex items-center gap-3">
+            <Image src="/images/app/bookadink-app-icon.png" alt="" width={44} height={44} className="rounded-xl shadow-sm" />
+            <div className="leading-tight">
+              <p className="text-base font-semibold">Book a Dink</p>
+              <p className="text-xs font-medium text-[#737B86]">Pickleball, organised</p>
+            </div>
           </Link>
-          <Link href="/" className="text-sm font-semibold text-primary hover:text-primary-dark transition-colors">
+          <Link
+            href="/"
+            className="inline-flex h-11 items-center justify-center rounded-2xl border border-[#101214]/10 bg-white px-4 text-sm font-semibold text-[#101214] shadow-sm transition hover:border-[#101214]/25"
+          >
             Back home
           </Link>
         </div>
       </nav>
 
-      <section className="relative max-w-4xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
-        <div className="mb-8 sm:mb-10">
-          <p className="text-sm font-semibold text-primary mb-3">Last updated: {lastUpdated}</p>
-          <h1 className="text-3xl sm:text-5xl font-bold text-text-primary tracking-tight">{title}</h1>
-          <p className="mt-4 text-base sm:text-lg text-text-secondary max-w-2xl leading-relaxed">{intro}</p>
+      <section className="mx-auto max-w-5xl px-5 py-12 sm:px-8 sm:py-16">
+        <div className="mb-8 border-b border-[#101214]/10 pb-8 sm:mb-10 sm:pb-10">
+          <p className="mb-4 text-sm font-semibold text-[#72B600]">Last updated: {lastUpdated}</p>
+          <h1 className="max-w-3xl text-4xl font-semibold leading-[0.98] tracking-normal text-[#101214] sm:text-5xl">
+            {title}
+          </h1>
+          <p className="mt-5 max-w-3xl text-base leading-7 text-[#5D6470] sm:text-lg sm:leading-8">{intro}</p>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {sections.map((section) => (
             <section
               key={section.title}
-              className="bg-white/90 border border-border/50 rounded-2xl p-5 sm:p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)]"
+              className="rounded-2xl border border-[#101214]/10 bg-white/82 p-5 shadow-sm sm:p-6"
             >
-              <h2 className="text-lg font-semibold text-text-primary mb-3">{section.title}</h2>
+              <h2 className="mb-3 text-lg font-semibold text-[#101214]">{section.title}</h2>
               <div className="space-y-3">
                 {section.body.map((paragraph) => (
-                  <p key={paragraph} className="text-sm sm:text-base text-text-secondary leading-relaxed">
+                  <p key={paragraph} className="text-sm leading-6 text-[#5D6470] sm:text-base sm:leading-7">
                     {paragraph}
                   </p>
                 ))}
