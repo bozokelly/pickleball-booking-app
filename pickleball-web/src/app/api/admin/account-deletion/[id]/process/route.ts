@@ -9,6 +9,7 @@ type RouteContext = {
 export async function POST(request: NextRequest, context: RouteContext) {
   const admin = await requireBusinessAdmin();
   const redirectUrl = new URL('/admin', request.url);
+  redirectUrl.searchParams.set('tab', 'compliance');
 
   if (!admin.allowed) {
     redirectUrl.searchParams.set('deletionAction', 'denied');

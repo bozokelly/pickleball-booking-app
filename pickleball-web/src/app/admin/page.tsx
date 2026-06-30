@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { requireBusinessAdmin } from '@/lib/adminAccess';
+import { createSupabaseAdminClient } from '@/lib/supabaseAdmin';
 import { Card } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
@@ -30,7 +31,7 @@ export const metadata: Metadata = {
   description: 'Bookadink internal beta operations command centre.',
 };
 
-type SearchParams = Promise<{ q?: string; tab?: string }>;
+type SearchParams = Promise<{ q?: string; tab?: string; deletionAction?: string; message?: string }>;
 type PageProps = { searchParams?: SearchParams };
 type Row = Record<string, unknown>;
 type CountValue = number | null;
@@ -82,12 +83,26 @@ type SubscriptionRevenueRow = {
   mrrTracked: boolean;
 };
 type SubscriptionPlanRow = { plan: string; status: string; count: string; tone: StatusTone };
+type DeletionRequestView = {
+  id: string;
+  account: string;
+  userId: string;
+  status: string;
+  statusTone: StatusTone;
+  requestedAt: string;
+  completedAt: string;
+  reason: string;
+  adminNotes: string;
+  errorMessage: string;
+  canProcess: boolean;
+};
 type AdminTab = 'overview' | 'clubs' | 'players' | 'bookings' | 'payments' | 'notifications' | 'compliance' | 'platform' | 'issues';
 
 export default async function AdminPage({ searchParams }: PageProps) {
   const params = searchParams ? await searchParams : {};
   const query = (params.q || '').trim();
   const activeTab = normalizeTab(params.tab);
+  const deletionActionNotice = deletionNotice(params.deletionAction, params.message);
   const admin = await requireBusinessAdmin();
 
   if (!admin.allowed) {
@@ -361,8 +376,24 @@ export default async function AdminPage({ searchParams }: PageProps) {
 
           {activeTab === 'compliance' && (
             <Section id="compliance" title="Compliance" icon={<FileText className="h-5 w-5" />} description="Launch-readiness surfaces for privacy, legal, and support signals">
-              <div className="grid gap-3 lg:grid-cols-3">
-                <ComplianceCard title="Account deletion requests" configured={dashboard.compliance.deletions.configured} rows={dashboard.compliance.deletions.rows} empty="No account deletion request table or pending requests found." />
+              {deletionActionNotice && (
+                <Panel className={`mb-3 p-4 ${deletionActionNotice.tone === 'good' ? 'border-success/25 bg-success/5' : deletionActionNotice.tone === 'warn' ? 'border-warning/25 bg-warning/5' : 'border-error/25 bg-error/5'}`}>
+                  <div className="flex items-start gap-3">
+                    {deletionActionNotice.tone === 'good' ? <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-success" /> : <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-warning" />}
+                    <div>
+                      <h3 className="text-sm font-semibold text-text-primary">{deletionActionNotice.title}</h3>
+                      <p className="mt-1 text-sm text-text-secondary">{deletionActionNotice.detail}</p>
+                    </div>
+                  </div>
+                </Panel>
+              )}
+              <div className="grid gap-3 xl:grid-cols-[1.5fr_0.8fr_0.8fr]">
+                <DeletionRequestsPanel
+                  configured={dashboard.compliance.deletions.configured}
+                  requests={dashboard.compliance.deletions.requests}
+                  empty={dashboard.compliance.deletions.empty}
+                  canAction={admin.role !== 'support'}
+                />
                 <ComplianceCard title="Legal documents" configured={dashboard.compliance.legal.configured} rows={dashboard.compliance.legal.rows} empty="No legal_documents table found. Website pages are still available at /terms and /privacy." />
                 <ComplianceCard title="Support signals" configured rows={dashboard.compliance.support.rows} empty="No dedicated support request table found in this first read-only version." />
               </div>
@@ -423,6 +454,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
   const weekStart = startOfWeekIso(now);
   const nowIso = now.toISOString();
   const warnings: string[] = [];
+  const supabaseAdmin = createSupabaseAdminClient();
 
   const [
     clubsResult,
@@ -463,7 +495,9 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     safeRows('player_credits', () => supabase.from('player_credits').select('*').limit(1000), true, 1000),
     safeRows('club_stripe_accounts', () => supabase.from('club_stripe_accounts').select('*').limit(500), true, 500),
     safeRows('club_subscriptions', () => supabase.from('club_subscriptions').select('*').limit(500), true, 500),
-    safeRows('account_deletion_requests', () => supabase.from('account_deletion_requests').select('*').order('created_at', { ascending: false }).limit(100), true, 100),
+    supabaseAdmin
+      ? safeRows('account_deletion_requests', () => supabaseAdmin.from('account_deletion_requests').select('*').order('requested_at', { ascending: false }).limit(100), true, 100)
+      : unconfiguredRows('account_deletion_requests', 'Set SUPABASE_SERVICE_ROLE_KEY for the command centre to view and process deletion requests.', 100),
     safeRows('legal_documents', () => supabase.from('legal_documents').select('*').order('created_at', { ascending: false }).limit(20), true, 20),
     safeRows('club_venues', () => supabase.from('club_venues').select('*').limit(500), true, 500),
     safeCount('clubs', () => supabase.from('clubs').select('id', { count: 'exact', head: true })),
@@ -662,10 +696,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     const status = text(notification, 'delivery_status') || text(notification, 'send_status');
     return status === 'failed' || status === 'error';
   }).length;
-  const pendingDeletionRequests = deletionRequests.filter((row) => {
-    const status = text(row, 'status');
-    return !status || status === 'pending' || status === 'open';
-  }).length;
+  const pendingDeletionRequests = deletionRequests.filter((row) => isOpenDeletionStatus(text(row, 'status'))).length;
   const stuckPendingPayments = pendingPaymentBookings(bookings);
   const expiredActiveHolds = expiredHolds(bookings, now);
   const upcomingGamesWithNoPlayers = emptyUpcomingGames(games, bookings, now);
@@ -987,11 +1018,8 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     compliance: {
       deletions: {
         configured: deletionRequestsResult.configured,
-        rows: deletionRequests.slice(0, 8).map((row) => [
-          text(row, 'email') || text(row, 'user_email') || text(row, 'user_id') || 'Unknown account',
-          text(row, 'status') || 'pending',
-          formatDate(text(row, 'created_at')),
-        ]),
+        empty: deletionRequestsResult.configured ? 'No account deletion requests found.' : deletionRequestsResult.warning || 'Deletion requests are not configured for this command centre.',
+        requests: deletionRequests.slice(0, 20).map(toDeletionRequestView),
       },
       legal: {
         configured: legalDocumentsResult.configured,
@@ -1039,6 +1067,10 @@ async function safeRows(label: string, run: () => PromiseLike<PostgrestRows>, op
   };
 }
 
+function unconfiguredRows(label: string, warning: string | null, limit: number | null = null): QueryResult {
+  return { data: [], configured: false, warning, elapsedMs: 0, limit, label };
+}
+
 function isMissingTableError(error: { code?: string; message: string }) {
   const message = error.message.toLowerCase();
   return (
@@ -1065,6 +1097,54 @@ async function safeCount(label: string, run: () => PromiseLike<PostgrestCount>):
 function normalizeTab(raw: string | undefined): AdminTab {
   const allowed: AdminTab[] = ['overview', 'clubs', 'players', 'bookings', 'payments', 'notifications', 'compliance', 'platform', 'issues'];
   return allowed.includes(raw as AdminTab) ? (raw as AdminTab) : 'overview';
+}
+
+function deletionNotice(
+  rawAction: string | undefined,
+  rawMessage: string | undefined,
+): { title: string; detail: string; tone: 'good' | 'warn' | 'bad' } | null {
+  if (!rawAction) return null;
+  const message = rawMessage || '';
+  const notices: Record<string, { title: string; detail: string; tone: 'good' | 'warn' | 'bad' }> = {
+    completed: {
+      title: 'Deletion request processed',
+      detail:
+        'The profile was de-identified, safe references were cleared, sessions were revoked, and retained records remain for audit/legal purposes.',
+      tone: 'good',
+    },
+    requires_admin_review: {
+      title: 'Admin review still required',
+      detail: 'The user still owns or administers a club. Resolve club ownership before processing the deletion request.',
+      tone: 'warn',
+    },
+    failed: {
+      title: 'Deletion processing failed',
+      detail: message || 'The processor returned an error. Review the request error message and try again after resolving the issue.',
+      tone: 'bad',
+    },
+    missing_service_role: {
+      title: 'Service role key missing',
+      detail: 'Set SUPABASE_SERVICE_ROLE_KEY in the website environment before command centre can process deletion requests.',
+      tone: 'warn',
+    },
+    support_read_only: {
+      title: 'Read-only admin role',
+      detail: 'Support admins can view deletion requests but owner or ops access is required to process them.',
+      tone: 'warn',
+    },
+    denied: {
+      title: 'Action denied',
+      detail: 'Your account is not approved for this internal admin action.',
+      tone: 'bad',
+    },
+    invalid: {
+      title: 'Invalid request',
+      detail: 'The deletion request id was invalid.',
+      tone: 'bad',
+    },
+  };
+
+  return notices[rawAction] || null;
 }
 
 function AccessDenied({ email, reason }: { email: string | null; reason: string }) {
@@ -1346,6 +1426,108 @@ function ComplianceCard({ title, configured, rows, empty }: { title: string; con
   );
 }
 
+function DeletionRequestsPanel({
+  configured,
+  requests,
+  empty,
+  canAction,
+}: {
+  configured: boolean;
+  requests: DeletionRequestView[];
+  empty: string;
+  canAction: boolean;
+}) {
+  return (
+    <Panel className="overflow-hidden p-0">
+      <div className="border-b border-border px-4 py-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-text-primary">Account deletion requests</h3>
+            <p className="mt-1 text-xs leading-4 text-text-secondary">
+              Review user requests, resolve club ownership when required, then run the service-role de-identification processor.
+            </p>
+          </div>
+          <StatusPill label={configured ? 'available' : 'not configured'} tone={configured ? 'good' : 'neutral'} />
+        </div>
+      </div>
+
+      {!configured || requests.length === 0 ? (
+        <p className="px-4 py-6 text-sm leading-5 text-text-secondary">{empty}</p>
+      ) : (
+        <div className="divide-y divide-border">
+          {requests.map((request) => (
+            <div key={request.id} className="grid gap-3 px-4 py-4 xl:grid-cols-[1fr_230px]">
+              <div className="min-w-0">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <p className="truncate text-sm font-semibold text-text-primary">{request.account}</p>
+                  <StatusPill label={request.status} tone={request.statusTone} />
+                </div>
+                <div className="grid gap-x-4 gap-y-1 text-xs leading-5 text-text-secondary sm:grid-cols-2">
+                  <p>
+                    <span className="font-semibold text-text-primary">Requested:</span> {request.requestedAt}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-text-primary">Completed:</span> {request.completedAt}
+                  </p>
+                  <p className="sm:col-span-2">
+                    <span className="font-semibold text-text-primary">User ID:</span> <Mono value={request.userId} />
+                  </p>
+                  <p className="sm:col-span-2">
+                    <span className="font-semibold text-text-primary">Reason:</span> {request.reason}
+                  </p>
+                  {request.adminNotes !== '-' && (
+                    <p className="sm:col-span-2">
+                      <span className="font-semibold text-text-primary">Admin notes:</span> {request.adminNotes}
+                    </p>
+                  )}
+                  {request.errorMessage !== '-' && (
+                    <p className="sm:col-span-2 text-error">
+                      <span className="font-semibold">Latest error:</span> {request.errorMessage}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-border bg-surface-tint p-3">
+                {request.canProcess && canAction ? (
+                  <form method="post" action={`/api/admin/account-deletion/${request.id}/process`} className="space-y-2">
+                    <label className="block text-xs font-semibold text-text-primary">
+                      Action note
+                      <textarea
+                        name="adminNote"
+                        maxLength={1000}
+                        placeholder="Optional internal note"
+                        className="mt-1 min-h-16 w-full resize-y rounded-lg border border-border bg-white px-3 py-2 text-xs font-normal text-text-primary outline-none focus:border-primary/40 focus:ring-4 focus:ring-primary/10"
+                      />
+                    </label>
+                    <button className="w-full rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white transition hover:bg-black">
+                      Process de-identification
+                    </button>
+                    <p className="text-[11px] leading-4 text-text-tertiary">
+                      Does not hard-delete Auth. Retained records stay for audit, payments, and legal needs.
+                    </p>
+                  </form>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-text-primary">
+                      {request.canProcess ? 'Read-only access' : 'No action available'}
+                    </p>
+                    <p className="text-xs leading-4 text-text-secondary">
+                      {request.canProcess
+                        ? 'Owner or ops access is required to process deletion requests.'
+                        : 'Only pending or admin-review requests can be processed.'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 function HealthCard({ label, value, detail, tone }: { label: string; value: string; detail: string; tone: HealthTone }) {
   const Icon = tone === 'good' ? CheckCircle2 : AlertTriangle;
   const toneClass = tone === 'good' ? 'text-success' : tone === 'warn' ? 'text-warning' : 'text-error';
@@ -1439,6 +1621,41 @@ function text(row: Row | undefined, key: string): string {
   if (typeof raw === 'string') return raw;
   if (typeof raw === 'number' || typeof raw === 'boolean') return String(raw);
   return '';
+}
+
+function toDeletionRequestView(row: Row): DeletionRequestView {
+  const status = text(row, 'status') || 'pending';
+  return {
+    id: text(row, 'id'),
+    account: text(row, 'email') || text(row, 'user_email') || text(row, 'user_id') || 'Unknown account',
+    userId: text(row, 'user_id') || '-',
+    status,
+    statusTone: deletionStatusTone(status),
+    requestedAt: formatDate(text(row, 'requested_at') || text(row, 'created_at')),
+    completedAt: formatDate(text(row, 'completed_at')),
+    reason: text(row, 'reason') || '-',
+    adminNotes: text(row, 'admin_notes') || '-',
+    errorMessage: text(row, 'latest_error') || text(row, 'error_message') || '-',
+    canProcess: status === 'pending' || status === 'requires_admin_review',
+  };
+}
+
+function isOpenDeletionStatus(status: string) {
+  return (
+    !status ||
+    status === 'pending' ||
+    status === 'processing' ||
+    status === 'requires_admin_review' ||
+    status === 'failed' ||
+    status === 'open'
+  );
+}
+
+function deletionStatusTone(status: string): StatusTone {
+  if (status === 'completed') return 'good';
+  if (status === 'failed' || status === 'rejected') return 'bad';
+  if (status === 'requires_admin_review' || status === 'processing') return 'warn';
+  return 'neutral';
 }
 
 function number(row: Row | undefined, key: string): number {
