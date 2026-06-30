@@ -15,16 +15,24 @@ export type BusinessAdminCheck =
       allowed: false;
       reason: string;
       email: string | null;
+      userId: string | null;
+      supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
     };
 
-export async function requireBusinessAdmin(): Promise<BusinessAdminCheck> {
+export async function getBusinessAdmin(): Promise<BusinessAdminCheck> {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect('/login?next=/admin');
+    return {
+      allowed: false,
+      reason: 'Please sign in to access admin tools.',
+      email: null,
+      userId: null,
+      supabase,
+    };
   }
 
   const { data, error } = await supabase
@@ -41,6 +49,8 @@ export async function requireBusinessAdmin(): Promise<BusinessAdminCheck> {
           ? 'The business_admins access table has not been created yet.'
           : 'Your account could not be verified for internal admin access.',
       email: user.email ?? null,
+      userId: user.id,
+      supabase,
     };
   }
 
@@ -50,6 +60,8 @@ export async function requireBusinessAdmin(): Promise<BusinessAdminCheck> {
       allowed: false,
       reason: 'This account is not approved for the Bookadink internal command centre.',
       email: user.email ?? null,
+      userId: user.id,
+      supabase,
     };
   }
 
@@ -60,4 +72,14 @@ export async function requireBusinessAdmin(): Promise<BusinessAdminCheck> {
     email: user.email ?? null,
     supabase,
   };
+}
+
+export async function requireBusinessAdmin(): Promise<BusinessAdminCheck> {
+  const admin = await getBusinessAdmin();
+
+  if (!admin.userId) {
+    redirect('/login?next=/admin');
+  }
+
+  return admin;
 }
