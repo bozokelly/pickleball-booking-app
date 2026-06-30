@@ -1,263 +1,315 @@
-'use client';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { AdminClubListClient } from './AdminClubListClient';
+import { getBusinessAdmin } from '@/lib/adminAccess';
+import { createSupabaseAdminClient } from '@/lib/supabaseAdmin';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { format, isPast } from 'date-fns';
-import { useClubStore } from '@/stores/clubStore';
-import { supabase } from '@/lib/supabase';
-import { Game } from '@/types/database';
-import { Card, Button, Badge } from '@/components/ui';
-import { Plus, MapPin, Users, Pencil, Clock, LayoutGrid, ChevronDown, ChevronUp, CalendarDays, MessageSquare, MoreHorizontal, Copy } from 'lucide-react';
+export const dynamic = 'force-dynamic';
 
-export default function AdminPage() {
-  const { myAdminClubs, fetchMyAdminClubs } = useClubStore();
-  const [clubGames, setClubGames] = useState<Record<string, Game[]>>({});
-  const [clubMemberCounts, setClubMemberCounts] = useState<Record<string, number>>({});
-  const [expandedClubs, setExpandedClubs] = useState<Set<string>>(new Set());
-  const [openMenuClubId, setOpenMenuClubId] = useState<string | null>(null);
+type SearchParams = Promise<{ deletionAction?: string; message?: string }>;
+type PageProps = { searchParams?: SearchParams };
+type Row = Record<string, unknown>;
+type StatusTone = 'neutral' | 'good' | 'warn' | 'bad';
 
-  useEffect(() => {
-    fetchMyAdminClubs();
-  }, [fetchMyAdminClubs]);
+type DeletionRequestView = {
+  id: string;
+  account: string;
+  userId: string;
+  status: string;
+  statusTone: StatusTone;
+  requestedAt: string;
+  completedAt: string;
+  reason: string;
+  adminNotes: string;
+  errorMessage: string;
+  canProcess: boolean;
+};
 
-  useEffect(() => {
-    if (myAdminClubs.length === 0) return;
-    const clubIds = myAdminClubs.map((c) => c.id);
-
-    // Batch fetch all games and member counts in parallel (no N+1)
-    Promise.all([
-      supabase
-        .from('games')
-        .select('*')
-        .in('club_id', clubIds)
-        .order('date_time', { ascending: false }),
-      supabase
-        .from('club_members')
-        .select('club_id')
-        .in('club_id', clubIds)
-        .eq('status', 'approved'),
-    ]).then(([gamesResult, membersResult]) => {
-      // Group games by club_id
-      const gameMap: Record<string, Game[]> = {};
-      for (const game of gamesResult.data || []) {
-        if (!gameMap[game.club_id]) gameMap[game.club_id] = [];
-        gameMap[game.club_id].push(game);
-      }
-      setClubGames(gameMap);
-
-      // Count members by club_id
-      const countMap: Record<string, number> = {};
-      for (const m of membersResult.data || []) {
-        countMap[m.club_id] = (countMap[m.club_id] || 0) + 1;
-      }
-      setClubMemberCounts(countMap);
-    });
-  }, [myAdminClubs]);
-
-  const toggleClub = (clubId: string) => {
-    setExpandedClubs((prev) => {
-      const next = new Set(prev);
-      if (next.has(clubId)) {
-        next.delete(clubId);
-      } else {
-        next.add(clubId);
-      }
-      return next;
-    });
-  };
+export default async function AdminPage({ searchParams }: PageProps) {
+  const params = searchParams ? await searchParams : {};
+  const admin = await getBusinessAdmin();
+  const deletionActionNotice = deletionNotice(params.deletionAction, params.message);
+  const deletionQueue = admin.allowed
+    ? await loadDeletionRequests()
+    : {
+        configured: false,
+        empty: admin.reason,
+        requests: [] as DeletionRequestView[],
+      };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-text-primary">Admin Panel</h1>
-        <Link href="/dashboard/admin/create-club">
-          <Button size="sm" icon={<Plus className="h-4 w-4" />}>
-            Create Club
-          </Button>
-        </Link>
+    <div className="space-y-8">
+      {admin.allowed && (
+        <section className="space-y-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-text-tertiary">Compliance</p>
+            <h2 className="mt-1 text-xl font-bold tracking-tight text-text-primary">Account deletion requests</h2>
+            <p className="mt-1 text-sm leading-5 text-text-secondary">
+              Review account deletion requests, resolve club ownership if needed, and process server-side de-identification.
+            </p>
+          </div>
+
+          {deletionActionNotice && (
+            <div className={`rounded-2xl border p-4 ${deletionActionNotice.tone === 'good' ? 'border-green-500/20 bg-green-500/5' : deletionActionNotice.tone === 'warn' ? 'border-yellow-500/20 bg-yellow-500/5' : 'border-red-500/20 bg-red-500/5'}`}>
+              <div className="flex items-start gap-3">
+                {deletionActionNotice.tone === 'good' ? (
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-600" />
+                ) : (
+                  <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-600" />
+                )}
+                <div>
+                  <h3 className="text-sm font-semibold text-text-primary">{deletionActionNotice.title}</h3>
+                  <p className="mt-1 text-sm text-text-secondary">{deletionActionNotice.detail}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DeletionRequestsPanel
+            configured={deletionQueue.configured}
+            requests={deletionQueue.requests}
+            empty={deletionQueue.empty}
+            canAction={admin.role !== 'support'}
+          />
+        </section>
+      )}
+
+      <AdminClubListClient />
+    </div>
+  );
+}
+
+async function loadDeletionRequests() {
+  const supabaseAdmin = createSupabaseAdminClient();
+  if (!supabaseAdmin) {
+    return {
+      configured: false,
+      empty: 'Set SUPABASE_SERVICE_ROLE_KEY for the command centre to view and process deletion requests.',
+      requests: [] as DeletionRequestView[],
+    };
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('account_deletion_requests')
+    .select('*')
+    .order('requested_at', { ascending: false })
+    .limit(100);
+
+  if (error) {
+    return {
+      configured: false,
+      empty: error.message,
+      requests: [] as DeletionRequestView[],
+    };
+  }
+
+  return {
+    configured: true,
+    empty: 'No account deletion requests found.',
+    requests: (data || []).slice(0, 20).map((row) => toDeletionRequestView(toRow(row))),
+  };
+}
+
+function DeletionRequestsPanel({
+  configured,
+  requests,
+  empty,
+  canAction,
+}: {
+  configured: boolean;
+  requests: DeletionRequestView[];
+  empty: string;
+  canAction: boolean;
+}) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3">
+        <div>
+          <h3 className="text-sm font-semibold text-text-primary">Deletion queue</h3>
+          <p className="mt-1 text-xs leading-4 text-text-secondary">
+            Processing de-identifies the profile, clears safe references, revokes sessions, and keeps retained records for audit, payment, and legal needs.
+          </p>
+        </div>
+        <StatusPill label={configured ? 'available' : 'not configured'} tone={configured ? 'good' : 'neutral'} />
       </div>
 
-      {myAdminClubs.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-text-secondary">You don&apos;t manage any clubs yet</p>
-          <Link href="/dashboard/admin/create-club" className="text-primary text-sm hover:underline mt-2 inline-block">
-            Create your first club
-          </Link>
-        </div>
+      {!configured || requests.length === 0 ? (
+        <p className="px-4 py-6 text-sm leading-5 text-text-secondary">{empty}</p>
       ) : (
-        <div className="space-y-4">
-          {myAdminClubs.map((club) => {
-            const games = clubGames[club.id] || [];
-            const memberCount = clubMemberCounts[club.id] ?? 0;
-            const isExpanded = expandedClubs.has(club.id);
-            const isMenuOpen = openMenuClubId === club.id;
-            const upcomingGames = games
-              .filter((g) => !isPast(new Date(g.date_time)) && g.status !== 'completed' && g.status !== 'cancelled')
-              .sort((a, b) => new Date(a.date_time).getTime() - new Date(b.date_time).getTime());
-            const pastGames = games.filter((g) => isPast(new Date(g.date_time)) || g.status === 'completed' || g.status === 'cancelled');
+        <div className="divide-y divide-border">
+          {requests.map((request) => (
+            <div key={request.id} className="grid gap-3 px-4 py-4 xl:grid-cols-[1fr_230px]">
+              <div className="min-w-0">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <p className="truncate text-sm font-semibold text-text-primary">{request.account}</p>
+                  <StatusPill label={request.status} tone={request.statusTone} />
+                </div>
+                <div className="grid gap-x-4 gap-y-1 text-xs leading-5 text-text-secondary sm:grid-cols-2">
+                  <p>
+                    <span className="font-semibold text-text-primary">Requested:</span> {request.requestedAt}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-text-primary">Completed:</span> {request.completedAt}
+                  </p>
+                  <p className="sm:col-span-2">
+                    <span className="font-semibold text-text-primary">User ID:</span> <Mono value={request.userId} />
+                  </p>
+                  <p className="sm:col-span-2">
+                    <span className="font-semibold text-text-primary">Reason:</span> {request.reason}
+                  </p>
+                  {request.adminNotes !== '-' && (
+                    <p className="sm:col-span-2">
+                      <span className="font-semibold text-text-primary">Admin notes:</span> {request.adminNotes}
+                    </p>
+                  )}
+                  {request.errorMessage !== '-' && (
+                    <p className="sm:col-span-2 text-red-600">
+                      <span className="font-semibold">Latest error:</span> {request.errorMessage}
+                    </p>
+                  )}
+                </div>
+              </div>
 
-            return (
-              <div key={club.id}>
-                <Card className="p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <button
-                        onClick={() => toggleClub(club.id)}
-                        className="flex-shrink-0 p-1 rounded-lg hover:bg-background transition-colors text-text-tertiary hover:text-text-primary"
-                      >
-                        {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                      </button>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-text-primary truncate">{club.name}</h3>
-                          <span className="flex-shrink-0 inline-flex items-center gap-1 text-xs font-medium text-text-tertiary bg-background px-2 py-0.5 rounded-full">
-                            <CalendarDays className="h-3 w-3" />
-                            {games.length} {games.length === 1 ? 'game' : 'games'}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
-                          {club.location && (
-                            <p className="text-sm text-text-secondary flex items-center gap-1">
-                              <MapPin className="h-3.5 w-3.5" /> {club.location}
-                            </p>
-                          )}
-                          <p className="text-sm text-text-secondary flex items-center gap-1">
-                            <Users className="h-3.5 w-3.5" /> {memberCount} {memberCount === 1 ? 'member' : 'members'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="relative flex-shrink-0">
-                      <button
-                        onClick={() => setOpenMenuClubId(isMenuOpen ? null : club.id)}
-                        className="p-2 rounded-lg hover:bg-background transition-colors text-text-tertiary hover:text-text-primary"
-                      >
-                        <MoreHorizontal className="h-5 w-5" />
-                      </button>
-                      {isMenuOpen && (
-                        <>
-                          <div className="fixed inset-0 z-10" onClick={() => setOpenMenuClubId(null)} />
-                          <div className="absolute right-0 top-10 z-20 bg-surface border border-border rounded-xl shadow-lg py-1 min-w-[160px]">
-                            <Link
-                              href={`/dashboard/admin/edit-club/${club.id}`}
-                              onClick={() => setOpenMenuClubId(null)}
-                              className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-text-primary hover:bg-background transition-colors"
-                            >
-                              <Pencil className="h-4 w-4 text-text-tertiary" /> Edit Club
-                            </Link>
-                            <Link
-                              href={`/dashboard/admin/club/${club.id}/members`}
-                              onClick={() => setOpenMenuClubId(null)}
-                              className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-text-primary hover:bg-background transition-colors"
-                            >
-                              <Users className="h-4 w-4 text-text-tertiary" /> Members
-                            </Link>
-                            <Link
-                              href={`/dashboard/admin/club/${club.id}/messages`}
-                              onClick={() => setOpenMenuClubId(null)}
-                              className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-text-primary hover:bg-background transition-colors"
-                            >
-                              <MessageSquare className="h-4 w-4 text-text-tertiary" /> Messages
-                            </Link>
-                            <div className="border-t border-border my-1" />
-                            <Link
-                              href={`/dashboard/admin/create-game?clubId=${club.id}`}
-                              onClick={() => setOpenMenuClubId(null)}
-                              className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-primary font-medium hover:bg-background transition-colors"
-                            >
-                              <Plus className="h-4 w-4" /> New Game
-                            </Link>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-
-                {/* Collapsible games list */}
-                {isExpanded && (
-                  <div className="mt-2 ml-6 space-y-3">
-                    {games.length === 0 ? (
-                      <p className="text-sm text-text-tertiary pl-2 py-2">No games yet</p>
-                    ) : (
-                      <>
-                        {/* Upcoming games */}
-                        {upcomingGames.length > 0 && (
-                          <div className="space-y-1.5">
-                            <p className="text-xs font-semibold text-text-tertiary uppercase tracking-wider pl-1">Upcoming</p>
-                            {upcomingGames.map((game) => (
-                              <GameRow key={game.id} game={game} clubId={club.id} />
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Past games */}
-                        {pastGames.length > 0 && (
-                          <div className="space-y-1.5">
-                            <p className="text-xs font-semibold text-text-tertiary uppercase tracking-wider pl-1">Past</p>
-                            {pastGames.map((game) => (
-                              <GameRow key={game.id} game={game} clubId={club.id} muted />
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    )}
+              <div className="rounded-xl border border-border bg-background p-3">
+                {request.canProcess && canAction ? (
+                  <form method="post" action={`/api/admin/account-deletion/${request.id}/process`} className="space-y-2">
+                    <label className="block text-xs font-semibold text-text-primary">
+                      Action note
+                      <textarea
+                        name="adminNote"
+                        maxLength={1000}
+                        placeholder="Optional internal note"
+                        className="mt-1 min-h-16 w-full resize-y rounded-lg border border-border bg-white px-3 py-2 text-xs font-normal text-text-primary outline-none focus:border-primary/40 focus:ring-4 focus:ring-primary/10"
+                      />
+                    </label>
+                    <button className="w-full rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white transition hover:bg-black">
+                      Process de-identification
+                    </button>
+                  </form>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-text-primary">{request.canProcess ? 'Read-only access' : 'No action available'}</p>
+                    <p className="text-xs leading-4 text-text-secondary">
+                      {request.canProcess
+                        ? 'Owner or ops access is required to process deletion requests.'
+                        : 'Only pending or admin-review requests can be processed.'}
+                    </p>
                   </div>
                 )}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-function GameRow({ game, clubId, muted = false }: { game: Game; clubId: string; muted?: boolean }) {
-  const dt = new Date(game.date_time);
+function StatusPill({ label, tone }: { label: string; tone: StatusTone }) {
+  const classes = {
+    neutral: 'bg-background text-text-secondary',
+    good: 'bg-green-500/10 text-green-700',
+    warn: 'bg-yellow-500/10 text-yellow-700',
+    bad: 'bg-red-500/10 text-red-700',
+  }[tone];
+  return <span className={`inline-flex max-w-full whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${classes}`}>{label}</span>;
+}
 
+function Mono({ value }: { value: string }) {
   return (
-    <Card className={`px-4 py-3 ${muted ? 'opacity-60' : ''}`}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h4 className="font-medium text-text-primary truncate">{game.title}</h4>
-          <Badge
-            label={game.status}
-            color={game.status === 'upcoming' ? '#34C759' : game.status === 'cancelled' ? '#FF3B30' : '#8E8E93'}
-          />
-          <span className="text-sm text-text-secondary flex items-center gap-1">
-            <Clock className="h-3.5 w-3.5" />
-            {format(dt, 'MMM d, yyyy h:mm a')}
-          </span>
-          {game.location && (
-            <span className="text-sm text-text-secondary flex items-center gap-1">
-              <MapPin className="h-3.5 w-3.5" />
-              <span className="truncate max-w-[150px]">{game.location}</span>
-            </span>
-          )}
-          <span className="text-sm text-text-secondary flex items-center gap-1">
-            <Users className="h-3.5 w-3.5" />
-            {game.max_spots} spots
-          </span>
-        </div>
-        <div className="flex gap-2 flex-shrink-0">
-          <Link href={`/dashboard/admin/create-game?duplicate=${game.id}&clubId=${clubId}`}>
-            <Button variant="outline" size="sm" icon={<Copy className="h-4 w-4" />} title="Duplicate game">
-              Duplicate
-            </Button>
-          </Link>
-          <Link href={`/dashboard/admin/schedule-game/${game.id}`}>
-            <Button variant="outline" size="sm" icon={<LayoutGrid className="h-4 w-4" />}>
-              Schedule
-            </Button>
-          </Link>
-          <Link href={`/dashboard/admin/edit-game/${game.id}`}>
-            <Button variant="outline" size="sm" icon={<Pencil className="h-4 w-4" />}>
-              Edit
-            </Button>
-          </Link>
-        </div>
-      </div>
-    </Card>
+    <code className="inline-block max-w-full truncate rounded-md border border-border bg-white px-2 py-1 font-mono text-[11px] text-text-secondary" title={value}>
+      {value}
+    </code>
   );
+}
+
+function deletionNotice(rawAction: string | undefined, message: string | undefined): { title: string; detail: string; tone: 'good' | 'warn' | 'bad' } | null {
+  if (!rawAction) return null;
+  const notices: Record<string, { title: string; detail: string; tone: 'good' | 'warn' | 'bad' }> = {
+    completed: {
+      title: 'Deletion request processed',
+      detail: 'The profile was de-identified, safe references were cleared, sessions were revoked, and retained records remain for audit/legal purposes.',
+      tone: 'good',
+    },
+    requires_admin_review: {
+      title: 'Admin review still required',
+      detail: 'The user still owns or administers a club. Resolve club ownership before processing the deletion request.',
+      tone: 'warn',
+    },
+    failed: {
+      title: 'Deletion processing failed',
+      detail: message || 'The processor returned an error. Review the request error message and try again after resolving the issue.',
+      tone: 'bad',
+    },
+    missing_service_role: {
+      title: 'Service role key missing',
+      detail: 'Set SUPABASE_SERVICE_ROLE_KEY in the website environment before command centre can process deletion requests.',
+      tone: 'warn',
+    },
+    support_read_only: {
+      title: 'Read-only admin role',
+      detail: 'Support admins can view deletion requests but owner or ops access is required to process them.',
+      tone: 'warn',
+    },
+    denied: {
+      title: 'Action denied',
+      detail: 'Your account is not approved for this internal admin action.',
+      tone: 'bad',
+    },
+    invalid: {
+      title: 'Invalid request',
+      detail: 'The deletion request id was invalid.',
+      tone: 'bad',
+    },
+  };
+  return notices[rawAction] || null;
+}
+
+function toDeletionRequestView(row: Row): DeletionRequestView {
+  const status = text(row, 'status') || 'pending';
+  return {
+    id: text(row, 'id'),
+    account: text(row, 'email') || text(row, 'user_email') || text(row, 'user_id') || 'Unknown account',
+    userId: text(row, 'user_id') || '-',
+    status,
+    statusTone: deletionStatusTone(status),
+    requestedAt: formatDate(text(row, 'requested_at') || text(row, 'created_at')),
+    completedAt: formatDate(text(row, 'completed_at')),
+    reason: text(row, 'reason') || '-',
+    adminNotes: text(row, 'admin_notes') || '-',
+    errorMessage: text(row, 'error_message') || '-',
+    canProcess: status === 'pending' || status === 'requires_admin_review',
+  };
+}
+
+function deletionStatusTone(status: string): StatusTone {
+  if (status === 'completed') return 'good';
+  if (status === 'failed' || status === 'rejected') return 'bad';
+  if (status === 'requires_admin_review' || status === 'processing') return 'warn';
+  return 'neutral';
+}
+
+function toRow(valueToConvert: unknown): Row {
+  return valueToConvert && typeof valueToConvert === 'object' && !Array.isArray(valueToConvert)
+    ? (valueToConvert as Row)
+    : {};
+}
+
+function text(row: Row | undefined, key: string): string {
+  const raw = row ? row[key] : undefined;
+  if (typeof raw === 'string') return raw;
+  if (typeof raw === 'number' || typeof raw === 'boolean') return String(raw);
+  return '';
+}
+
+function formatDate(raw: string) {
+  if (!raw) return '-';
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
+  return new Intl.DateTimeFormat('en-AU', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
 }
