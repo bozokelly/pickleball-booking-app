@@ -45,11 +45,7 @@ export default function ClubDetailPage({ params }: { params: Promise<{ id: strin
         const [clubData, , memberResult, gamesResult] = await Promise.all([
           fetchClubById(clubId),
           fetchMyMemberships(),
-          supabase
-            .from('club_members')
-            .select('*', { count: 'exact', head: true })
-            .eq('club_id', clubId)
-            .eq('status', 'approved'),
+          supabase.rpc('public_club_member_count', { p_club_id: clubId }),
           supabase
             .from('games')
             .select('*, club:clubs(*)')
@@ -61,7 +57,7 @@ export default function ClubDetailPage({ params }: { params: Promise<{ id: strin
         ]);
 
         setClub(clubData);
-        setMemberCount(memberResult.count || 0);
+        setMemberCount(typeof memberResult.data === 'number' ? memberResult.data : 0);
         setManagerName(clubData.manager_name || null);
 
         const gameData = gamesResult.data;
