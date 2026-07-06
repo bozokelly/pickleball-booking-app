@@ -317,23 +317,26 @@ export default async function AdminPage({ searchParams }: PageProps) {
           {activeTab === 'clubs' && (
             <Section id="clubs" title="Club operations" icon={<Building2 className="h-5 w-5" />} description={dashboard.tableNotes.clubs}>
               <DataTable
-                caption="Club roster"
-                note="Sorted by newest clubs first. Member counts are approved memberships only."
+                caption="Club file index"
+                note="Use this as the Finder-style index. Open a Club File for games, members, payments, notifications, and club-specific issues."
                 empty={query ? `No clubs matched "${query}".` : 'No clubs are available in this admin preview.'}
-                columns={['Club', 'Location', 'Subscription', 'Stripe', 'Members', 'Admins', 'Upcoming', 'Created', 'Last activity']}
+                columns={['Club', 'Health', 'Subscription', 'Stripe', 'Members', 'Admins', 'Upcoming', 'Last activity', 'Open']}
                 rows={dashboard.clubs.map((club) => [
                   <Link key="club" href={`/admin/clubs/${club.id}`} className="inline-flex max-w-full items-center gap-1.5 font-semibold text-text-primary hover:text-info">
                     <span className="truncate">{club.name}</span>
                     <ArrowUpRight className="h-3.5 w-3.5 flex-shrink-0 text-text-tertiary" />
                   </Link>,
-                  club.location,
+                  <StatusPill key="health" label={club.healthLabel} tone={club.healthTone} />,
                   <StatusPill key="tier" label={club.subscriptionTier} tone="neutral" />,
                   <StatusPill key="stripe" label={club.stripeStatus} tone={club.stripeTone} />,
                   club.memberCount,
                   club.adminCount,
                   club.upcomingGames,
-                  club.createdAt,
                   club.lastActivity,
+                  <Link key="open" href={`/admin/clubs/${club.id}`} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-xs font-semibold text-text-primary hover:border-primary hover:text-primary">
+                    Open Club File
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </Link>,
                 ])}
               />
             </Section>
@@ -342,18 +345,25 @@ export default async function AdminPage({ searchParams }: PageProps) {
           {activeTab === 'players' && (
             <Section id="players" title="Players & members" icon={<Users className="h-5 w-5" />} description={dashboard.tableNotes.players}>
               <DataTable
-                caption="Player directory"
-                note="Operational view of registered profiles, club memberships, bookings, and credit balances."
+                caption="Player search index"
+                note="Preview of registered player profiles. Full member operations now belong inside each Club File."
                 empty={query ? `No players matched "${query}".` : 'No player profiles are available in this admin preview.'}
-                columns={['Player', 'Email', 'DUPR', 'Joined clubs', 'Upcoming bookings', 'Credits', 'Created', 'Last active']}
+                columns={['Player', 'Email', 'DUPR', 'Joined clubs', 'Primary club', 'Upcoming bookings', 'Credits', 'Last active']}
                 rows={dashboard.players.map((player) => [
                   player.name,
                   player.email,
                   player.dupr,
                   player.joinedClubs,
+                  player.primaryClubId ? (
+                    <Link key="club" href={`/admin/clubs/${player.primaryClubId}`} className="inline-flex max-w-full items-center gap-1.5 font-semibold text-text-primary hover:text-info">
+                      <span className="truncate">{player.primaryClubName}</span>
+                      <ArrowUpRight className="h-3.5 w-3.5 flex-shrink-0 text-text-tertiary" />
+                    </Link>
+                  ) : (
+                    player.primaryClubName
+                  ),
                   player.upcomingBookings,
                   player.credits,
-                  player.createdAt,
                   player.lastActive,
                 ])}
               />
@@ -363,19 +373,26 @@ export default async function AdminPage({ searchParams }: PageProps) {
           {activeTab === 'bookings' && (
             <Section id="bookings" title="Games & bookings" icon={<Ticket className="h-5 w-5" />} description={dashboard.tableNotes.bookings}>
               <DataTable
-                caption="Recent booking activity"
-                note="Use this to answer who booked, what game it was for, whether payment is settled, and when it happened."
+                caption="Booking exceptions and recent activity"
+                note="Rows needing attention are sorted first, followed by recent bookings. Open the Club File for full club context."
                 empty={query ? `No bookings matched "${query}".` : 'No recent booking records are available in this admin preview.'}
-                columns={['Game', 'Club', 'Player', 'Game time', 'Booking', 'Payment', 'Fee', 'Credits', 'Waitlist', 'Created']}
+                columns={['Signal', 'Game', 'Club File', 'Player', 'Game time', 'Booking', 'Payment', 'Fee', 'Waitlist', 'Created']}
                 rows={dashboard.bookings.map((booking) => [
+                  <StatusPill key="signal" label={booking.signalLabel} tone={booking.signalTone} />,
                   booking.gameTitle,
-                  booking.clubName,
+                  booking.clubId ? (
+                    <Link key="club" href={`/admin/clubs/${booking.clubId}`} className="inline-flex max-w-full items-center gap-1.5 font-semibold text-text-primary hover:text-info">
+                      <span className="truncate">{booking.clubName}</span>
+                      <ArrowUpRight className="h-3.5 w-3.5 flex-shrink-0 text-text-tertiary" />
+                    </Link>
+                  ) : (
+                    booking.clubName
+                  ),
                   booking.playerName,
                   booking.gameTime,
                   <StatusPill key="booking" label={booking.status} tone={booking.bookingTone} />,
                   <StatusPill key="payment" label={booking.paymentStatus} tone={booking.paymentTone} />,
                   booking.fee,
-                  booking.credits,
                   booking.waitlist,
                   booking.createdAt,
                 ])}
@@ -402,11 +419,18 @@ export default async function AdminPage({ searchParams }: PageProps) {
                 caption="Paid booking ledger"
                 note="Read-only payment reconciliation view. Refund/payment workflow changes are deliberately out of scope for this phase."
                 empty={query ? `No paid or Stripe-linked bookings matched "${query}".` : 'No paid or Stripe-linked booking records are available in this admin preview.'}
-                columns={['Created', 'Player', 'Club', 'Payment intent', 'Connected account', 'Amount', 'Payment', 'Refund', 'Booking']}
+                columns={['Created', 'Player', 'Club File', 'Payment intent', 'Connected account', 'Amount', 'Payment', 'Refund', 'Booking']}
                 rows={dashboard.payments.map((payment) => [
                   payment.createdAt,
                   payment.playerName,
-                  payment.clubName,
+                  payment.clubId ? (
+                    <Link key="club" href={`/admin/clubs/${payment.clubId}`} className="inline-flex max-w-full items-center gap-1.5 font-semibold text-text-primary hover:text-info">
+                      <span className="truncate">{payment.clubName}</span>
+                      <ArrowUpRight className="h-3.5 w-3.5 flex-shrink-0 text-text-tertiary" />
+                    </Link>
+                  ) : (
+                    payment.clubName
+                  ),
                   <Mono key="pi" value={payment.paymentIntent} />,
                   <Mono key="acct" value={payment.connectedAccount} />,
                   payment.amount,
@@ -420,19 +444,28 @@ export default async function AdminPage({ searchParams }: PageProps) {
 
           {activeTab === 'notifications' && (
             <Section id="notifications" title="Comms & alerts" icon={<Bell className="h-5 w-5" />} description={dashboard.tableNotes.notifications}>
+              <NotificationSignalPanel items={dashboard.notificationSignals} />
               <DataTable
-                caption="Notification log"
-                note="Delivery status only appears when the underlying notification row tracks it."
+                caption="Notification preview"
+                note="Failures and unread rows are sorted first. Club-linked references can be opened in a Club File."
                 empty={dashboard.notificationsConfigured ? (query ? `No notifications matched "${query}".` : 'No notification records are available in this admin preview.') : 'Notification health is unavailable until admin notification access is configured.'}
-                columns={['Created', 'Recipient', 'Type', 'Title', 'Read', 'Email', 'Reference']}
+                columns={['Signal', 'Created', 'Recipient', 'Type', 'Title', 'Read', 'Email', 'Club File']}
                 rows={dashboard.notifications.map((notification) => [
+                  <StatusPill key="signal" label={notification.signalLabel} tone={notification.signalTone} />,
                   notification.createdAt,
                   notification.recipient,
                   <StatusPill key="type" label={notification.type} tone="neutral" />,
                   notification.title,
                   <StatusPill key="read" label={notification.read} tone={notification.readTone} />,
                   <StatusPill key="email" label={notification.email} tone={notification.emailTone} />,
-                  <Mono key="ref" value={notification.reference} />,
+                  notification.clubId ? (
+                    <Link key="club" href={`/admin/clubs/${notification.clubId}`} className="inline-flex max-w-full items-center gap-1.5 font-semibold text-text-primary hover:text-info">
+                      <span className="truncate">{notification.clubName}</span>
+                      <ArrowUpRight className="h-3.5 w-3.5 flex-shrink-0 text-text-tertiary" />
+                    </Link>
+                  ) : (
+                    <Mono key="ref" value={notification.reference} />
+                  ),
                 ])}
               />
             </Section>
@@ -638,6 +671,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
   const subscriptionByClubId = mapByKey(subscriptions, 'club_id');
   const stripeByClubId = mapByKey(stripeAccounts, 'club_id');
   const venueByClubId = groupByKey(venues, 'club_id');
+  const gamesByClubId = groupByKey(games, 'club_id');
   const approvedMembersByClubId = countBy(members.filter((row) => value(row, 'status') === 'approved'), 'club_id');
   const adminsByClubId = groupByKey(admins, 'club_id');
   const upcomingGamesByClubId = countBy(
@@ -645,6 +679,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     'club_id',
   );
   const bookingsByUserId = groupByKey(bookings, 'user_id');
+  const bookingsByGameId = groupByKey(bookings, 'game_id');
   const membershipsByUserId = groupByKey(members.filter((row) => value(row, 'status') === 'approved'), 'user_id');
   const creditsByUserId = sumCreditsByUser(credits);
 
@@ -660,6 +695,25 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
       const clubVenues = venueByClubId.get(clubId) || [];
       const location = clubLocation(club, clubVenues);
       const lastGameActivity = latestDate(games.filter((game) => text(game, 'club_id') === clubId).map((game) => text(game, 'updated_at') || text(game, 'created_at')));
+      const clubGames = gamesByClubId.get(clubId) || [];
+      const clubGameIds = new Set(clubGames.map((game) => text(game, 'id')).filter(Boolean));
+      const clubBookings = bookings.filter((booking) => clubGameIds.has(text(booking, 'game_id')));
+      const feeChargingGames = clubGames.filter((game) => number(game, 'fee_amount') > 0);
+      const hasStripeAccount = Boolean(stripe && text(stripe, 'stripe_account_id'));
+      const payoutsReady = Boolean(stripe && bool(stripe, 'payouts_enabled'));
+      const pendingPaymentCount = clubBookings.filter((booking) => text(booking, 'stripe_payment_intent_id') && !bool(booking, 'fee_paid') && text(booking, 'status') !== 'cancelled').length;
+      const failedPaymentCount = clubBookings.filter((booking) => {
+        const status = text(booking, 'payment_status');
+        return status === 'failed' || status === 'requires_payment_method' || status === 'payment_failed';
+      }).length;
+      const actionNeededCount = [
+        location === 'Missing location',
+        feeChargingGames.length > 0 && !hasStripeAccount,
+        hasStripeAccount && !payoutsReady,
+        pendingPaymentCount > 0,
+        failedPaymentCount > 0,
+        (upcomingGamesByClubId.get(clubId) || 0) === 0,
+      ].filter(Boolean).length;
       return {
         id: clubId,
         name: text(club, 'name') || 'Untitled club',
@@ -667,6 +721,8 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
         subscriptionTier: text(club, 'subscription_tier') || text(subscription, 'plan_type') || text(subscription, 'tier') || 'not tracked',
         stripeStatus: stripeStatus(stripe),
         stripeTone: stripeTone(stripe),
+        healthLabel: actionNeededCount > 0 ? `${formatCount(actionNeededCount)} issue${actionNeededCount === 1 ? '' : 's'}` : 'healthy',
+        healthTone: (failedPaymentCount > 0 || (feeChargingGames.length > 0 && !hasStripeAccount) ? 'bad' : actionNeededCount > 0 ? 'warn' : 'good') as StatusTone,
         memberCount: String(approvedMembersByClubId.get(clubId) || 0),
         adminCount: String((adminsByClubId.get(clubId) || []).length),
         upcomingGames: String(upcomingGamesByClubId.get(clubId) || 0),
@@ -681,6 +737,9 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     .map((profile) => {
       const userId = text(profile, 'id');
       const userBookings = bookingsByUserId.get(userId) || [];
+      const userMemberships = membershipsByUserId.get(userId) || [];
+      const primaryMembership = userMemberships[0];
+      const primaryClub = primaryMembership ? clubById.get(text(primaryMembership, 'club_id')) : undefined;
       const upcomingUserBookings = userBookings.filter((booking) => {
         const game = gameById.get(text(booking, 'game_id'));
         return isUpcomingGame(game, now) && text(booking, 'status') !== 'cancelled';
@@ -689,7 +748,9 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
         name: text(profile, 'full_name') || 'Unnamed player',
         email: text(profile, 'email') || '-',
         dupr: text(profile, 'dupr_rating') || '-',
-        joinedClubs: String((membershipsByUserId.get(userId) || []).length),
+        joinedClubs: String(userMemberships.length),
+        primaryClubId: primaryClub ? text(primaryClub, 'id') : '',
+        primaryClubName: primaryClub ? text(primaryClub, 'name') || 'Club File' : '-',
         upcomingBookings: String(upcomingUserBookings.length),
         credits: formatCents(creditsByUserId.get(userId) || 0),
         createdAt: formatDate(text(profile, 'created_at')),
@@ -705,11 +766,16 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
       const club = game ? clubById.get(text(game, 'club_id')) : undefined;
       const profile = profileById.get(text(booking, 'user_id'));
       const payment = bookingPaymentStatus(booking);
+      const signal = bookingSignal(booking, payment);
       return {
         gameTitle: text(game, 'title') || 'Unknown game',
+        clubId: text(club, 'id'),
         clubName: text(club, 'name') || 'Unknown club',
         playerName: text(profile, 'full_name') || text(profile, 'email') || 'Unknown player',
         gameTime: formatDate(text(game, 'date_time')),
+        signalLabel: signal.label,
+        signalTone: signal.tone,
+        signalPriority: signal.priority,
         status: text(booking, 'status') || '-',
         bookingTone: bookingTone(booking),
         paymentStatus: payment.label,
@@ -721,6 +787,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
       };
     })
     .filter((booking) => include([booking.gameTitle, booking.clubName, booking.playerName, booking.status, booking.paymentStatus]))
+    .sort((a, b) => a.signalPriority - b.signalPriority)
     .slice(0, 120);
 
   const paymentRows = bookings
@@ -735,6 +802,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
       return {
         createdAt: formatDate(text(booking, 'created_at')),
         playerName: text(profile, 'full_name') || text(profile, 'email') || 'Unknown player',
+        clubId: text(club, 'id'),
         clubName: text(club, 'name') || 'Unknown club',
         paymentIntent: text(booking, 'stripe_payment_intent_id') || '-',
         connectedAccount: text(stripe, 'stripe_account_id') || text(booking, 'stripe_account_id') || '-',
@@ -753,19 +821,30 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     .map((notification) => {
       const profile = profileById.get(text(notification, 'user_id'));
       const emailSent = value(notification, 'email_sent');
+      const referenceId = text(notification, 'reference_id');
+      const referenceGame = gameById.get(referenceId);
+      const clubId = clubById.has(referenceId) ? referenceId : text(referenceGame, 'club_id');
+      const club = clubId ? clubById.get(clubId) : undefined;
+      const signal = notificationSignal(notification);
       return {
         createdAt: formatDate(text(notification, 'created_at')),
         recipient: text(profile, 'full_name') || text(profile, 'email') || text(notification, 'user_id') || '-',
         type: text(notification, 'type') || '-',
         title: text(notification, 'title') || '-',
+        signalLabel: signal.label,
+        signalTone: signal.tone,
+        signalPriority: signal.priority,
+        clubId,
+        clubName: text(club, 'name') || 'Club File',
         read: bool(notification, 'read') ? 'read' : 'unread',
         readTone: (bool(notification, 'read') ? 'neutral' : 'warn') as StatusTone,
         email: typeof emailSent === 'boolean' ? (emailSent ? 'sent' : 'not sent') : 'not tracked',
         emailTone: (typeof emailSent === 'boolean' ? (emailSent ? 'good' : 'neutral') : 'neutral') as StatusTone,
-        reference: text(notification, 'reference_id') || '-',
+        reference: referenceId || '-',
       };
     })
     .filter((notification) => include([notification.recipient, notification.type, notification.title, notification.reference]))
+    .sort((a, b) => a.signalPriority - b.signalPriority)
     .slice(0, 120);
 
   const activeClubs = new Set(games.filter((game) => isUpcomingGame(game, now)).map((game) => text(game, 'club_id')).filter(Boolean)).size;
@@ -773,6 +852,9 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     const status = text(notification, 'delivery_status') || text(notification, 'send_status');
     return status === 'failed' || status === 'error';
   }).length;
+  const notSentNotifications = notifications.filter((notification) => value(notification, 'email_sent') === false).length;
+  const unreadNotifications = notifications.filter((notification) => !bool(notification, 'read')).length;
+  const clubLinkedNotifications = notificationRows.filter((notification) => notification.clubId).length;
   const pendingDeletionRequests = deletionRequests.filter((row) => isOpenDeletionStatus(text(row, 'status'))).length;
   const failedDeletionRequests = deletionRequests.filter((row) => text(row, 'status') === 'failed').length;
   const completedDeletionRequests = deletionRequests.filter((row) => text(row, 'status') === 'completed').length;
@@ -1279,6 +1361,32 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     bookings: bookingRows,
     payments: paymentRows,
     notifications: notificationRows,
+    notificationSignals: [
+      {
+        label: 'Failed delivery',
+        value: notificationsResult.configured ? formatCount(failedNotifications) : 'Not configured',
+        detail: 'Rows with failed/error delivery status when tracked.',
+        tone: failedNotifications > 0 ? 'bad' : 'good',
+      },
+      {
+        label: 'Unread alerts',
+        value: notificationsResult.configured ? formatCount(unreadNotifications) : 'Not configured',
+        detail: 'Notification rows not marked read in the loaded preview.',
+        tone: unreadNotifications > 0 ? 'warn' : 'good',
+      },
+      {
+        label: 'Email not sent',
+        value: notificationsResult.configured ? formatCount(notSentNotifications) : 'Not configured',
+        detail: 'Rows where email_sent is explicitly false.',
+        tone: notSentNotifications > 0 ? 'warn' : 'neutral',
+      },
+      {
+        label: 'Club-linked rows',
+        value: notificationsResult.configured ? formatCount(clubLinkedNotifications) : 'Not configured',
+        detail: 'Rows with a club or game reference that can open a Club File.',
+        tone: clubLinkedNotifications > 0 ? 'good' : 'neutral',
+      },
+    ] satisfies PaymentHealthItem[],
     notificationsConfigured: notificationsResult.configured,
     compliance: {
       health: complianceHealth,
@@ -1608,6 +1716,25 @@ function PaymentHealthPanel({ items, attentionRows }: { items: PaymentHealthItem
           </div>
         )}
       </Panel>
+    </div>
+  );
+}
+
+function NotificationSignalPanel({ items }: { items: PaymentHealthItem[] }) {
+  return (
+    <div className="mb-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {items.map((item) => (
+        <Panel key={item.label} className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-text-tertiary">{item.label}</p>
+              <p className="mt-2 truncate text-2xl font-semibold leading-none text-text-primary">{item.value}</p>
+            </div>
+            <StatusPill label={item.tone === 'bad' ? 'review' : item.tone === 'warn' ? 'watch' : item.tone === 'good' ? 'ok' : 'info'} tone={item.tone} />
+          </div>
+          <p className="mt-3 text-xs leading-4 text-text-secondary">{item.detail}</p>
+        </Panel>
+      ))}
     </div>
   );
 }
@@ -2228,6 +2355,16 @@ function bookingPaymentStatus(booking: Row) {
   return { label: 'not paid', tone: 'neutral' } as const;
 }
 
+function bookingSignal(booking: Row, payment: { label: string; tone: StatusTone }) {
+  const status = text(booking, 'status');
+  if (payment.tone === 'bad') return { label: 'review', tone: 'bad' as StatusTone, priority: 0 };
+  if (payment.label === 'pending_payment' || payment.label.includes('pending')) return { label: 'payment', tone: 'warn' as StatusTone, priority: 1 };
+  if (status === 'waitlisted') return { label: 'waitlist', tone: 'warn' as StatusTone, priority: 2 };
+  if (text(booking, 'hold_expires_at')) return { label: 'hold', tone: 'warn' as StatusTone, priority: 3 };
+  if (status === 'cancelled' && isPaidBooking(booking)) return { label: 'paid cancel', tone: 'warn' as StatusTone, priority: 4 };
+  return { label: 'recent', tone: 'neutral' as StatusTone, priority: 9 };
+}
+
 function isPaidBooking(booking: Row) {
   const status = text(booking, 'payment_status');
   return bool(booking, 'fee_paid') || status === 'paid' || status === 'succeeded';
@@ -2254,6 +2391,14 @@ function refundStatus(booking: Row) {
   if (status === 'succeeded' || status === 'refunded') return { label: status, tone: 'good' } as const;
   if (status === 'failed') return { label: status, tone: 'bad' } as const;
   return { label: status, tone: 'warn' } as const;
+}
+
+function notificationSignal(notification: Row) {
+  const status = text(notification, 'delivery_status') || text(notification, 'send_status');
+  if (status === 'failed' || status === 'error') return { label: 'failed', tone: 'bad' as StatusTone, priority: 0 };
+  if (value(notification, 'email_sent') === false) return { label: 'not sent', tone: 'warn' as StatusTone, priority: 1 };
+  if (!bool(notification, 'read')) return { label: 'unread', tone: 'warn' as StatusTone, priority: 2 };
+  return { label: 'logged', tone: 'neutral' as StatusTone, priority: 9 };
 }
 
 function bookingTone(booking: Row): 'neutral' | 'good' | 'warn' | 'bad' {
