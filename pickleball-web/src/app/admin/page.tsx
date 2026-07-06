@@ -113,6 +113,7 @@ type PaymentAttentionRow = {
   statusTone: StatusTone;
   detail: string;
 };
+type ComplianceHealthItem = { label: string; value: string; detail: string; tone: StatusTone };
 type DeletionRequestView = {
   id: string;
   account: string;
@@ -120,6 +121,7 @@ type DeletionRequestView = {
   status: string;
   statusTone: StatusTone;
   requestedAt: string;
+  requestAge: string;
   completedAt: string;
   reason: string;
   adminNotes: string;
@@ -446,6 +448,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
                   </div>
                 </Panel>
               )}
+              <ComplianceHealthPanel items={dashboard.compliance.health} />
               <div className="grid gap-3 xl:grid-cols-[1.5fr_0.8fr_0.8fr]">
                 <DeletionRequestsPanel
                   configured={dashboard.compliance.deletions.configured}
@@ -453,8 +456,8 @@ export default async function AdminPage({ searchParams }: PageProps) {
                   empty={dashboard.compliance.deletions.empty}
                   canAction={admin.role !== 'support'}
                 />
-                <ComplianceCard title="Legal documents" configured={dashboard.compliance.legal.configured} rows={dashboard.compliance.legal.rows} empty="No legal_documents table found. Website pages are still available at /terms and /privacy." />
-                <ComplianceCard title="Support signals" configured rows={dashboard.compliance.support.rows} empty="No dedicated support request table found in this first read-only version." />
+                <ComplianceCard title="Legal pages & documents" configured={dashboard.compliance.legal.configured} rows={dashboard.compliance.legal.rows} empty="No legal status rows are available." />
+                <ComplianceCard title="Support & privacy signals" configured rows={dashboard.compliance.support.rows} empty="No dedicated support request table found in this first read-only version." />
               </div>
             </Section>
           )}
@@ -767,6 +770,12 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     return status === 'failed' || status === 'error';
   }).length;
   const pendingDeletionRequests = deletionRequests.filter((row) => isOpenDeletionStatus(text(row, 'status'))).length;
+  const failedDeletionRequests = deletionRequests.filter((row) => text(row, 'status') === 'failed').length;
+  const completedDeletionRequests = deletionRequests.filter((row) => text(row, 'status') === 'completed').length;
+  const actionDeletionRequests = deletionRequests.filter((row) => {
+    const status = text(row, 'status') || 'pending';
+    return status === 'pending' || status === 'requires_admin_review' || status === 'failed';
+  }).length;
   const stuckPendingPayments = pendingPaymentBookings(bookings);
   const expiredActiveHolds = expiredHolds(bookings, now);
   const upcomingGamesWithNoPlayers = emptyUpcomingGames(games, bookings, now);
@@ -1214,6 +1223,43 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
       ? previewDescription(notificationRows.length, notifications.length, notificationsResult.limit, 'notification records')
       : 'Notification table is not available to this admin view.',
   };
+  const legalDocumentRows = legalDocuments.slice(0, 6).map((row) => [
+    text(row, 'document_type') || text(row, 'type') || text(row, 'slug') || 'document',
+    text(row, 'version') || text(row, 'last_updated') || 'current',
+    formatDate(text(row, 'created_at') || text(row, 'updated_at')),
+  ]);
+  const complianceHealth: ComplianceHealthItem[] = [
+    {
+      label: 'Deletion requests needing action',
+      value: deletionRequestsResult.configured ? formatCount(actionDeletionRequests) : 'Not configured',
+      detail: deletionRequestsResult.configured ? 'Pending, admin-review, or failed requests that need owner attention.' : 'Service-role deletion queue is not available to this view.',
+      tone: actionDeletionRequests > 0 ? 'warn' : deletionRequestsResult.configured ? 'good' : 'neutral',
+    },
+    {
+      label: 'Completed deletion requests',
+      value: deletionRequestsResult.configured ? formatCount(completedDeletionRequests) : 'Not configured',
+      detail: 'Completed requests remain visible here as an audit/status signal.',
+      tone: completedDeletionRequests > 0 ? 'neutral' : 'good',
+    },
+    {
+      label: 'Failed deletion processing',
+      value: deletionRequestsResult.configured ? formatCount(failedDeletionRequests) : 'Not configured',
+      detail: 'Failures need manual review before retrying the existing processor.',
+      tone: failedDeletionRequests > 0 ? 'bad' : deletionRequestsResult.configured ? 'good' : 'neutral',
+    },
+    {
+      label: 'Public legal pages',
+      value: 'Active',
+      detail: '/terms, /privacy, and /account-deletion are static public routes in the website build.',
+      tone: 'good',
+    },
+    {
+      label: 'Legal document library',
+      value: legalDocumentsResult.configured ? `${formatCount(legalDocuments.length)} row${legalDocuments.length === 1 ? '' : 's'}` : 'Static pages only',
+      detail: legalDocumentsResult.configured ? 'legal_documents rows are visible to the command centre.' : 'No legal_documents table is wired; static pages are the source of truth.',
+      tone: legalDocumentsResult.configured ? 'neutral' : 'warn',
+    },
+  ];
 
   return {
     warnings,
@@ -1231,24 +1277,28 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     notifications: notificationRows,
     notificationsConfigured: notificationsResult.configured,
     compliance: {
+      health: complianceHealth,
       deletions: {
         configured: deletionRequestsResult.configured,
         empty: deletionRequestsResult.configured ? 'No account deletion requests found.' : deletionRequestsResult.warning || 'Deletion requests are not configured for this command centre.',
-        requests: deletionRequests.slice(0, 20).map(toDeletionRequestView),
+        requests: deletionRequests.slice(0, 20).map((row) => toDeletionRequestView(row, now)),
       },
       legal: {
-        configured: legalDocumentsResult.configured,
-        rows: legalDocuments.slice(0, 8).map((row) => [
-          text(row, 'document_type') || text(row, 'type') || text(row, 'slug') || 'document',
-          text(row, 'version') || text(row, 'last_updated') || 'current',
-          formatDate(text(row, 'created_at') || text(row, 'updated_at')),
-        ]),
+        configured: true,
+        rows: [
+          ['Terms of Service', '/terms', 'static public page active'],
+          ['Privacy Policy', '/privacy', 'static public page active'],
+          ['Account deletion instructions', '/account-deletion', 'canonical public deletion URL active'],
+          ...(legalDocumentsResult.configured
+            ? legalDocumentRows
+            : [['Legal document table', 'not configured', 'static legal pages remain active; no admin document library is wired']]),
+        ],
       },
       support: {
         rows: [
           ['Contact email', 'support@bookadink.com', 'active'],
-          ['Public privacy page', '/privacy', 'active'],
-          ['Public terms page', '/terms', 'active'],
+          ['Support inbox', 'manual review', 'no support ticket table is wired in this admin phase'],
+          ['Deletion processor', deletionRequestsResult.configured ? 'available' : 'not configured', deletionRequestsResult.configured ? 'owner/ops can process from this queue' : 'requires service-role configuration'],
         ],
       },
     },
@@ -1754,6 +1804,25 @@ function DataTable({
   );
 }
 
+function ComplianceHealthPanel({ items }: { items: ComplianceHealthItem[] }) {
+  return (
+    <div className="mb-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      {items.map((item) => (
+        <Panel key={item.label} className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-text-tertiary">{item.label}</p>
+              <p className="mt-2 truncate text-2xl font-semibold leading-none text-text-primary">{item.value}</p>
+            </div>
+            <StatusPill label={item.tone === 'bad' ? 'review' : item.tone === 'warn' ? 'watch' : item.tone === 'good' ? 'ok' : 'info'} tone={item.tone} />
+          </div>
+          <p className="mt-3 text-xs leading-4 text-text-secondary">{item.detail}</p>
+        </Panel>
+      ))}
+    </div>
+  );
+}
+
 function ComplianceCard({ title, configured, rows, empty }: { title: string; configured: boolean; rows: string[][]; empty: string }) {
   return (
     <Panel className="p-4">
@@ -1819,7 +1888,13 @@ function DeletionRequestsPanel({
                     <span className="font-semibold text-text-primary">Requested:</span> {request.requestedAt}
                   </p>
                   <p>
+                    <span className="font-semibold text-text-primary">Age:</span> {request.requestAge}
+                  </p>
+                  <p>
                     <span className="font-semibold text-text-primary">Completed:</span> {request.completedAt}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-text-primary">Action:</span> {request.canProcess ? 'owner/ops review available' : 'read-only status record'}
                   </p>
                   <p className="sm:col-span-2">
                     <span className="font-semibold text-text-primary">User ID:</span> <Mono value={request.userId} />
@@ -1975,21 +2050,33 @@ function text(row: Row | undefined, key: string): string {
   return '';
 }
 
-function toDeletionRequestView(row: Row): DeletionRequestView {
+function toDeletionRequestView(row: Row, now: Date): DeletionRequestView {
   const status = text(row, 'status') || 'pending';
+  const requestedAtRaw = text(row, 'requested_at') || text(row, 'created_at');
   return {
     id: text(row, 'id'),
     account: text(row, 'email') || text(row, 'user_email') || text(row, 'user_id') || 'Unknown account',
     userId: text(row, 'user_id') || '-',
     status,
     statusTone: deletionStatusTone(status),
-    requestedAt: formatDate(text(row, 'requested_at') || text(row, 'created_at')),
+    requestedAt: formatDate(requestedAtRaw),
+    requestAge: requestAgeLabel(requestedAtRaw, now),
     completedAt: formatDate(text(row, 'completed_at')),
     reason: text(row, 'reason') || '-',
     adminNotes: text(row, 'admin_notes') || '-',
     errorMessage: text(row, 'latest_error') || text(row, 'error_message') || '-',
     canProcess: status === 'pending' || status === 'requires_admin_review',
   };
+}
+
+function requestAgeLabel(raw: string, now: Date) {
+  if (!raw) return '-';
+  const timestamp = new Date(raw).getTime();
+  if (!Number.isFinite(timestamp)) return '-';
+  const days = Math.max(0, Math.floor((now.getTime() - timestamp) / (24 * 60 * 60 * 1000)));
+  if (days === 0) return 'today';
+  if (days === 1) return '1 day';
+  return `${days} days`;
 }
 
 function isOpenDeletionStatus(status: string) {
