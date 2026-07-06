@@ -45,7 +45,7 @@ export async function middleware(request: NextRequest) {
 
   const next = request.nextUrl.searchParams.get('next');
   const isAdminNext = next && next.startsWith('/admin') && !next.startsWith('//');
-  const isPublicAuthRoute = pathname === '/signup' || pathname === '/forgot-password' || pathname === '/reset-password';
+  const isPublicAuthRoute = pathname === '/signup';
 
   if (pathname.startsWith('/dashboard')) {
     return redirectWithCookies(new URL('/', request.url));

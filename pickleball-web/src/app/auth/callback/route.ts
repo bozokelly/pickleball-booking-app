@@ -6,7 +6,12 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
   const code = searchParams.get('code');
   const requestedNext = searchParams.get('next');
-  const next = requestedNext && requestedNext.startsWith('/admin') && !requestedNext.startsWith('//') ? requestedNext : '/admin';
+  const next =
+    requestedNext &&
+    !requestedNext.startsWith('//') &&
+    (requestedNext.startsWith('/admin') || requestedNext === '/reset-password')
+      ? requestedNext
+      : '/admin';
 
   if (code) {
     const cookieStore = await cookies();

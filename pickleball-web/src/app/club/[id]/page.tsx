@@ -8,32 +8,71 @@ type ClubPublicData = {
   id: string;
   name: string;
   description: string | null;
-  location: string | null;
+  locationLabel: string | null;
   image_url: string | null;
+};
+
+type ClubVenueData = {
+  venue_name: string | null;
+  street_address: string | null;
+  suburb: string | null;
+  state: string | null;
+  postcode: string | null;
+  country: string | null;
 };
 
 const fetchClub = cache(async (rawId: string): Promise<ClubPublicData | null> => {
   const id = rawId.toLowerCase();
   const supabase = createPublicServerSupabase();
-  const { data } = await supabase
-    .from('clubs')
-    .select('id, name, description, location, image_url')
-    .eq('id', id)
-    .maybeSingle();
+  const [{ data: club }, { data: venue }] = await Promise.all([
+    supabase
+      .from('clubs')
+      .select('id, name, description, image_url, venue_name, street_address, suburb, state, postcode, country')
+      .eq('id', id)
+      .maybeSingle(),
+    supabase
+      .from('club_venues')
+      .select('venue_name, street_address, suburb, state, postcode, country')
+      .eq('club_id', id)
+      .order('is_primary', { ascending: false })
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
-  return (data as ClubPublicData | null) || null;
+  if (!club) return null;
+
+  const clubRow = club as RowWithLocation;
+  return {
+    id: String(clubRow.id),
+    name: String(clubRow.name || 'Club'),
+    description: typeof clubRow.description === 'string' ? clubRow.description : null,
+    image_url: typeof clubRow.image_url === 'string' ? clubRow.image_url : null,
+    locationLabel: formatLocationLabel((venue as ClubVenueData | null) || clubRow),
+  };
 });
 
 const fetchMemberCount = cache(async (rawId: string): Promise<number | null> => {
   const id = rawId.toLowerCase();
   const supabase = createPublicServerSupabase();
-  const { count } = await supabase
-    .from('club_members')
-    .select('id', { count: 'exact', head: true })
-    .eq('club_id', id)
-    .eq('status', 'approved');
-  return typeof count === 'number' ? count : null;
+  const { data } = await supabase.rpc('public_club_member_count', { p_club_id: id });
+  return typeof data === 'number' ? data : null;
 });
+
+type RowWithLocation = ClubVenueData & {
+  id?: unknown;
+  name?: unknown;
+  description?: unknown;
+  image_url?: unknown;
+};
+
+function formatLocationLabel(row: ClubVenueData | RowWithLocation | null): string | null {
+  if (!row) return null;
+  const lineOne = [row.venue_name, row.street_address].filter(Boolean).join(', ');
+  const lineTwo = [row.suburb, row.state, row.postcode].filter(Boolean).join(' ');
+  const label = [lineOne, lineTwo || row.country].filter(Boolean).join(' · ');
+  return label || null;
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
@@ -92,7 +131,7 @@ export default async function ClubFallbackPage({ params }: { params: Promise<{ i
           {club ? (
             <>
               <div className="mt-4 space-y-2 text-sm text-text-secondary">
-                {club.location && <p>Location: {club.location}</p>}
+                {club.locationLabel && <p>Location: {club.locationLabel}</p>}
                 {typeof memberCount === 'number' && <p>Members: {memberCount}</p>}
                 {club.description && <p>{club.description}</p>}
               </div>
