@@ -62,6 +62,20 @@ type PostgrestCount = {
   error: { code?: string; message: string } | null;
 };
 
+type AdminSummary = {
+  active_subscribers?: number;
+  total_subscription_rows?: number;
+  canceling_subscriptions?: number;
+  subscription_mrr_cents?: number;
+  subscription_mrr_tracked?: boolean;
+  paid_booking_count?: number;
+  gross_paid_cents?: number;
+  platform_revenue_cents?: number;
+  current_month_platform_revenue_cents?: number;
+  club_payout_cents?: number;
+  revenue_tracked_count?: number;
+};
+
 type Metric = {
   label: string;
   value: string;
@@ -112,15 +126,15 @@ export default async function AdminPage({ searchParams }: PageProps) {
   const dashboard = await loadAdminDashboard(admin.supabase, query);
 
   const navItems = [
-    { id: 'overview' as const, label: 'Overview', icon: Database },
-    { id: 'clubs' as const, label: 'Clubs', icon: Building2 },
-    { id: 'players' as const, label: 'Players', icon: Users },
-    { id: 'bookings' as const, label: 'Bookings', icon: Ticket },
-    { id: 'payments' as const, label: 'Payments', icon: CreditCard },
-    { id: 'notifications' as const, label: 'Notifications', icon: Bell },
-    { id: 'compliance' as const, label: 'Compliance', icon: FileText },
-    { id: 'platform' as const, label: 'Platform', icon: Server },
-    { id: 'issues' as const, label: 'Issues', icon: HeartPulse },
+    { id: 'overview' as const, label: 'Business dashboard', shortLabel: 'Dashboard', icon: Database },
+    { id: 'clubs' as const, label: 'Club operations', shortLabel: 'Clubs', icon: Building2 },
+    { id: 'players' as const, label: 'Players & members', shortLabel: 'Players', icon: Users },
+    { id: 'bookings' as const, label: 'Games & bookings', shortLabel: 'Bookings', icon: Ticket },
+    { id: 'payments' as const, label: 'Revenue & payments', shortLabel: 'Revenue', icon: CreditCard },
+    { id: 'notifications' as const, label: 'Comms & alerts', shortLabel: 'Comms', icon: Bell },
+    { id: 'compliance' as const, label: 'Privacy & legal', shortLabel: 'Compliance', icon: FileText },
+    { id: 'platform' as const, label: 'System health', shortLabel: 'Health', icon: Server },
+    { id: 'issues' as const, label: 'Action queue', shortLabel: 'Issues', icon: HeartPulse },
   ];
   const tabHref = (tab: AdminTab) => `/admin?tab=${tab}${query ? `&q=${encodeURIComponent(query)}` : ''}`;
 
@@ -135,7 +149,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
               <p className="text-xs text-white/50">Internal command</p>
             </div>
           </div>
-          <nav className="mt-5 space-y-1">
+          <nav className="mt-5 space-y-1" aria-label="Admin sections">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -202,11 +216,27 @@ export default async function AdminPage({ searchParams }: PageProps) {
                     activeTab === item.id ? 'border-primary bg-primary text-white' : 'border-border bg-white text-text-secondary'
                   }`}
                 >
-                  {item.label}
+                  {item.shortLabel}
                 </a>
               ))}
             </div>
           </header>
+
+          {query && (
+            <Panel className="mb-4 border-info/20 bg-info/5 p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold text-text-primary">Filtered admin view</h2>
+                  <p className="mt-1 text-sm text-text-secondary">
+                    Showing records that match <span className="font-semibold text-text-primary">"{query}"</span>. Search applies to the loaded admin preview data and the revenue summary RPC when available.
+                  </p>
+                </div>
+                <Link href={`/admin?tab=${activeTab}`} className="text-sm font-semibold text-info hover:text-primary">
+                  Clear search
+                </Link>
+              </div>
+            </Panel>
+          )}
 
           {dashboard.warnings.length > 0 && (
             <Panel className="mb-4 border-warning/30 bg-warning/5 p-4">
@@ -267,9 +297,11 @@ export default async function AdminPage({ searchParams }: PageProps) {
           )}
 
           {activeTab === 'clubs' && (
-            <Section id="clubs" title="Clubs" icon={<Building2 className="h-5 w-5" />} description={`${dashboard.clubs.length} clubs in this view`}>
+            <Section id="clubs" title="Club operations" icon={<Building2 className="h-5 w-5" />} description={dashboard.tableNotes.clubs}>
               <DataTable
-                empty="No clubs matched this view."
+                caption="Club roster"
+                note="Sorted by newest clubs first. Member counts are approved memberships only."
+                empty={query ? `No clubs matched "${query}".` : 'No clubs are available in this admin preview.'}
                 columns={['Club', 'Location', 'Subscription', 'Stripe', 'Members', 'Admins', 'Upcoming', 'Created', 'Last activity']}
                 rows={dashboard.clubs.map((club) => [
                   club.name,
@@ -287,9 +319,11 @@ export default async function AdminPage({ searchParams }: PageProps) {
           )}
 
           {activeTab === 'players' && (
-            <Section id="players" title="Players" icon={<Users className="h-5 w-5" />} description={`${dashboard.players.length} player profiles in this view`}>
+            <Section id="players" title="Players & members" icon={<Users className="h-5 w-5" />} description={dashboard.tableNotes.players}>
               <DataTable
-                empty="No players matched this view."
+                caption="Player directory"
+                note="Operational view of registered profiles, club memberships, bookings, and credit balances."
+                empty={query ? `No players matched "${query}".` : 'No player profiles are available in this admin preview.'}
                 columns={['Player', 'Email', 'DUPR', 'Joined clubs', 'Upcoming bookings', 'Credits', 'Created', 'Last active']}
                 rows={dashboard.players.map((player) => [
                   player.name,
@@ -306,9 +340,11 @@ export default async function AdminPage({ searchParams }: PageProps) {
           )}
 
           {activeTab === 'bookings' && (
-            <Section id="bookings" title="Bookings" icon={<Ticket className="h-5 w-5" />} description={`${dashboard.bookings.length} recent bookings in this view`}>
+            <Section id="bookings" title="Games & bookings" icon={<Ticket className="h-5 w-5" />} description={dashboard.tableNotes.bookings}>
               <DataTable
-                empty="No bookings matched this view."
+                caption="Recent booking activity"
+                note="Use this to answer who booked, what game it was for, whether payment is settled, and when it happened."
+                empty={query ? `No bookings matched "${query}".` : 'No recent booking records are available in this admin preview.'}
                 columns={['Game', 'Club', 'Player', 'Game time', 'Booking', 'Payment', 'Fee', 'Credits', 'Waitlist', 'Created']}
                 rows={dashboard.bookings.map((booking) => [
                   booking.gameTitle,
@@ -327,7 +363,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
           )}
 
           {activeTab === 'payments' && (
-            <Section id="payments" title="Payments" icon={<CreditCard className="h-5 w-5" />} description={`${dashboard.payments.length} Stripe-linked booking records`}>
+            <Section id="payments" title="Revenue & payments" icon={<CreditCard className="h-5 w-5" />} description={dashboard.tableNotes.payments}>
               <div className="mb-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {dashboard.revenue.cards.map((item) => (
                   <RevenueCard key={item.label} item={item} />
@@ -339,7 +375,9 @@ export default async function AdminPage({ searchParams }: PageProps) {
                 note={dashboard.revenue.subscriptionNote}
               />
               <DataTable
-                empty="No paid or Stripe-linked bookings matched this view."
+                caption="Paid booking ledger"
+                note="Read-only payment reconciliation view. Refund/payment workflow changes are deliberately out of scope for this phase."
+                empty={query ? `No paid or Stripe-linked bookings matched "${query}".` : 'No paid or Stripe-linked booking records are available in this admin preview.'}
                 columns={['Created', 'Player', 'Club', 'Payment intent', 'Connected account', 'Amount', 'Payment', 'Refund', 'Booking']}
                 rows={dashboard.payments.map((payment) => [
                   payment.createdAt,
@@ -357,9 +395,11 @@ export default async function AdminPage({ searchParams }: PageProps) {
           )}
 
           {activeTab === 'notifications' && (
-            <Section id="notifications" title="Notifications" icon={<Bell className="h-5 w-5" />} description={dashboard.notificationsConfigured ? `${dashboard.notifications.length} notification records` : 'Notification table not available to this admin view'}>
+            <Section id="notifications" title="Comms & alerts" icon={<Bell className="h-5 w-5" />} description={dashboard.tableNotes.notifications}>
               <DataTable
-                empty={dashboard.notificationsConfigured ? 'No notifications matched this view.' : 'Notification health is unavailable until admin notification RLS is deployed.'}
+                caption="Notification log"
+                note="Delivery status only appears when the underlying notification row tracks it."
+                empty={dashboard.notificationsConfigured ? (query ? `No notifications matched "${query}".` : 'No notification records are available in this admin preview.') : 'Notification health is unavailable until admin notification access is configured.'}
                 columns={['Created', 'Recipient', 'Type', 'Title', 'Read', 'Email', 'Reference']}
                 rows={dashboard.notifications.map((notification) => [
                   notification.createdAt,
@@ -375,7 +415,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
           )}
 
           {activeTab === 'compliance' && (
-            <Section id="compliance" title="Compliance" icon={<FileText className="h-5 w-5" />} description="Launch-readiness surfaces for privacy, legal, and support signals">
+            <Section id="compliance" title="Privacy & legal" icon={<FileText className="h-5 w-5" />} description="Launch-readiness surfaces for account deletion, legal documents, and support signals">
               {deletionActionNotice && (
                 <Panel className={`mb-3 p-4 ${deletionActionNotice.tone === 'good' ? 'border-success/25 bg-success/5' : deletionActionNotice.tone === 'warn' ? 'border-warning/25 bg-warning/5' : 'border-error/25 bg-error/5'}`}>
                   <div className="flex items-start gap-3">
@@ -401,7 +441,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
           )}
 
           {activeTab === 'platform' && (
-            <Section id="platform-health" title="Platform Health" icon={<Server className="h-5 w-5" />} description="Read-only service reachability, query timing, schema availability, and load pressure">
+            <Section id="platform-health" title="System health" icon={<Server className="h-5 w-5" />} description="Read-only service reachability, query timing, schema availability, and load pressure">
               <div className="grid gap-3 xl:grid-cols-[0.9fr_1.1fr]">
                 <Panel className="p-4">
                   <div className="mb-4 flex items-start justify-between gap-4">
@@ -434,7 +474,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
           )}
 
           {activeTab === 'issues' && (
-            <Section id="system-health" title="Warning Issues" icon={<HeartPulse className="h-5 w-5" />} description="Read-only checks for payment, venue, game, and notification data quality">
+            <Section id="system-health" title="Action queue" icon={<HeartPulse className="h-5 w-5" />} description="Read-only checks for payment, venue, game, and notification data quality">
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {dashboard.health.map((item) => (
                   <HealthCard key={item.label} label={item.label} value={item.value} detail={item.detail} tone={item.tone} />
@@ -455,8 +495,14 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
   const nowIso = now.toISOString();
   const warnings: string[] = [];
   const supabaseAdmin = createSupabaseAdminClient();
+  const adminReader = supabaseAdmin || supabase;
+
+  if (!supabaseAdmin) {
+    warnings.push('SUPABASE_SERVICE_ROLE_KEY is not configured; protected admin reads may be incomplete after RLS hardening.');
+  }
 
   const [
+    adminSummaryResult,
     clubsResult,
     profilesResult,
     gamesResult,
@@ -477,9 +523,12 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     paidBookingsThisWeek,
     pendingPayments,
   ] = await Promise.all([
-    safeRows('clubs', () => supabase.from('clubs').select('*').order('created_at', { ascending: false }).limit(300), false, 300),
+    supabaseAdmin
+      ? safeRows('admin_dashboard_summary', () => supabaseAdmin.rpc('admin_dashboard_summary', { p_search: query || null }), true)
+      : unconfiguredRows('admin_dashboard_summary', 'Set SUPABASE_SERVICE_ROLE_KEY for accurate admin revenue totals.', null),
+    safeRows('clubs', () => adminReader.from('clubs').select('*').order('created_at', { ascending: false }).limit(300), false, 300),
     safeRows('profiles', () =>
-      supabase
+      adminReader
         .from('profiles')
         .select('id,email,full_name,dupr_rating,created_at,updated_at')
         .order('created_at', { ascending: false })
@@ -487,30 +536,30 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
       false,
       500,
     ),
-    safeRows('games', () => supabase.from('games').select('*').order('date_time', { ascending: false }).limit(500), false, 500),
-    safeRows('bookings', () => supabase.from('bookings').select('*').order('created_at', { ascending: false }).limit(600), false, 600),
-    safeRows('notifications', () => supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(250), true, 250),
-    safeRows('club_members', () => supabase.from('club_members').select('*').limit(1000), true, 1000),
-    safeRows('club_admins', () => supabase.from('club_admins').select('*').limit(500), true, 500),
-    safeRows('player_credits', () => supabase.from('player_credits').select('*').limit(1000), true, 1000),
-    safeRows('club_stripe_accounts', () => supabase.from('club_stripe_accounts').select('*').limit(500), true, 500),
-    safeRows('club_subscriptions', () => supabase.from('club_subscriptions').select('*').limit(500), true, 500),
+    safeRows('games', () => adminReader.from('games').select('*').order('date_time', { ascending: false }).limit(500), false, 500),
+    safeRows('bookings', () => adminReader.from('bookings').select('*').order('created_at', { ascending: false }).limit(600), false, 600),
+    safeRows('notifications', () => adminReader.from('notifications').select('*').order('created_at', { ascending: false }).limit(250), true, 250),
+    safeRows('club_members', () => adminReader.from('club_members').select('*').limit(1000), true, 1000),
+    safeRows('club_admins', () => adminReader.from('club_admins').select('*').limit(500), true, 500),
+    safeRows('player_credits', () => adminReader.from('player_credits').select('*').limit(1000), true, 1000),
+    safeRows('club_stripe_accounts', () => adminReader.from('club_stripe_accounts').select('*').limit(500), true, 500),
+    safeRows('club_subscriptions', () => adminReader.from('club_subscriptions').select('*').limit(500), true, 500),
     supabaseAdmin
       ? safeRows('account_deletion_requests', () => supabaseAdmin.from('account_deletion_requests').select('*').order('requested_at', { ascending: false }).limit(100), true, 100)
       : unconfiguredRows('account_deletion_requests', 'Set SUPABASE_SERVICE_ROLE_KEY for the command centre to view and process deletion requests.', 100),
-    safeRows('legal_documents', () => supabase.from('legal_documents').select('*').order('created_at', { ascending: false }).limit(20), true, 20),
-    safeRows('club_venues', () => supabase.from('club_venues').select('*').limit(500), true, 500),
-    safeCount('clubs', () => supabase.from('clubs').select('id', { count: 'exact', head: true })),
-    safeCount('profiles', () => supabase.from('profiles').select('id', { count: 'exact', head: true })),
+    safeRows('legal_documents', () => adminReader.from('legal_documents').select('*').order('created_at', { ascending: false }).limit(20), true, 20),
+    safeRows('club_venues', () => adminReader.from('club_venues').select('*').limit(500), true, 500),
+    safeCount('clubs', () => adminReader.from('clubs').select('id', { count: 'exact', head: true })),
+    safeCount('profiles', () => adminReader.from('profiles').select('id', { count: 'exact', head: true })),
     safeCount('upcoming games', () =>
-      supabase.from('games').select('id', { count: 'exact', head: true }).eq('status', 'upcoming').gte('date_time', nowIso),
+      adminReader.from('games').select('id', { count: 'exact', head: true }).eq('status', 'upcoming').gte('date_time', nowIso),
     ),
-    safeCount('bookings this week', () => supabase.from('bookings').select('id', { count: 'exact', head: true }).gte('created_at', weekStart)),
+    safeCount('bookings this week', () => adminReader.from('bookings').select('id', { count: 'exact', head: true }).gte('created_at', weekStart)),
     safeCount('paid bookings this week', () =>
-      supabase.from('bookings').select('id', { count: 'exact', head: true }).gte('created_at', weekStart).eq('fee_paid', true),
+      adminReader.from('bookings').select('id', { count: 'exact', head: true }).gte('created_at', weekStart).eq('fee_paid', true),
     ),
     safeCount('pending payment bookings', () =>
-      supabase
+      adminReader
         .from('bookings')
         .select('id', { count: 'exact', head: true })
         .eq('fee_paid', false)
@@ -519,6 +568,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
   ]);
 
   [
+    adminSummaryResult,
     clubsResult,
     profilesResult,
     gamesResult,
@@ -546,6 +596,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
   const profiles = profilesResult.data;
   const games = gamesResult.data;
   const bookings = bookingsResult.data;
+  const adminSummary = (adminSummaryResult.data[0] || {}) as AdminSummary;
   const notifications = notificationsResult.data;
   const members = membersResult.data;
   const admins = adminsResult.data;
@@ -705,14 +756,14 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
   const paidBookingRows = bookings.filter((booking) => isPaidBooking(booking));
   const monthStart = startOfMonth(now);
   const currentMonthPaidBookingRows = paidBookingRows.filter((booking) => bookingPaidAt(booking) >= monthStart.getTime());
-  const grossPaidCents = paidBookingRows.reduce((sum, booking) => {
+  const grossPaidCentsSample = paidBookingRows.reduce((sum, booking) => {
     const game = gameById.get(text(booking, 'game_id'));
     return sum + bookingGrossCents(booking, game);
   }, 0);
-  const platformRevenueCents = paidBookingRows.reduce((sum, booking) => sum + number(booking, 'platform_fee_cents'), 0);
-  const currentMonthPlatformRevenueCents = currentMonthPaidBookingRows.reduce((sum, booking) => sum + number(booking, 'platform_fee_cents'), 0);
-  const clubPayoutCents = paidBookingRows.reduce((sum, booking) => sum + number(booking, 'club_payout_cents'), 0);
-  const revenueTrackedCount = paidBookingRows.filter((booking) => number(booking, 'platform_fee_cents') > 0).length;
+  const platformRevenueCentsSample = paidBookingRows.reduce((sum, booking) => sum + number(booking, 'platform_fee_cents'), 0);
+  const currentMonthPlatformRevenueCentsSample = currentMonthPaidBookingRows.reduce((sum, booking) => sum + number(booking, 'platform_fee_cents'), 0);
+  const clubPayoutCentsSample = paidBookingRows.reduce((sum, booking) => sum + number(booking, 'club_payout_cents'), 0);
+  const revenueTrackedCountSample = paidBookingRows.filter((booking) => number(booking, 'platform_fee_cents') > 0).length;
   const subscriptionRows = subscriptions
     .map((subscription) => {
       const club = clubById.get(text(subscription, 'club_id'));
@@ -732,14 +783,26 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     .filter((subscription) => include([subscription.clubName, subscription.plan, subscription.status, subscription.source]));
   const activeSubscriptionRows = subscriptionRows.filter((subscription) => isActiveSubscriptionStatus(subscription.status));
   const cancelingSubscriptionRows = subscriptionRows.filter((subscription) => isCancelingSubscriptionStatus(subscription.status));
-  const subscriptionMrrCents = subscriptions.reduce((sum, subscription) => {
+  const subscriptionMrrCentsSample = subscriptions.reduce((sum, subscription) => {
     const status = text(subscription, 'status') || 'unknown';
     return isActiveSubscriptionStatus(status) ? sum + subscriptionMonthlyCents(subscription) : sum;
   }, 0);
-  const subscriptionMrrTracked = subscriptionMrrCents > 0;
+  const subscriptionMrrCents = summaryNumber(adminSummary.subscription_mrr_cents, subscriptionMrrCentsSample);
+  const subscriptionMrrTracked = typeof adminSummary.subscription_mrr_tracked === 'boolean' ? adminSummary.subscription_mrr_tracked : subscriptionMrrCents > 0;
+  const activeSubscriberCount = summaryNumber(adminSummary.active_subscribers, activeSubscriptionRows.length);
+  const totalSubscriptionRows = summaryNumber(adminSummary.total_subscription_rows, subscriptionRows.length);
+  const cancelingSubscriptionCount = summaryNumber(adminSummary.canceling_subscriptions, cancelingSubscriptionRows.length);
+  const paidBookingCount = summaryNumber(adminSummary.paid_booking_count, paidBookingRows.length);
+  const grossPaidCents = summaryNumber(adminSummary.gross_paid_cents, grossPaidCentsSample);
+  const platformRevenueCents = summaryNumber(adminSummary.platform_revenue_cents, platformRevenueCentsSample);
+  const currentMonthPlatformRevenueCents = summaryNumber(adminSummary.current_month_platform_revenue_cents, currentMonthPlatformRevenueCentsSample);
+  const clubPayoutCents = summaryNumber(adminSummary.club_payout_cents, clubPayoutCentsSample);
+  const revenueTrackedCount = summaryNumber(adminSummary.revenue_tracked_count, revenueTrackedCountSample);
   const subscriptionPlanRows = planBreakdown(subscriptionRows);
   const revenue = {
-    scope: `Subscriptions are counted from club_subscriptions. Game processing fees use platform_fee_cents on ${formatCount(paidBookingRows.length)} paid booking${paidBookingRows.length === 1 ? '' : 's'}.`,
+    scope: adminSummaryResult.configured
+      ? 'Revenue totals are calculated by the server across the full dataset. Tables below remain capped previews.'
+      : `Subscriptions are counted from club_subscriptions. Game processing fees use platform_fee_cents on ${formatCount(paidBookingRows.length)} loaded booking${paidBookingRows.length === 1 ? '' : 's'}.`,
     subscriptionRows,
     subscriptionPlanRows,
     subscriptionNote: subscriptionMrrTracked
@@ -748,9 +811,9 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     cards: [
       {
         label: 'Active subscribers',
-        value: formatCount(activeSubscriptionRows.length),
-        detail: `${formatCount(subscriptionRows.length)} total subscription row${subscriptionRows.length === 1 ? '' : 's'}, ${formatCount(cancelingSubscriptionRows.length)} canceling.`,
-        tone: activeSubscriptionRows.length > 0 ? 'good' : 'neutral',
+        value: formatCount(activeSubscriberCount),
+        detail: `${formatCount(totalSubscriptionRows)} total subscription row${totalSubscriptionRows === 1 ? '' : 's'}, ${formatCount(cancelingSubscriptionCount)} canceling.`,
+        tone: activeSubscriberCount > 0 ? 'good' : 'neutral',
       },
       {
         label: 'Subscription MRR',
@@ -772,7 +835,9 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
       {
         label: 'This month game fees',
         value: formatCents(currentMonthPlatformRevenueCents),
-        detail: `${formatCount(currentMonthPaidBookingRows.length)} paid booking${currentMonthPaidBookingRows.length === 1 ? '' : 's'} in the current month.`,
+        detail: adminSummaryResult.configured
+          ? 'Current calendar month platform fees from all paid bookings.'
+          : `${formatCount(currentMonthPaidBookingRows.length)} loaded paid booking${currentMonthPaidBookingRows.length === 1 ? '' : 's'} in the current month.`,
         tone: currentMonthPlatformRevenueCents > 0 ? 'good' : 'neutral',
       },
       {
@@ -789,9 +854,9 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
       },
       {
         label: 'Paid booking count',
-        value: formatCount(paidBookingRows.length),
-        detail: 'Paid or succeeded booking records loaded into this admin view.',
-        tone: paidBookingRows.length > 0 ? 'good' : 'neutral',
+        value: formatCount(paidBookingCount),
+        detail: adminSummaryResult.configured ? 'Paid or succeeded booking records across the full dataset.' : 'Paid or succeeded booking records loaded into this admin view.',
+        tone: paidBookingCount > 0 ? 'good' : 'neutral',
       },
     ] satisfies RevenueCardItem[],
   };
@@ -1000,6 +1065,17 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
       href: '/admin?tab=issues',
     },
   ] satisfies { label: string; value: string; detail: string; tone: StatusTone; href: string }[];
+  const previewDescription = (visible: number, loaded: number, limit: number | null, label: string) =>
+    `${formatCount(visible)} shown from ${formatCount(loaded)} loaded ${label}.${limit ? ` Source read cap: ${formatCount(limit)}.` : ''}`;
+  const tableNotes = {
+    clubs: previewDescription(clubRows.length, clubs.length, clubsResult.limit, 'club records'),
+    players: previewDescription(playerRows.length, profiles.length, profilesResult.limit, 'profile records'),
+    bookings: previewDescription(bookingRows.length, bookings.length, bookingsResult.limit, 'booking records'),
+    payments: `${formatCount(paymentRows.length)} Stripe-linked or paid bookings shown from ${formatCount(bookings.length)} loaded booking records.${bookingsResult.limit ? ` Booking source read cap: ${formatCount(bookingsResult.limit)}.` : ''}`,
+    notifications: notificationsResult.configured
+      ? previewDescription(notificationRows.length, notifications.length, notificationsResult.limit, 'notification records')
+      : 'Notification table is not available to this admin view.',
+  };
 
   return {
     warnings,
@@ -1007,6 +1083,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     briefing,
     attention,
     revenue,
+    tableNotes,
     platform,
     metrics,
     clubs: clubRows,
@@ -1363,9 +1440,30 @@ function SubscriptionRevenuePanel({
   );
 }
 
-function DataTable({ columns, rows, empty }: { columns: string[]; rows: React.ReactNode[][]; empty: string }) {
+function DataTable({
+  columns,
+  rows,
+  empty,
+  caption,
+  note,
+}: {
+  columns: string[];
+  rows: React.ReactNode[][];
+  empty: string;
+  caption?: string;
+  note?: string;
+}) {
   return (
     <Panel className="overflow-hidden p-0">
+      {(caption || note) && (
+        <div className="flex flex-col gap-2 border-b border-border px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            {caption && <h3 className="text-sm font-semibold text-text-primary">{caption}</h3>}
+            {note && <p className="mt-1 text-xs leading-4 text-text-secondary">{note}</p>}
+          </div>
+          <StatusPill label={`${formatCount(rows.length)} shown`} tone="neutral" />
+        </div>
+      )}
       <div className="overflow-x-auto print:overflow-visible">
         <table className="w-full min-w-[980px] border-separate border-spacing-0 text-[13px] print:min-w-0">
           <thead>
@@ -1666,6 +1764,15 @@ function number(row: Row | undefined, key: string): number {
     return Number.isFinite(parsed) ? parsed : 0;
   }
   return 0;
+}
+
+function summaryNumber(valueToRead: unknown, fallback: number): number {
+  if (typeof valueToRead === 'number' && Number.isFinite(valueToRead)) return valueToRead;
+  if (typeof valueToRead === 'string') {
+    const parsed = Number(valueToRead);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
 }
 
 function bool(row: Row | undefined, key: string): boolean {
