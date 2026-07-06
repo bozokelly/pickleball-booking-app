@@ -23,6 +23,7 @@ import { format } from 'date-fns';
 import { requireBusinessAdmin } from '@/lib/adminAccess';
 import { createSupabaseAdminClient } from '@/lib/supabaseAdmin';
 import { Card } from '@/components/ui';
+import packageInfo from '../../../package.json';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,6 +73,7 @@ type AdminSummary = {
   gross_paid_cents?: number;
   platform_revenue_cents?: number;
   current_month_platform_revenue_cents?: number;
+  previous_month_platform_revenue_cents?: number;
   club_payout_cents?: number;
   revenue_tracked_count?: number;
 };
@@ -273,43 +275,26 @@ export default async function AdminPage({ searchParams }: PageProps) {
           )}
 
           {activeTab === 'overview' && (
-            <Section id="overview" title="Overview" icon={<Database className="h-5 w-5" />} description="The short version: money, risk, growth, and what needs your attention.">
-              <div className="grid gap-3 xl:grid-cols-[1fr_0.9fr]">
-                <Panel className="p-4">
-                  <div className="mb-4 flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="text-sm font-semibold text-text-primary">Overseer brief</h3>
-                      <p className="mt-1 text-xs leading-4 text-text-secondary">Plain-English readout of the numbers that matter most today.</p>
-                    </div>
-                    <Activity className="h-5 w-5 text-text-tertiary" />
-                  </div>
-                  <div className="space-y-2">
-                    {dashboard.briefing.map((item) => (
-                      <MeaningRow key={item.label} item={item} />
-                    ))}
-                  </div>
-                </Panel>
-
-                <Panel className="p-0">
-                  <div className="border-b border-border px-4 py-3">
-                    <h3 className="text-sm font-semibold text-text-primary">Revenue picture</h3>
-                    <p className="mt-0.5 text-xs text-text-secondary">{dashboard.revenue.scope}</p>
-                  </div>
-                  <div className="grid gap-0 divide-y divide-border sm:grid-cols-2 xl:grid-cols-3">
-                    {dashboard.revenue.cards.map((item) => (
-                      <RevenueCard key={item.label} item={item} />
-                    ))}
-                  </div>
-                </Panel>
+            <Section id="overview" title="Owner Home" icon={<Database className="h-5 w-5" />} description="Morning briefing for health, revenue, action items, and the clubs that need owner attention.">
+              <div className="grid gap-3 xl:grid-cols-[1fr_0.95fr]">
+                <OwnerBriefPanel health={dashboard.ownerHome.health} items={dashboard.ownerHome.brief} />
+                <LiveSystemPanel release={dashboard.ownerHome.release} items={dashboard.ownerHome.system} />
               </div>
 
-              <div className="mt-3 grid gap-3 md:grid-cols-[1.2fr_0.8fr] xl:grid-cols-[1.5fr_0.9fr]">
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  {dashboard.metrics.map((metric) => (
-                    <MetricCard key={metric.label} metric={metric} />
-                  ))}
-                </div>
-                <AttentionQueue items={dashboard.attention} />
+              <div className="mt-3 grid gap-3 xl:grid-cols-[1.25fr_0.75fr]">
+                <RevenueSnapshotPanel snapshot={dashboard.ownerHome.revenueSnapshot} />
+                <SupportPanel rows={dashboard.ownerHome.support} />
+              </div>
+
+              <div className="mt-3 grid gap-3 xl:grid-cols-[1fr_1fr]">
+                <ActionInbox items={dashboard.ownerHome.actions} />
+                <ClubsNeedingAttention clubs={dashboard.ownerHome.clubsNeedingAttention} />
+              </div>
+
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {dashboard.metrics.map((metric) => (
+                  <MetricCard key={metric.label} metric={metric} />
+                ))}
               </div>
             </Section>
           )}
@@ -869,13 +854,20 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
   const clubsWithoutLocation = clubsMissingLocation(clubs, venueByClubId);
   const paidBookingRows = bookings.filter((booking) => isPaidBooking(booking));
   const monthStart = startOfMonth(now);
+  const previousMonthStart = new Date(monthStart);
+  previousMonthStart.setMonth(previousMonthStart.getMonth() - 1);
   const currentMonthPaidBookingRows = paidBookingRows.filter((booking) => bookingPaidAt(booking) >= monthStart.getTime());
+  const previousMonthPaidBookingRows = paidBookingRows.filter((booking) => {
+    const paidAt = bookingPaidAt(booking);
+    return paidAt >= previousMonthStart.getTime() && paidAt < monthStart.getTime();
+  });
   const grossPaidCentsSample = paidBookingRows.reduce((sum, booking) => {
     const game = gameById.get(text(booking, 'game_id'));
     return sum + bookingGrossCents(booking, game);
   }, 0);
   const platformRevenueCentsSample = paidBookingRows.reduce((sum, booking) => sum + number(booking, 'platform_fee_cents'), 0);
   const currentMonthPlatformRevenueCentsSample = currentMonthPaidBookingRows.reduce((sum, booking) => sum + number(booking, 'platform_fee_cents'), 0);
+  const previousMonthPlatformRevenueCentsSample = previousMonthPaidBookingRows.reduce((sum, booking) => sum + number(booking, 'platform_fee_cents'), 0);
   const clubPayoutCentsSample = paidBookingRows.reduce((sum, booking) => sum + number(booking, 'club_payout_cents'), 0);
   const revenueTrackedCountSample = paidBookingRows.filter((booking) => number(booking, 'platform_fee_cents') > 0).length;
   const subscriptionRows = subscriptions
@@ -981,6 +973,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
   const grossPaidCents = summaryNumber(adminSummary.gross_paid_cents, grossPaidCentsSample);
   const platformRevenueCents = summaryNumber(adminSummary.platform_revenue_cents, platformRevenueCentsSample);
   const currentMonthPlatformRevenueCents = summaryNumber(adminSummary.current_month_platform_revenue_cents, currentMonthPlatformRevenueCentsSample);
+  const previousMonthPlatformRevenueCents = summaryNumber(adminSummary.previous_month_platform_revenue_cents, previousMonthPlatformRevenueCentsSample);
   const clubPayoutCents = summaryNumber(adminSummary.club_payout_cents, clubPayoutCentsSample);
   const revenueTrackedCount = summaryNumber(adminSummary.revenue_tracked_count, revenueTrackedCountSample);
   const subscriptionPlanRows = planBreakdown(subscriptionRows);
@@ -1298,6 +1291,199 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
       href: '/admin?tab=issues',
     },
   ] satisfies { label: string; value: string; detail: string; tone: StatusTone; href: string }[];
+
+  const criticalActionCount = paidGamesWithoutStripe.length + failedPaymentBookings.length + failedRefundBookings.length + expiredActiveHolds.length;
+  const warningActionCount = stuckPendingPayments.length + failedNotifications + notSentNotifications + pendingDeletionRequests + platformWarningCount;
+  const ownerHealth =
+    criticalActionCount > 0
+      ? {
+          label: 'Action needed',
+          value: formatCount(criticalActionCount),
+          detail: `${formatCount(criticalActionCount)} critical operational signal${criticalActionCount === 1 ? '' : 's'} found. Start with the action inbox.`,
+          tone: 'bad' as StatusTone,
+        }
+      : warningActionCount > 0
+        ? {
+            label: 'Watch',
+            value: formatCount(warningActionCount),
+            detail: `${formatCount(warningActionCount)} warning signal${warningActionCount === 1 ? '' : 's'} found across payments, notifications, compliance, or admin load.`,
+            tone: 'warn' as StatusTone,
+          }
+        : {
+            label: 'All clear',
+            value: '0',
+            detail: 'No critical payment, notification, compliance, or load signals found in the loaded admin preview.',
+            tone: 'good' as StatusTone,
+          };
+  const releaseSha = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || '';
+  const releaseEnvironment = process.env.NEXT_PUBLIC_VERCEL_ENV || process.env.VERCEL_ENV || '';
+  const releaseInfo = {
+    packageVersion: packageInfo.version || 'Not wired',
+    deploySha: releaseSha ? releaseSha.slice(0, 7) : 'Not wired',
+    environment: releaseEnvironment || 'Not wired',
+    source: 'package.json version is available; deploy SHA/environment depend on hosting env vars.',
+  };
+  const monthDeltaCents = currentMonthPlatformRevenueCents - previousMonthPlatformRevenueCents;
+  const monthDeltaLabel =
+    previousMonthPlatformRevenueCents > 0
+      ? `${monthDeltaCents >= 0 ? '+' : ''}${Math.round((monthDeltaCents / previousMonthPlatformRevenueCents) * 100)}%`
+      : currentMonthPlatformRevenueCents > 0
+        ? 'New revenue'
+        : 'No change';
+  const previousMonthIsAuthoritative = typeof adminSummary.previous_month_platform_revenue_cents === 'number';
+  const ownerActions = [
+    ...paidGamesWithoutStripe.slice(0, 3).map((game) => {
+      const club = clubById.get(text(game, 'club_id'));
+      const clubId = text(club, 'id');
+      return {
+        label: 'Payment setup gap',
+        value: formatDollars(number(game, 'fee_amount')),
+        detail: `${text(club, 'name') || 'Unknown club'} has a fee-charging game without payout-ready Stripe setup.`,
+        tone: 'bad' as StatusTone,
+        href: clubId ? `/admin/clubs/${clubId}` : '/admin?tab=payments',
+      };
+    }),
+    ...failedPaymentBookings.slice(0, 2).map((booking) => actionForBooking(booking, gameById, clubById, profileById, 'Failed payment', 'Payment status indicates failure.', 'bad' as StatusTone)),
+    ...failedRefundBookings.slice(0, 2).map((booking) => actionForBooking(booking, gameById, clubById, profileById, 'Failed refund', 'Refund status needs manual review.', 'bad' as StatusTone)),
+    ...stuckPendingPayments.slice(0, 2).map((booking) => actionForBooking(booking, gameById, clubById, profileById, 'Pending payment', 'Stripe intent exists but booking is not marked paid.', 'warn' as StatusTone)),
+    ...expiredActiveHolds.slice(0, 2).map((booking) => actionForBooking(booking, gameById, clubById, profileById, 'Expired hold', 'Active hold appears to be past expiry.', 'bad' as StatusTone)),
+    ...(failedNotifications > 0
+      ? [
+          {
+            label: 'Failed notifications',
+            value: formatCount(failedNotifications),
+            detail: 'Notification delivery failures are visible in Comms & alerts.',
+            tone: 'bad' as StatusTone,
+            href: '/admin?tab=notifications',
+          },
+        ]
+      : []),
+    ...(pendingDeletionRequests > 0
+      ? [
+          {
+            label: 'Compliance requests',
+            value: formatCount(pendingDeletionRequests),
+            detail: 'Open account deletion requests need owner/ops review.',
+            tone: 'warn' as StatusTone,
+            href: '/admin?tab=compliance',
+          },
+        ]
+      : []),
+  ].slice(0, 8);
+  const clubsNeedingAttention = clubRows
+    .filter((club) => club.healthTone !== 'good')
+    .slice(0, 6)
+    .map((club) => ({
+      id: club.id,
+      name: club.name,
+      detail: `${club.healthLabel} · ${club.upcomingGames} upcoming · Stripe ${club.stripeStatus}`,
+      tone: club.healthTone,
+      status: club.healthLabel,
+    }));
+  const ownerHome = {
+    health: ownerHealth,
+    brief: [
+      {
+        label: 'Bookadink status',
+        value: ownerHealth.label,
+        detail: ownerHealth.detail,
+        tone: ownerHealth.tone,
+        href: ownerActions[0]?.href || '/admin?tab=issues',
+      },
+      {
+        label: 'What to check first',
+        value: ownerActions[0]?.label || 'Nothing urgent',
+        detail: ownerActions[0]?.detail || 'No critical action item found in the loaded preview.',
+        tone: ownerActions[0]?.tone || 'good',
+        href: ownerActions[0]?.href || '/admin?tab=clubs',
+      },
+      {
+        label: 'Club operations live in Club Files',
+        value: `${formatCount(clubsNeedingAttention.length)} clubs`,
+        detail: clubsNeedingAttention.length > 0 ? 'Open the club file index to review clubs with operational warnings.' : 'No club file currently has a derived attention flag.',
+        tone: clubsNeedingAttention.length > 0 ? 'warn' : 'good',
+        href: '/admin?tab=clubs',
+      },
+    ] satisfies { label: string; value: string; detail: string; tone: StatusTone; href: string }[],
+    release: releaseInfo,
+    system: [
+      {
+        label: 'Web/admin render',
+        value: `${loadElapsedMs}ms`,
+        detail: 'Server render and admin data composition completed for this request.',
+        tone: loadElapsedMs > 3500 ? 'warn' : 'good',
+      },
+      {
+        label: 'Supabase',
+        value: warnings.length > 0 ? 'Degraded' : 'Reachable',
+        detail: warnings.length > 0 ? `${warnings.length} admin read warning${warnings.length === 1 ? '' : 's'} returned.` : 'Required admin reads completed successfully.',
+        tone: warnings.length > 0 ? 'warn' : 'good',
+      },
+      {
+        label: 'Slowest query',
+        value: slowestQuery ? `${slowestQuery.elapsedMs}ms` : 'Not tracked',
+        detail: slowestQuery ? slowestQuery.label : 'No query timing was captured.',
+        tone: slowestQuery && slowestQuery.elapsedMs > 1500 ? 'warn' : 'good',
+      },
+      {
+        label: 'Row-cap pressure',
+        value: formatCount(cappedLoads.length + nearCappedLoads.length),
+        detail: 'Loaded previews at or near their row caps.',
+        tone: cappedLoads.length > 0 ? 'bad' : nearCappedLoads.length > 0 ? 'warn' : 'good',
+      },
+    ] satisfies PlatformItem[],
+    revenueSnapshot: {
+      note: adminSummaryResult.configured
+        ? 'Platform revenue totals come from admin_dashboard_summary where available. Previous month is labelled separately if it falls back to loaded preview data.'
+        : 'Revenue cards use loaded booking/subscription preview data because the summary RPC is unavailable.',
+      cards: [
+        {
+          label: 'Known platform revenue',
+          value: formatCents(platformRevenueCents),
+          detail: revenueTrackedCount > 0 ? 'Server/loaded platform_fee_cents total.' : 'Not fully tracked until platform_fee_cents is populated consistently.',
+          tone: platformRevenueCents > 0 ? 'good' : 'warn',
+        },
+        {
+          label: 'This month platform revenue',
+          value: formatCents(currentMonthPlatformRevenueCents),
+          detail: adminSummaryResult.configured ? 'Current calendar month from admin summary.' : `${formatCount(currentMonthPaidBookingRows.length)} loaded paid booking rows this month.`,
+          tone: currentMonthPlatformRevenueCents > 0 ? 'good' : 'neutral',
+        },
+        {
+          label: 'Previous month platform revenue',
+          value: formatCents(previousMonthPlatformRevenueCents),
+          detail: previousMonthIsAuthoritative ? 'Previous calendar month from admin summary.' : 'Calculated from loaded paid-booking preview only.',
+          tone: previousMonthIsAuthoritative ? 'good' : 'warn',
+        },
+        {
+          label: 'Month-on-month',
+          value: monthDeltaLabel,
+          detail: previousMonthPlatformRevenueCents > 0 ? `${formatCents(monthDeltaCents)} change from previous month.` : 'Percentage unavailable until previous month has tracked revenue.',
+          tone: monthDeltaCents > 0 ? 'good' : monthDeltaCents < 0 ? 'warn' : 'neutral',
+        },
+        {
+          label: 'Subscription MRR',
+          value: subscriptionMrrTracked ? formatCents(subscriptionMrrCents) : 'Not tracked',
+          detail: subscriptionMrrTracked ? 'Active subscription monthly value from stored price fields.' : 'Subscription rows do not expose usable price fields yet.',
+          tone: subscriptionMrrTracked ? 'good' : 'warn',
+        },
+        {
+          label: 'Gross paid bookings',
+          value: formatCents(grossPaidCents),
+          detail: 'Paid booking value before club payouts and processing costs.',
+          tone: grossPaidCents > 0 ? 'good' : 'neutral',
+        },
+      ] satisfies RevenueCardItem[],
+    },
+    actions: ownerActions,
+    clubsNeedingAttention,
+    support: [
+      ['Support email', 'support@bookadink.com', 'Current public/admin support contact.'],
+      ['Support inbox', 'Not wired', 'No support ticket or feedback table is connected to Owner Home yet.'],
+      ['Feedback source', 'Manual review', 'Use email/app store/tester feedback until a support_feedback table exists.'],
+      ['Account deletion queue', deletionRequestsResult.configured ? `${formatCount(pendingDeletionRequests)} pending` : 'Not configured', deletionRequestsResult.configured ? 'Handled in Privacy & legal.' : 'Requires service-role deletion queue configuration.'],
+    ],
+  };
   const previewDescription = (visible: number, loaded: number, limit: number | null, label: string) =>
     `${formatCount(visible)} shown from ${formatCount(loaded)} loaded ${label}.${limit ? ` Source read cap: ${formatCount(limit)}.` : ''}`;
   const tableNotes = {
@@ -1350,6 +1536,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
   return {
     warnings,
     generatedAt: format(now, 'd MMM yyyy, h:mm a'),
+    ownerHome,
     briefing,
     attention,
     revenue,
@@ -1619,6 +1806,179 @@ function AttentionQueue({ items }: { items: { label: string; value: string; deta
         ))}
       </div>
     </Panel>
+  );
+}
+
+function OwnerBriefPanel({
+  health,
+  items,
+}: {
+  health: { label: string; value: string; detail: string; tone: StatusTone };
+  items: { label: string; value: string; detail: string; tone: StatusTone; href: string }[];
+}) {
+  return (
+    <Panel className="p-4">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-text-primary">Owner brief</h3>
+          <p className="mt-1 text-xs leading-4 text-text-secondary">The shortest useful answer to: what should I check first today?</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <StatusPill label={health.label} tone={health.tone} />
+          <Activity className="h-5 w-5 text-text-tertiary" />
+        </div>
+      </div>
+      <div className="mb-3 rounded-lg border border-border bg-surface-tint px-3 py-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-tertiary">Command-centre status</p>
+        <p className="mt-1 text-2xl font-semibold text-text-primary">{health.value}</p>
+        <p className="mt-1 text-xs leading-4 text-text-secondary">{health.detail}</p>
+      </div>
+      <div className="space-y-2">
+        {items.map((item) => (
+          <MeaningRow key={item.label} item={item} />
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function LiveSystemPanel({
+  release,
+  items,
+}: {
+  release: { packageVersion: string; deploySha: string; environment: string; source: string };
+  items: PlatformItem[];
+}) {
+  return (
+    <Panel className="p-4">
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-sm font-semibold text-text-primary">Live system status</h3>
+          <p className="mt-1 text-xs leading-4 text-text-secondary">What this server render can honestly verify without external telemetry APIs.</p>
+        </div>
+        <Server className="h-5 w-5 text-text-tertiary" />
+      </div>
+      <div className="mb-3 grid gap-2 sm:grid-cols-3">
+        <InfoChip label="Package version" value={release.packageVersion} tone={release.packageVersion === 'Not wired' ? 'warn' : 'neutral'} />
+        <InfoChip label="Deploy SHA" value={release.deploySha} tone={release.deploySha === 'Not wired' ? 'warn' : 'neutral'} />
+        <InfoChip label="Environment" value={release.environment} tone={release.environment === 'Not wired' ? 'warn' : 'neutral'} />
+      </div>
+      <p className="mb-3 text-xs leading-4 text-text-tertiary">{release.source}</p>
+      <div className="space-y-2">
+        {items.map((item) => (
+          <StatusRow key={item.label} label={item.label} value={item.value} detail={item.detail} tone={item.tone} />
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function RevenueSnapshotPanel({ snapshot }: { snapshot: { note: string; cards: RevenueCardItem[] } }) {
+  return (
+    <Panel className="p-0">
+      <div className="border-b border-border px-4 py-3">
+        <h3 className="text-sm font-semibold text-text-primary">Revenue snapshot</h3>
+        <p className="mt-0.5 text-xs leading-4 text-text-secondary">{snapshot.note}</p>
+      </div>
+      <div className="grid gap-0 divide-y divide-border sm:grid-cols-2 xl:grid-cols-3">
+        {snapshot.cards.map((item) => (
+          <RevenueCard key={item.label} item={item} />
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function ActionInbox({ items }: { items: { label: string; value: string; detail: string; tone: StatusTone; href: string }[] }) {
+  return (
+    <Panel className="overflow-hidden p-0">
+      <div className="border-b border-border px-4 py-3">
+        <h3 className="text-sm font-semibold text-text-primary">Action inbox</h3>
+        <p className="mt-0.5 text-xs text-text-secondary">Cross-platform items worth checking first. No destructive actions are exposed here.</p>
+      </div>
+      {items.length === 0 ? (
+        <p className="px-4 py-6 text-sm text-text-secondary">No payment, notification, hold, or compliance items need attention in the loaded preview.</p>
+      ) : (
+        <div className="divide-y divide-border">
+          {items.map((item, index) => (
+            <a key={`${item.label}-${index}`} href={item.href} className="grid gap-2 px-4 py-3 transition hover:bg-surface-tint sm:grid-cols-[1fr_auto] sm:items-center">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-text-primary">{item.label}</p>
+                <p className="mt-1 text-xs leading-4 text-text-secondary">{item.detail}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <StatusPill label={item.value} tone={item.tone} />
+                <ArrowUpRight className="h-3.5 w-3.5 text-text-tertiary" />
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function ClubsNeedingAttention({ clubs }: { clubs: { id: string; name: string; detail: string; status: string; tone: StatusTone }[] }) {
+  return (
+    <Panel className="overflow-hidden p-0">
+      <div className="border-b border-border px-4 py-3">
+        <h3 className="text-sm font-semibold text-text-primary">Clubs needing attention</h3>
+        <p className="mt-0.5 text-xs text-text-secondary">Open the Club File for the detailed operating record.</p>
+      </div>
+      {clubs.length === 0 ? (
+        <p className="px-4 py-6 text-sm text-text-secondary">No clubs have derived attention flags in the loaded preview.</p>
+      ) : (
+        <div className="divide-y divide-border">
+          {clubs.map((club) => (
+            <Link key={club.id} href={`/admin/clubs/${club.id}`} className="grid gap-2 px-4 py-3 transition hover:bg-surface-tint sm:grid-cols-[1fr_auto] sm:items-center">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-text-primary">{club.name}</p>
+                <p className="mt-1 text-xs leading-4 text-text-secondary">{club.detail}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <StatusPill label={club.status} tone={club.tone} />
+                <ArrowUpRight className="h-3.5 w-3.5 text-text-tertiary" />
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function SupportPanel({ rows }: { rows: string[][] }) {
+  return (
+    <Panel className="p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-text-primary">Support & feedback</h3>
+          <p className="mt-1 text-xs text-text-secondary">Honest state of support channels currently wired into admin.</p>
+        </div>
+        <StatusPill label="manual" tone="neutral" />
+      </div>
+      <div className="space-y-2">
+        {rows.map((row) => (
+          <div key={row[0]} className="rounded-lg border border-border bg-surface-tint px-3 py-2">
+            <div className="flex items-center justify-between gap-3">
+              <p className="truncate text-sm font-semibold text-text-primary">{row[0]}</p>
+              <p className="truncate text-xs font-semibold text-text-secondary">{row[1]}</p>
+            </div>
+            <p className="mt-1 text-xs leading-4 text-text-tertiary">{row[2]}</p>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function InfoChip({ label, value, tone }: { label: string; value: string; tone: StatusTone }) {
+  return (
+    <div className="rounded-lg border border-border bg-surface-tint px-3 py-2">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-text-tertiary">{label}</p>
+      <p className="mt-1 truncate text-sm font-semibold text-text-primary">{value}</p>
+      {tone !== 'neutral' && <p className="mt-1 text-[11px] text-warning">Not provided by environment</p>}
+    </div>
   );
 }
 
@@ -2363,6 +2723,28 @@ function bookingSignal(booking: Row, payment: { label: string; tone: StatusTone 
   if (text(booking, 'hold_expires_at')) return { label: 'hold', tone: 'warn' as StatusTone, priority: 3 };
   if (status === 'cancelled' && isPaidBooking(booking)) return { label: 'paid cancel', tone: 'warn' as StatusTone, priority: 4 };
   return { label: 'recent', tone: 'neutral' as StatusTone, priority: 9 };
+}
+
+function actionForBooking(
+  booking: Row,
+  gameById: Map<string, Row>,
+  clubById: Map<string, Row>,
+  profileById: Map<string, Row>,
+  label: string,
+  detailPrefix: string,
+  tone: StatusTone,
+) {
+  const game = gameById.get(text(booking, 'game_id'));
+  const club = game ? clubById.get(text(game, 'club_id')) : undefined;
+  const profile = profileById.get(text(booking, 'user_id'));
+  const clubId = text(club, 'id');
+  return {
+    label,
+    value: formatPaymentAmount(booking, game),
+    detail: `${detailPrefix} ${text(profile, 'full_name') || text(profile, 'email') || 'Unknown player'} · ${text(game, 'title') || 'Unknown game'} · ${text(club, 'name') || 'Unknown club'}.`,
+    tone,
+    href: clubId ? `/admin/clubs/${clubId}` : '/admin?tab=bookings',
+  };
 }
 
 function isPaidBooking(booking: Row) {
