@@ -322,7 +322,10 @@ export default async function AdminPage({ searchParams }: PageProps) {
                 empty={query ? `No clubs matched "${query}".` : 'No clubs are available in this admin preview.'}
                 columns={['Club', 'Location', 'Subscription', 'Stripe', 'Members', 'Admins', 'Upcoming', 'Created', 'Last activity']}
                 rows={dashboard.clubs.map((club) => [
-                  club.name,
+                  <Link key="club" href={`/admin/clubs/${club.id}`} className="inline-flex max-w-full items-center gap-1.5 font-semibold text-text-primary hover:text-info">
+                    <span className="truncate">{club.name}</span>
+                    <ArrowUpRight className="h-3.5 w-3.5 flex-shrink-0 text-text-tertiary" />
+                  </Link>,
                   club.location,
                   <StatusPill key="tier" label={club.subscriptionTier} tone="neutral" />,
                   <StatusPill key="stripe" label={club.stripeStatus} tone={club.stripeTone} />,
@@ -658,6 +661,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
       const location = clubLocation(club, clubVenues);
       const lastGameActivity = latestDate(games.filter((game) => text(game, 'club_id') === clubId).map((game) => text(game, 'updated_at') || text(game, 'created_at')));
       return {
+        id: clubId,
         name: text(club, 'name') || 'Untitled club',
         location,
         subscriptionTier: text(club, 'subscription_tier') || text(subscription, 'plan_type') || text(subscription, 'tier') || 'not tracked',
