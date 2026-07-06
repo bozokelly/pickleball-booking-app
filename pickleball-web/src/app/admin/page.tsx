@@ -97,6 +97,22 @@ type SubscriptionRevenueRow = {
   mrrTracked: boolean;
 };
 type SubscriptionPlanRow = { plan: string; status: string; count: string; tone: StatusTone };
+type PaymentHealthItem = { label: string; value: string; detail: string; tone: StatusTone };
+type StripeSetupRow = {
+  clubName: string;
+  plan: string;
+  subscriptionStatus: string;
+  stripeStatus: string;
+  stripeTone: StatusTone;
+  detail: string;
+};
+type PaymentAttentionRow = {
+  item: string;
+  clubName: string;
+  status: string;
+  statusTone: StatusTone;
+  detail: string;
+};
 type DeletionRequestView = {
   id: string;
   account: string;
@@ -364,11 +380,14 @@ export default async function AdminPage({ searchParams }: PageProps) {
 
           {activeTab === 'payments' && (
             <Section id="payments" title="Revenue & payments" icon={<CreditCard className="h-5 w-5" />} description={dashboard.tableNotes.payments}>
+              <RevenueAuthorityPanel configured={dashboard.revenue.summaryConfigured} scope={dashboard.revenue.scope} />
               <div className="mb-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {dashboard.revenue.cards.map((item) => (
                   <RevenueCard key={item.label} item={item} />
                 ))}
               </div>
+              <PaymentHealthPanel items={dashboard.revenue.health} attentionRows={dashboard.revenue.attentionRows} />
+              <StripeSetupPanel rows={dashboard.revenue.stripeSetupRows} configured={dashboard.revenue.stripeConfigured} />
               <SubscriptionRevenuePanel
                 rows={dashboard.revenue.subscriptionRows}
                 planRows={dashboard.revenue.subscriptionPlanRows}
@@ -783,6 +802,77 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     .filter((subscription) => include([subscription.clubName, subscription.plan, subscription.status, subscription.source]));
   const activeSubscriptionRows = subscriptionRows.filter((subscription) => isActiveSubscriptionStatus(subscription.status));
   const cancelingSubscriptionRows = subscriptionRows.filter((subscription) => isCancelingSubscriptionStatus(subscription.status));
+  const feeChargingClubIds = new Set(games.filter((game) => number(game, 'fee_amount') > 0).map((game) => text(game, 'club_id')).filter(Boolean));
+  const stripeConnectedCount = stripeAccounts.filter((row) => text(row, 'stripe_account_id')).length;
+  const stripePayoutReadyCount = stripeAccounts.filter((row) => bool(row, 'payouts_enabled')).length;
+  const failedPaymentBookings = bookings.filter((booking) => {
+    const status = text(booking, 'payment_status');
+    return status === 'failed' || status === 'requires_payment_method' || status === 'payment_failed';
+  });
+  const failedRefundBookings = bookings.filter((booking) => text(booking, 'refund_status') === 'failed');
+  const refundedBookings = bookings.filter((booking) => {
+    const status = text(booking, 'refund_status');
+    return status === 'succeeded' || status === 'refunded';
+  });
+  const stripeSetupRows = clubs
+    .map((club) => {
+      const clubId = text(club, 'id');
+      const subscription = subscriptionByClubId.get(clubId);
+      const stripe = stripeByClubId.get(clubId);
+      const hasFeeChargingGames = feeChargingClubIds.has(clubId);
+      const status = stripeStatus(stripe);
+      const payoutsReady = Boolean(stripe && bool(stripe, 'payouts_enabled'));
+      const hasStripeAccount = Boolean(stripe && text(stripe, 'stripe_account_id'));
+      const stripeStatusTone: StatusTone = payoutsReady ? 'good' : hasFeeChargingGames && !hasStripeAccount ? 'bad' : hasStripeAccount ? 'warn' : 'neutral';
+      return {
+        clubName: text(club, 'name') || 'Untitled club',
+        plan: text(club, 'subscription_tier') || text(subscription, 'plan_type') || text(subscription, 'tier') || 'not tracked',
+        subscriptionStatus: text(subscription, 'status') || (subscription ? 'unknown' : 'none'),
+        stripeStatus: status,
+        stripeTone: stripeStatusTone,
+        detail: payoutsReady
+          ? 'Stripe Connect is ready for paid games and payouts.'
+          : hasFeeChargingGames && !hasStripeAccount
+            ? 'Fee-charging games exist but no Stripe Connect account is recorded.'
+            : hasStripeAccount
+              ? 'Stripe account exists, but onboarding or payout readiness is incomplete.'
+              : 'No Stripe account recorded. Fine for manual/free clubs; review before paid sessions.',
+      } satisfies StripeSetupRow;
+    })
+    .filter((row) => include([row.clubName, row.plan, row.subscriptionStatus, row.stripeStatus]))
+    .sort((a, b) => {
+      const priority = (tone: StatusTone) => (tone === 'bad' ? 0 : tone === 'warn' ? 1 : tone === 'good' ? 2 : 3);
+      return priority(a.stripeTone) - priority(b.stripeTone) || a.clubName.localeCompare(b.clubName);
+    })
+    .slice(0, 12);
+  const attentionRowForBooking = (booking: Row, item: string, tone: StatusTone, detailPrefix: string): PaymentAttentionRow => {
+    const game = gameById.get(text(booking, 'game_id'));
+    const club = game ? clubById.get(text(game, 'club_id')) : undefined;
+    const profile = profileById.get(text(booking, 'user_id'));
+    const payment = bookingPaymentStatus(booking);
+    return {
+      item,
+      clubName: text(club, 'name') || 'Unknown club',
+      status: item.includes('Refund') ? refundStatus(booking).label : payment.label,
+      statusTone: tone,
+      detail: `${detailPrefix}: ${text(profile, 'full_name') || text(profile, 'email') || 'Unknown player'} · ${text(game, 'title') || 'Unknown game'} · ${formatPaymentAmount(booking, game)}`,
+    };
+  };
+  const paymentAttentionRows: PaymentAttentionRow[] = [
+    ...stuckPendingPayments.slice(0, 4).map((booking) => attentionRowForBooking(booking, 'Pending payment', 'warn', 'Checkout may be abandoned, delayed, or mismatched')),
+    ...failedPaymentBookings.slice(0, 4).map((booking) => attentionRowForBooking(booking, 'Failed payment', 'bad', 'Payment status indicates failure')),
+    ...failedRefundBookings.slice(0, 4).map((booking) => attentionRowForBooking(booking, 'Refund failed', 'bad', 'Refund status needs manual review')),
+    ...paidGamesWithoutStripe.slice(0, 4).map((game) => {
+      const club = clubById.get(text(game, 'club_id'));
+      return {
+        item: 'Payment setup gap',
+        clubName: text(club, 'name') || 'Unknown club',
+        status: 'stripe missing',
+        statusTone: 'bad' as StatusTone,
+        detail: `${text(game, 'title') || 'Untitled game'} charges ${formatDollars(number(game, 'fee_amount'))} but the club is not payout-ready.`,
+      };
+    }),
+  ].slice(0, 10);
   const subscriptionMrrCentsSample = subscriptions.reduce((sum, subscription) => {
     const status = text(subscription, 'status') || 'unknown';
     return isActiveSubscriptionStatus(status) ? sum + subscriptionMonthlyCents(subscription) : sum;
@@ -800,14 +890,62 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
   const revenueTrackedCount = summaryNumber(adminSummary.revenue_tracked_count, revenueTrackedCountSample);
   const subscriptionPlanRows = planBreakdown(subscriptionRows);
   const revenue = {
+    summaryConfigured: adminSummaryResult.configured,
+    stripeConfigured: stripeAccountsResult.configured,
     scope: adminSummaryResult.configured
       ? 'Revenue totals are calculated by the server across the full dataset. Tables below remain capped previews.'
       : `Subscriptions are counted from club_subscriptions. Game processing fees use platform_fee_cents on ${formatCount(paidBookingRows.length)} loaded booking${paidBookingRows.length === 1 ? '' : 's'}.`,
     subscriptionRows,
     subscriptionPlanRows,
+    stripeSetupRows,
+    attentionRows: paymentAttentionRows,
     subscriptionNote: subscriptionMrrTracked
       ? 'Subscription MRR is calculated from stored monthly price fields on active subscriptions.'
       : 'Subscription count and plan mix are visible, but MRR is not calculable until plan price/currency fields are stored or Stripe prices are queried.',
+    health: [
+      {
+        label: 'Payout-ready clubs',
+        value: `${formatCount(stripePayoutReadyCount)}/${formatCount(stripeConnectedCount)}`,
+        detail: 'Stripe accounts with payouts enabled out of clubs with a recorded Stripe account.',
+        tone: stripeConnectedCount === 0 ? 'neutral' : stripePayoutReadyCount === stripeConnectedCount ? 'good' : 'warn',
+      },
+      {
+        label: 'Payment setup gaps',
+        value: formatCount(paidGamesWithoutStripe.length),
+        detail: 'Fee-charging games where the club is not connected for payouts.',
+        tone: paidGamesWithoutStripe.length > 0 ? 'bad' : 'good',
+      },
+      {
+        label: 'Pending payments',
+        value: formatCount(stuckPendingPayments.length),
+        detail: 'Bookings with a Stripe intent but no paid flag.',
+        tone: stuckPendingPayments.length > 0 ? 'warn' : 'good',
+      },
+      {
+        label: 'Failed payments',
+        value: formatCount(failedPaymentBookings.length),
+        detail: 'Bookings with failed payment-style statuses in the loaded preview.',
+        tone: failedPaymentBookings.length > 0 ? 'bad' : 'good',
+      },
+      {
+        label: 'Refunded bookings',
+        value: formatCount(refundedBookings.length),
+        detail: 'Bookings marked refunded/succeeded in refund status.',
+        tone: refundedBookings.length > 0 ? 'neutral' : 'good',
+      },
+      {
+        label: 'Failed refunds',
+        value: formatCount(failedRefundBookings.length),
+        detail: 'Refund records that need manual review.',
+        tone: failedRefundBookings.length > 0 ? 'bad' : 'good',
+      },
+      {
+        label: 'Credit ledger rows',
+        value: formatCount(credits.length),
+        detail: 'Loaded player credit records. This is a preview, not a mutation surface.',
+        tone: credits.length > 0 ? 'neutral' : 'good',
+      },
+    ] satisfies PaymentHealthItem[],
     cards: [
       {
         label: 'Active subscribers',
@@ -1353,6 +1491,122 @@ function RevenueCard({ item }: { item: { label: string; value: string; detail: s
       <p className="mt-2 truncate text-2xl font-semibold leading-none text-text-primary">{item.value}</p>
       <p className="mt-2 text-xs leading-4 text-text-secondary">{item.detail}</p>
     </div>
+  );
+}
+
+function RevenueAuthorityPanel({ configured, scope }: { configured: boolean; scope: string }) {
+  return (
+    <Panel className={`mb-3 p-4 ${configured ? 'border-success/20 bg-success/5' : 'border-warning/25 bg-warning/5'}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-text-primary">Revenue source of truth</h3>
+          <p className="mt-1 text-sm leading-5 text-text-secondary">{scope}</p>
+        </div>
+        <StatusPill label={configured ? 'Server-authoritative totals' : 'Preview totals only'} tone={configured ? 'good' : 'warn'} />
+      </div>
+    </Panel>
+  );
+}
+
+function PaymentHealthPanel({ items, attentionRows }: { items: PaymentHealthItem[]; attentionRows: PaymentAttentionRow[] }) {
+  return (
+    <div className="mb-3 grid gap-3 xl:grid-cols-[0.9fr_1.1fr]">
+      <Panel className="overflow-hidden p-0">
+        <div className="border-b border-border px-4 py-3">
+          <h3 className="text-sm font-semibold text-text-primary">Payment health</h3>
+          <p className="mt-0.5 text-xs text-text-secondary">Read-only counters from Stripe, booking, refund, and credit fields already loaded by the command centre.</p>
+        </div>
+        <div className="grid divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-1 xl:divide-x-0 xl:divide-y">
+          {items.map((item) => (
+            <div key={item.label} className="px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-text-primary">{item.label}</p>
+                  <p className="mt-1 text-xs leading-4 text-text-secondary">{item.detail}</p>
+                </div>
+                <StatusPill label={item.value} tone={item.tone} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Panel>
+
+      <Panel className="overflow-hidden p-0">
+        <div className="border-b border-border px-4 py-3">
+          <h3 className="text-sm font-semibold text-text-primary">Payment items needing attention</h3>
+          <p className="mt-0.5 text-xs text-text-secondary">No buttons here yet. This is a triage list for follow-up in Stripe, Supabase, or club ops.</p>
+        </div>
+        {attentionRows.length === 0 ? (
+          <p className="px-4 py-6 text-sm text-text-secondary">No payment setup, refund, or pending-payment issues were found in the loaded preview.</p>
+        ) : (
+          <div className="divide-y divide-border">
+            {attentionRows.map((row, index) => (
+              <div key={`${row.item}-${row.clubName}-${index}`} className="grid gap-2 px-4 py-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-text-primary">{row.item}</p>
+                  <p className="mt-1 text-xs leading-4 text-text-secondary">
+                    <span className="font-semibold text-text-primary">{row.clubName}</span> · {row.detail}
+                  </p>
+                </div>
+                <StatusPill label={row.status} tone={row.statusTone} />
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
+    </div>
+  );
+}
+
+function StripeSetupPanel({ rows, configured }: { rows: StripeSetupRow[]; configured: boolean }) {
+  return (
+    <Panel className="mb-3 overflow-hidden p-0">
+      <div className="flex flex-col gap-2 border-b border-border px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-text-primary">Club payment setup</h3>
+          <p className="mt-0.5 text-xs text-text-secondary">Stripe Connect readiness by club, shown alongside plan and subscription status where available.</p>
+        </div>
+        <StatusPill label={configured ? `${formatCount(rows.length)} shown` : 'not configured'} tone={configured ? 'neutral' : 'warn'} />
+      </div>
+      {!configured ? (
+        <p className="px-4 py-6 text-sm text-text-secondary">Stripe account data is not available to this admin view.</p>
+      ) : rows.length === 0 ? (
+        <p className="px-4 py-6 text-sm text-text-secondary">No clubs matched the current payment setup view.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[860px] border-separate border-spacing-0 text-[13px]">
+            <thead>
+              <tr>
+                {['Club', 'Plan', 'Subscription', 'Stripe', 'Operational note'].map((column) => (
+                  <th key={column} className="border-b border-border bg-[#FAFAFB] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-text-tertiary first:pl-4 last:pr-4">
+                    {column}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="bg-white">
+              {rows.map((row) => (
+                <tr key={`${row.clubName}-${row.plan}`} className="align-top transition odd:bg-white even:bg-[#FCFCFD] hover:bg-surface-tint">
+                  <td className="max-w-[240px] border-b border-border/80 px-3 py-2.5 text-text-secondary first:pl-4">
+                    <span className="block truncate" title={row.clubName}>{row.clubName}</span>
+                  </td>
+                  <td className="border-b border-border/80 px-3 py-2.5 text-text-secondary">
+                    <StatusPill label={row.plan} tone="neutral" />
+                  </td>
+                  <td className="border-b border-border/80 px-3 py-2.5 text-text-secondary">
+                    <StatusPill label={row.subscriptionStatus} tone={subscriptionStatusTone(row.subscriptionStatus)} />
+                  </td>
+                  <td className="border-b border-border/80 px-3 py-2.5 text-text-secondary">
+                    <StatusPill label={row.stripeStatus} tone={row.stripeTone} />
+                  </td>
+                  <td className="border-b border-border/80 px-3 py-2.5 text-text-secondary last:pr-4">{row.detail}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Panel>
   );
 }
 
