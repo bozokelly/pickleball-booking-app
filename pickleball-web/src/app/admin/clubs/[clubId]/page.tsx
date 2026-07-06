@@ -116,6 +116,7 @@ export default async function ClubFilePage({ params }: PageProps) {
                 <StatusPill label="Club file" tone="dark" />
                 <StatusPill label="Read-only" tone="neutral" />
                 <StatusPill label={admin.role} tone="info" />
+                <StatusPill label={file.health.label} tone={file.health.tone} />
                 <StatusPill label={file.stripe.label} tone={file.stripe.tone} />
                 <StatusPill label={file.subscription.statusLabel} tone={file.subscription.statusTone} />
               </div>
@@ -168,7 +169,22 @@ export default async function ClubFilePage({ params }: PageProps) {
               <MetricCard key={metric.label} metric={metric} />
             ))}
           </div>
-          <div className="mt-3 grid gap-3 xl:grid-cols-[1fr_0.8fr]">
+          <div className="mt-3 grid gap-3 xl:grid-cols-[1.1fr_0.9fr_0.9fr]">
+            <Panel className="p-4">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-text-primary">Owner brief</h3>
+                  <p className="mt-1 text-xs text-text-secondary">Plain-English readout of this club's operating state.</p>
+                </div>
+                <ShieldCheck className="h-5 w-5 text-text-tertiary" />
+              </div>
+              <div className="space-y-2">
+                {file.healthBrief.map((item) => (
+                  <BriefRow key={item.label} item={item} />
+                ))}
+              </div>
+            </Panel>
+
             <Panel className="p-4">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
@@ -192,7 +208,7 @@ export default async function ClubFilePage({ params }: PageProps) {
                 <p className="px-4 py-6 text-sm text-text-secondary">No club-specific issues found in the loaded preview.</p>
               ) : (
                 <div className="divide-y divide-border">
-                  {file.issues.slice(0, 5).map((issue) => (
+                  {file.issues.slice(0, 6).map((issue) => (
                     <IssueRow key={issue.label} issue={issue} />
                   ))}
                 </div>
@@ -207,12 +223,13 @@ export default async function ClubFilePage({ params }: PageProps) {
               caption="Upcoming games"
               note={`Next ${file.upcomingGames.length} club sessions from the loaded preview.`}
               empty="No upcoming games found for this club."
-              columns={['Game', 'Date', 'Venue', 'Players', 'Status', 'Fee']}
+              columns={['Game', 'Date', 'Venue', 'Capacity', 'Bookings', 'Status', 'Fee']}
               rows={file.upcomingGames.map((game) => [
                 text(game, 'title') || 'Untitled game',
                 formatDate(text(game, 'date_time')),
                 gameVenue(game, file.venues),
                 `${file.bookingCountsByGameId.get(text(game, 'id')) || 0}/${formatCount(number(game, 'max_spots'))}`,
+                gameBookingSummary(game, file.bookingsByGameId),
                 <StatusPill key="status" label={text(game, 'status') || 'unknown'} tone={gameTone(game)} />,
                 formatGameFee(game),
               ])}
@@ -221,12 +238,13 @@ export default async function ClubFilePage({ params }: PageProps) {
               caption="Recent games"
               note="Most recent past or completed sessions for this club."
               empty="No recent games found for this club."
-              columns={['Game', 'Date', 'Venue', 'Players', 'Status', 'Fee']}
+              columns={['Game', 'Date', 'Venue', 'Capacity', 'Bookings', 'Status', 'Fee']}
               rows={file.recentGames.map((game) => [
                 text(game, 'title') || 'Untitled game',
                 formatDate(text(game, 'date_time')),
                 gameVenue(game, file.venues),
                 `${file.bookingCountsByGameId.get(text(game, 'id')) || 0}/${formatCount(number(game, 'max_spots'))}`,
+                gameBookingSummary(game, file.bookingsByGameId),
                 <StatusPill key="status" label={text(game, 'status') || 'unknown'} tone={gameTone(game)} />,
                 formatGameFee(game),
               ])}
@@ -235,6 +253,11 @@ export default async function ClubFilePage({ params }: PageProps) {
         </Section>
 
         <Section id="members" title="Members" icon={<Users className="h-5 w-5" />} description="Club members and admins. Member rows are capped previews.">
+          <div className="mb-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {file.memberMetrics.map((metric) => (
+              <MetricCard key={metric.label} metric={metric} />
+            ))}
+          </div>
           <DataTable
             caption="Member preview"
             note={`${formatCount(file.members.length)} loaded member rows. Approved member count is used for public/social proof counts.`}
@@ -255,11 +278,16 @@ export default async function ClubFilePage({ params }: PageProps) {
         </Section>
 
         <Section id="bookings" title="Bookings" icon={<Ticket className="h-5 w-5" />} description="Club-scoped booking state across the loaded game preview.">
+          <div className="mb-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {file.bookingMetrics.map((metric) => (
+              <MetricCard key={metric.label} metric={metric} />
+            ))}
+          </div>
           <DataTable
             caption="Recent bookings"
             note={`${formatCount(file.bookings.length)} loaded booking rows across this club's loaded games.`}
             empty="No bookings were found for the loaded club games."
-            columns={['Created', 'Player', 'Game', 'Booking', 'Payment', 'Fee', 'Waitlist']}
+            columns={['Created', 'Player', 'Game', 'Game time', 'Booking', 'Payment', 'Fee', 'Waitlist']}
             rows={file.bookings.slice(0, 120).map((booking) => {
               const profile = file.profileById.get(text(booking, 'user_id'));
               const game = file.gameById.get(text(booking, 'game_id'));
@@ -268,6 +296,7 @@ export default async function ClubFilePage({ params }: PageProps) {
                 formatDate(text(booking, 'created_at')),
                 text(profile, 'full_name') || text(profile, 'email') || text(booking, 'user_id') || 'Unknown player',
                 text(game, 'title') || 'Unknown game',
+                formatDate(text(game, 'date_time')),
                 <StatusPill key="booking" label={text(booking, 'status') || 'unknown'} tone={bookingTone(booking)} />,
                 <StatusPill key="payment" label={payment.label} tone={payment.tone} />,
                 formatBookingFee(booking, game),
@@ -283,6 +312,7 @@ export default async function ClubFilePage({ params }: PageProps) {
               <MetricCard key={metric.label} metric={metric} />
             ))}
           </div>
+          <PaymentAttentionPanel rows={file.paymentAttention} />
           <DataTable
             caption="Paid or Stripe-linked bookings"
             note="Payment records are inferred from existing booking fields and Stripe metadata already stored in the database."
@@ -441,6 +471,7 @@ async function loadClubFile(
   const subscription = subscriptionResult.data[0];
   const profileById = mapByKey(profiles, 'id');
   const gameById = mapByKey(games, 'id');
+  const bookingsByGameId = groupByKey(bookings, 'game_id');
   const bookingCountsByGameId = countBy(bookings.filter((booking) => text(booking, 'status') !== 'cancelled'), 'game_id');
   const upcomingGames = games
     .filter((game) => isUpcomingGame(game, now))
@@ -453,6 +484,9 @@ async function loadClubFile(
   const approvedMembers = members.filter((row) => text(row, 'status') === 'approved');
   const pendingMembers = members.filter((row) => text(row, 'status') === 'pending' || text(row, 'status') === 'requested');
   const confirmedBookings = bookings.filter((booking) => text(booking, 'status') === 'confirmed');
+  const waitlistedBookings = bookings.filter((booking) => text(booking, 'status') === 'waitlisted');
+  const cancelledBookings = bookings.filter((booking) => text(booking, 'status') === 'cancelled');
+  const expiredHoldBookings = expiredHolds(bookings, now);
   const pendingPayments = bookings.filter((booking) => text(booking, 'stripe_payment_intent_id') && !bool(booking, 'fee_paid') && text(booking, 'status') !== 'cancelled');
   const paymentRows = bookings.filter((booking) => text(booking, 'stripe_payment_intent_id') || bool(booking, 'fee_paid') || text(booking, 'payment_method') === 'stripe').slice(0, 80);
   const failedPayments = bookings.filter((booking) => {
@@ -460,6 +494,10 @@ async function loadClubFile(
     return status === 'failed' || status === 'requires_payment_method' || status === 'payment_failed';
   });
   const failedRefunds = bookings.filter((booking) => text(booking, 'refund_status') === 'failed');
+  const refundedBookings = bookings.filter((booking) => {
+    const status = text(booking, 'refund_status');
+    return status === 'succeeded' || status === 'refunded';
+  });
   const failedNotifications = notifications.filter((notification) => {
     const status = text(notification, 'delivery_status') || text(notification, 'send_status');
     return status === 'failed' || status === 'error';
@@ -474,6 +512,7 @@ async function loadClubFile(
   const location = clubLocation(club, venues);
   const subscriptionPlan = text(club, 'subscription_tier') || text(subscription, 'plan_type') || text(subscription, 'tier') || text(subscription, 'plan') || 'not tracked';
   const subscriptionStatus = text(subscription, 'status') || (subscription ? 'unknown' : 'none');
+  const zeroPlayerUpcomingGames = upcomingGames.filter((game) => (bookingCountsByGameId.get(text(game, 'id')) || 0) === 0);
   const issues: OperationalIssue[] = [
     ...(location === 'Missing location'
       ? [{ label: 'Missing location', detail: 'Club has no structured venue, suburb, address, or location fallback in the loaded data.', tone: 'warn' as StatusTone }]
@@ -496,9 +535,64 @@ async function loadClubFile(
     ...(failedNotifications.length > 0
       ? [{ label: 'Failed notifications', detail: `${formatCount(failedNotifications.length)} club-related notification${failedNotifications.length === 1 ? '' : 's'} show delivery failure.`, tone: 'warn' as StatusTone }]
       : []),
+    ...(expiredHoldBookings.length > 0
+      ? [{ label: 'Expired booking holds', detail: `${formatCount(expiredHoldBookings.length)} active hold${expiredHoldBookings.length === 1 ? '' : 's'} appear to be past expiry.`, tone: 'bad' as StatusTone }]
+      : []),
+    ...(zeroPlayerUpcomingGames.length > 0
+      ? [{ label: 'Zero-player upcoming games', detail: `${formatCount(zeroPlayerUpcomingGames.length)} upcoming game${zeroPlayerUpcomingGames.length === 1 ? '' : 's'} currently have no active bookings.`, tone: 'warn' as StatusTone }]
+      : []),
     ...(upcomingGames.length === 0
       ? [{ label: 'No upcoming games', detail: 'The club has no upcoming sessions in the loaded games preview.', tone: 'neutral' as StatusTone }]
       : []),
+  ];
+  const criticalIssues = issues.filter((issue) => issue.tone === 'bad').length;
+  const warningIssues = issues.filter((issue) => issue.tone === 'warn').length;
+  const health =
+    criticalIssues > 0
+      ? { label: 'Needs review', tone: 'bad' as StatusTone }
+      : warningIssues > 0
+        ? { label: 'Watch', tone: 'warn' as StatusTone }
+        : { label: 'Healthy', tone: 'good' as StatusTone };
+  const paymentAttention = [
+    ...pendingPayments.slice(0, 4).map((booking) => paymentAttentionRow(booking, gameById, profileById, 'Pending payment', 'Stripe intent exists but the booking is not marked paid.', 'warn' as StatusTone)),
+    ...failedPayments.slice(0, 4).map((booking) => paymentAttentionRow(booking, gameById, profileById, 'Failed payment', 'Payment status indicates failure.', 'bad' as StatusTone)),
+    ...failedRefunds.slice(0, 4).map((booking) => paymentAttentionRow(booking, gameById, profileById, 'Failed refund', 'Refund status needs manual review.', 'bad' as StatusTone)),
+  ].slice(0, 8);
+  const healthBrief = [
+    {
+      label: 'Club health',
+      value: health.label,
+      detail:
+        criticalIssues > 0
+          ? `${formatCount(criticalIssues)} critical flag${criticalIssues === 1 ? '' : 's'} need owner review.`
+          : warningIssues > 0
+            ? `${formatCount(warningIssues)} warning flag${warningIssues === 1 ? '' : 's'} to watch.`
+            : 'No critical club issues found in the loaded preview.',
+      tone: health.tone,
+    },
+    {
+      label: 'Payments',
+      value: payoutsReady ? 'Payout-ready' : hasStripeAccount ? 'Onboarding' : 'Manual/free',
+      detail:
+        feeChargingGames.length > 0 && !payoutsReady
+          ? 'Paid games exist, so Stripe payout readiness is the first thing to check.'
+          : pendingPayments.length > 0
+            ? 'Payment setup looks usable, but pending payment rows need review.'
+            : 'No payment blocker found from the loaded Stripe and booking fields.',
+      tone: feeChargingGames.length > 0 && !payoutsReady ? 'warn' as StatusTone : pendingPayments.length > 0 ? 'warn' as StatusTone : 'good' as StatusTone,
+    },
+    {
+      label: 'Activity',
+      value: `${formatCount(upcomingGames.length)} upcoming`,
+      detail: `${formatCount(confirmedBookings.length)} confirmed booking${confirmedBookings.length === 1 ? '' : 's'} and ${formatCount(waitlistedBookings.length)} waitlisted row${waitlistedBookings.length === 1 ? '' : 's'} in the loaded preview.`,
+      tone: upcomingGames.length > 0 ? 'good' as StatusTone : 'neutral' as StatusTone,
+    },
+    {
+      label: 'People',
+      value: `${formatCount(approvedMembers.length)} members`,
+      detail: `${formatCount(admins.length)} admin row${admins.length === 1 ? '' : 's'}, ${formatCount(pendingMembers.length)} pending membership row${pendingMembers.length === 1 ? '' : 's'}.`,
+      tone: approvedMembers.length > 0 && admins.length > 0 ? 'good' as StatusTone : 'warn' as StatusTone,
+    },
   ];
 
   return {
@@ -515,11 +609,15 @@ async function loadClubFile(
     notificationsConfigured: notificationsResult.configured,
     profileById,
     gameById,
+    bookingsByGameId,
     bookingCountsByGameId,
     upcomingGames,
     recentGames,
     issues,
+    health,
+    healthBrief,
     paymentRows,
+    paymentAttention,
     stripe: {
       label: stripeStatus(stripe),
       tone: stripeTone(stripe),
@@ -554,6 +652,19 @@ async function loadClubFile(
       { label: 'Pending requests', value: formatCount(pendingMembers.length), hint: 'Pending/requested memberships', tone: pendingMembers.length > 0 ? 'warn' : 'good' },
       { label: 'Issues', value: formatCount(issues.length), hint: 'Derived read-only action flags', tone: issues.some((issue) => issue.tone === 'bad') ? 'bad' : issues.length > 0 ? 'warn' : 'good' },
     ] satisfies { label: string; value: string; hint: string; tone?: StatusTone }[],
+    memberMetrics: [
+      { label: 'Approved', value: formatCount(approvedMembers.length), hint: 'Visible active members', tone: approvedMembers.length > 0 ? 'good' : 'warn' },
+      { label: 'Pending', value: formatCount(pendingMembers.length), hint: 'Requests or pending rows', tone: pendingMembers.length > 0 ? 'warn' : 'good' },
+      { label: 'Admins', value: formatCount(admins.length), hint: 'Club admin rows', tone: admins.length > 0 ? 'good' : 'warn' },
+      { label: 'Loaded rows', value: formatCount(members.length), hint: membersResult.limit ? `Read cap ${formatCount(membersResult.limit)}` : 'All loaded rows', tone: members.length >= (membersResult.limit || Infinity) ? 'warn' : 'neutral' },
+    ] satisfies { label: string; value: string; hint: string; tone?: StatusTone }[],
+    bookingMetrics: [
+      { label: 'Confirmed', value: formatCount(confirmedBookings.length), hint: 'Confirmed bookings', tone: confirmedBookings.length > 0 ? 'good' : 'neutral' },
+      { label: 'Waitlisted', value: formatCount(waitlistedBookings.length), hint: 'Waitlist rows', tone: waitlistedBookings.length > 0 ? 'warn' : 'neutral' },
+      { label: 'Cancelled', value: formatCount(cancelledBookings.length), hint: 'Cancelled rows', tone: cancelledBookings.length > 0 ? 'neutral' : 'good' },
+      { label: 'Expired holds', value: formatCount(expiredHoldBookings.length), hint: 'Active holds past expiry', tone: expiredHoldBookings.length > 0 ? 'bad' : 'good' },
+      { label: 'Loaded rows', value: formatCount(bookings.length), hint: bookingsResult.limit ? `Read cap ${formatCount(bookingsResult.limit)}` : 'All loaded rows', tone: bookings.length >= (bookingsResult.limit || Infinity) ? 'warn' : 'neutral' },
+    ] satisfies { label: string; value: string; hint: string; tone?: StatusTone }[],
     snapshot: [
       { label: 'Plan', value: subscriptionPlan, tone: 'neutral' as StatusTone },
       { label: 'Subscription', value: subscriptionStatus, tone: subscriptionStatusTone(subscriptionStatus) },
@@ -567,6 +678,8 @@ async function loadClubFile(
       { label: 'Platform fees', value: formatCents(platformFeeCents), hint: 'platform_fee_cents in loaded preview', tone: platformFeeCents > 0 ? 'good' : 'warn' },
       { label: 'Club payouts', value: formatCents(clubPayoutCents), hint: 'club_payout_cents in loaded preview', tone: clubPayoutCents > 0 ? 'neutral' : 'warn' },
       { label: 'Pending payments', value: formatCount(pendingPayments.length), hint: 'Stripe intent exists, not paid', tone: pendingPayments.length > 0 ? 'warn' : 'good' },
+      { label: 'Refunded bookings', value: formatCount(refundedBookings.length), hint: 'Refund status succeeded/refunded', tone: refundedBookings.length > 0 ? 'neutral' : 'good' },
+      { label: 'Failed refunds', value: formatCount(failedRefunds.length), hint: 'Refund rows needing review', tone: failedRefunds.length > 0 ? 'bad' : 'good' },
     ] satisfies { label: string; value: string; hint: string; tone?: StatusTone }[],
   };
 }
@@ -710,6 +823,18 @@ function InfoRow({ label, value, tone }: { label: string; value: string; tone: S
   );
 }
 
+function BriefRow({ item }: { item: { label: string; value: string; detail: string; tone: StatusTone } }) {
+  return (
+    <div className="rounded-lg border border-border bg-surface-tint px-3 py-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="truncate text-sm font-semibold text-text-primary">{item.label}</p>
+        <StatusPill label={item.value} tone={item.tone} />
+      </div>
+      <p className="mt-1 text-xs leading-4 text-text-secondary">{item.detail}</p>
+    </div>
+  );
+}
+
 function InfoPanel({ title, rows }: { title: string; rows: string[][] }) {
   return (
     <Panel className="p-4">
@@ -752,6 +877,49 @@ function IssueCard({ issue }: { issue: OperationalIssue }) {
           <p className="mt-1 text-xs leading-4 text-text-secondary">{issue.detail}</p>
         </div>
         <Icon className={`h-5 w-5 flex-shrink-0 ${iconClass}`} />
+      </div>
+    </Panel>
+  );
+}
+
+function PaymentAttentionPanel({
+  rows,
+}: {
+  rows: { label: string; player: string; game: string; amount: string; detail: string; tone: StatusTone }[];
+}) {
+  if (rows.length === 0) {
+    return (
+      <Panel className="mb-3 border-success/20 bg-success/5 p-4">
+        <div className="flex items-start gap-3">
+          <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-success" />
+          <div>
+            <h3 className="text-sm font-semibold text-text-primary">No payment rows need attention</h3>
+            <p className="mt-1 text-sm leading-5 text-text-secondary">No pending payments, failed payments, or failed refunds were found in the loaded club preview.</p>
+          </div>
+        </div>
+      </Panel>
+    );
+  }
+
+  return (
+    <Panel className="mb-3 overflow-hidden p-0">
+      <div className="border-b border-border px-4 py-3">
+        <h3 className="text-sm font-semibold text-text-primary">Payment rows needing review</h3>
+        <p className="mt-0.5 text-xs text-text-secondary">Read-only triage list. Follow up in Stripe, Supabase, or club ops; no payment actions are exposed here.</p>
+      </div>
+      <div className="divide-y divide-border">
+        {rows.map((row, index) => (
+          <div key={`${row.label}-${row.player}-${index}`} className="grid gap-2 px-4 py-3 sm:grid-cols-[1fr_auto] sm:items-center">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-text-primary">{row.label}</p>
+              <p className="mt-1 text-xs leading-4 text-text-secondary">
+                {row.player} · {row.game} · {row.amount}
+              </p>
+              <p className="mt-1 text-xs leading-4 text-text-tertiary">{row.detail}</p>
+            </div>
+            <StatusPill label="review" tone={row.tone} />
+          </div>
+        ))}
       </div>
     </Panel>
   );
@@ -881,6 +1049,18 @@ function mapByKey(rows: Row[], key: string) {
   return map;
 }
 
+function groupByKey(rows: Row[], key: string) {
+  const map = new Map<string, Row[]>();
+  rows.forEach((row) => {
+    const rowKey = text(row, key);
+    if (!rowKey) return;
+    const group = map.get(rowKey) || [];
+    group.push(row);
+    map.set(rowKey, group);
+  });
+  return map;
+}
+
 function countBy(rows: Row[], key: string) {
   const map = new Map<string, number>();
   rows.forEach((row) => {
@@ -888,6 +1068,14 @@ function countBy(rows: Row[], key: string) {
     if (rowKey) map.set(rowKey, (map.get(rowKey) || 0) + 1);
   });
   return map;
+}
+
+function gameBookingSummary(game: Row, bookingsByGameId: Map<string, Row[]>) {
+  const rows = bookingsByGameId.get(text(game, 'id')) || [];
+  const confirmed = rows.filter((booking) => text(booking, 'status') === 'confirmed').length;
+  const waitlisted = rows.filter((booking) => text(booking, 'status') === 'waitlisted').length;
+  const cancelled = rows.filter((booking) => text(booking, 'status') === 'cancelled').length;
+  return `${formatCount(confirmed)} confirmed · ${formatCount(waitlisted)} waitlist · ${formatCount(cancelled)} cancelled`;
 }
 
 function isUpcomingGame(game: Row | undefined, now: Date) {
@@ -967,6 +1155,15 @@ function isPaidBooking(booking: Row) {
   return bool(booking, 'fee_paid') || status === 'paid' || status === 'succeeded';
 }
 
+function expiredHolds(bookings: Row[], now: Date) {
+  return bookings.filter((booking) => {
+    const expiresAt = text(booking, 'hold_expires_at');
+    if (!expiresAt || text(booking, 'status') === 'cancelled') return false;
+    const timestamp = new Date(expiresAt).getTime();
+    return Number.isFinite(timestamp) && timestamp < now.getTime();
+  });
+}
+
 function bookingGrossCents(booking: Row, game: Row | undefined) {
   const amount = number(booking, 'amount_cents');
   if (amount > 0) return amount;
@@ -982,6 +1179,26 @@ function refundStatus(booking: Row) {
   if (status === 'succeeded' || status === 'refunded') return { label: status, tone: 'good' } as const;
   if (status === 'failed') return { label: status, tone: 'bad' } as const;
   return { label: status, tone: 'warn' } as const;
+}
+
+function paymentAttentionRow(
+  booking: Row,
+  gameById: Map<string, Row>,
+  profileById: Map<string, Row>,
+  label: string,
+  detail: string,
+  tone: StatusTone,
+) {
+  const game = gameById.get(text(booking, 'game_id'));
+  const profile = profileById.get(text(booking, 'user_id'));
+  return {
+    label,
+    detail,
+    tone,
+    player: text(profile, 'full_name') || text(profile, 'email') || text(booking, 'user_id') || 'Unknown player',
+    game: text(game, 'title') || 'Unknown game',
+    amount: formatBookingFee(booking, game),
+  };
 }
 
 function notificationDelivery(notification: Row) {
