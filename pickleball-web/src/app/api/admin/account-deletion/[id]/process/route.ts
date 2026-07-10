@@ -42,6 +42,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   });
 
   if (error) {
+    await recordAdminAction(supabaseAdmin, admin.userId, requestId, 'failed', error.message, adminNote);
     redirectUrl.searchParams.set('deletionAction', 'failed');
     redirectUrl.searchParams.set('message', error.message.slice(0, 160));
     return NextResponse.redirect(redirectUrl, { status: 303 });
@@ -61,8 +62,36 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const result = Array.isArray(data) ? data[0] : data;
   const status = typeof result?.out_status === 'string' ? result.out_status : 'completed';
+  await recordAdminAction(supabaseAdmin, admin.userId, requestId, status, typeof result?.out_message === 'string' ? result.out_message : '', adminNote);
   redirectUrl.searchParams.set('deletionAction', status);
   return NextResponse.redirect(redirectUrl, { status: 303 });
+}
+
+// Phase 4A A5: every processing attempt lands in the admin_actions audit
+// trail alongside the existing reviewed_by/admin_notes stamp. Best-effort —
+// audit failure never blocks the (already status-gated, idempotent) RPC flow.
+async function recordAdminAction(
+  supabaseAdmin: NonNullable<ReturnType<typeof createSupabaseAdminClient>>,
+  adminUserId: string,
+  requestId: string,
+  resultStatus: string,
+  resultMessage: string,
+  adminNote: string,
+) {
+  const auditStatus = resultStatus === 'completed' ? 'succeeded' : resultStatus === 'failed' ? 'failed' : 'skipped';
+  const { error } = await supabaseAdmin.from('admin_actions').insert({
+    admin_user_id: adminUserId,
+    target_type: 'deletion_request',
+    target_id: requestId,
+    action: 'process_account_deletion',
+    status: auditStatus,
+    reason: auditStatus === 'succeeded' ? null : resultStatus,
+    note: adminNote ? adminNote.slice(0, 1000) : null,
+    metadata: { result_status: resultStatus, ...(resultMessage ? { result_message: resultMessage.slice(0, 500) } : {}) },
+  });
+  if (error) {
+    console.warn('Deletion request processed but admin_actions audit insert failed', error.message);
+  }
 }
 
 function isUuid(value: string) {

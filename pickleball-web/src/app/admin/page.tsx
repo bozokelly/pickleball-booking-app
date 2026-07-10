@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   description: 'Bookadink internal beta operations command centre.',
 };
 
-type SearchParams = Promise<{ q?: string; tab?: string; deletionAction?: string; message?: string }>;
+type SearchParams = Promise<{ q?: string; tab?: string; deletionAction?: string; message?: string; adminAction?: string; adminMessage?: string }>;
 type PageProps = { searchParams?: SearchParams };
 type Row = Record<string, unknown>;
 type CountValue = number | null;
@@ -131,12 +131,26 @@ type DeletionRequestView = {
   canProcess: boolean;
 };
 type AdminTab = 'overview' | 'clubs' | 'players' | 'bookings' | 'payments' | 'notifications' | 'compliance' | 'platform' | 'issues';
+type OperatorQueueRow = {
+  bookingId: string;
+  stateLabel: string;
+  stateTone: StatusTone;
+  stateDetail: string;
+  action: 'resolve-hold' | 'retry-reconciliation' | null;
+  issueKey: string;
+  playerName: string;
+  gameTitle: string;
+  clubName: string;
+  clubId: string;
+  lifecycle: [string, string][];
+};
 
 export default async function AdminPage({ searchParams }: PageProps) {
   const params = searchParams ? await searchParams : {};
   const query = (params.q || '').trim();
   const activeTab = normalizeTab(params.tab);
   const deletionActionNotice = deletionNotice(params.deletionAction, params.message);
+  const operatorActionNotice = adminActionNotice(params.adminAction, params.adminMessage);
   const admin = await requireBusinessAdmin();
 
   if (!admin.allowed) {
@@ -189,9 +203,14 @@ export default async function AdminPage({ searchParams }: PageProps) {
           <div className="mt-auto rounded-xl border border-white/10 bg-white/[0.06] p-3">
             <div className="mb-3 flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-success" />
-              <span className="text-xs font-semibold uppercase tracking-wide text-white/60">Read-only owner access</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-white/60">
+                {admin.role === 'support' ? 'Support access' : `${admin.role} access`}
+              </span>
             </div>
             <p className="truncate text-sm font-semibold">{admin.email || admin.userId}</p>
+            <p className="mt-1 text-xs text-white/45">
+              {admin.role === 'support' ? 'Notes & mark-reviewed only, from the Action queue.' : 'Audited safe actions live in the Action queue.'}
+            </p>
             <p className="mt-1 text-xs text-white/45">Refreshed {dashboard.generatedAt}</p>
           </div>
         </aside>
@@ -202,12 +221,15 @@ export default async function AdminPage({ searchParams }: PageProps) {
               <div className="min-w-0">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <StatusPill label="Internal" tone="dark" />
-                  <StatusPill label="Read-only" tone="neutral" />
+                  <StatusPill label={admin.role === 'support' ? 'notes & review only' : 'audited safe actions'} tone="neutral" />
                   <StatusPill label={admin.role} tone="info" />
                 </div>
                 <h1 className="text-2xl font-semibold tracking-tight text-text-primary sm:text-3xl">Command Centre</h1>
                 <p className="mt-1 max-w-3xl text-sm text-text-secondary">
                   Live beta operations across clubs, players, bookings, payments, notifications, compliance, and system health.
+                  {admin.role === 'support'
+                    ? ' Support role: add notes and mark issues reviewed from the Action queue tab.'
+                    : ' Safe operator actions (notes, review stamps, hold resolution, payment reconciliation) run from the Action queue tab — every mutation is audited.'}
                 </p>
               </div>
               <form action="/admin" className="flex w-full max-w-2xl items-center gap-2 print:hidden">
@@ -303,7 +325,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
             <Section id="clubs" title="Club operations" icon={<Building2 className="h-5 w-5" />} description={dashboard.tableNotes.clubs}>
               <DataTable
                 caption="Club file index"
-                note="Use this as the Finder-style index. Open a Club File for games, members, payments, notifications, and club-specific issues."
+                note="Use this as the Finder-style index. Open a Club File for games, members, payments, notifications, and club-specific issues. Club records are not editable here — guarded operator actions on flagged bookings live in the Action queue tab."
                 empty={query ? `No clubs matched "${query}".` : 'No clubs are available in this admin preview.'}
                 columns={['Club', 'Health', 'Subscription', 'Stripe', 'Members', 'Admins', 'Upcoming', 'Last activity', 'Open']}
                 rows={dashboard.clubs.map((club) => [
@@ -434,7 +456,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
                 caption="Notification preview"
                 note="Failures and unread rows are sorted first. Club-linked references can be opened in a Club File."
                 empty={dashboard.notificationsConfigured ? (query ? `No notifications matched "${query}".` : 'No notification records are available in this admin preview.') : 'Notification health is unavailable until admin notification access is configured.'}
-                columns={['Signal', 'Created', 'Recipient', 'Type', 'Title', 'Read', 'Email', 'Club File']}
+                columns={['Signal', 'Created', 'Recipient', 'Type', 'Title', 'Read', 'Push', 'Email', 'Club File']}
                 rows={dashboard.notifications.map((notification) => [
                   <StatusPill key="signal" label={notification.signalLabel} tone={notification.signalTone} />,
                   notification.createdAt,
@@ -442,6 +464,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
                   <StatusPill key="type" label={notification.type} tone="neutral" />,
                   notification.title,
                   <StatusPill key="read" label={notification.read} tone={notification.readTone} />,
+                  <StatusPill key="push" label={notification.push} tone={notification.pushTone} />,
                   <StatusPill key="email" label={notification.email} tone={notification.emailTone} />,
                   notification.clubId ? (
                     <Link key="club" href={`/admin/clubs/${notification.clubId}`} className="inline-flex max-w-full items-center gap-1.5 font-semibold text-text-primary hover:text-info">
@@ -517,13 +540,34 @@ export default async function AdminPage({ searchParams }: PageProps) {
           )}
 
           {activeTab === 'issues' && (
-            <Section id="system-health" title="Action queue" icon={<HeartPulse className="h-5 w-5" />} description="Read-only checks for payment, venue, game, and notification data quality">
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {dashboard.health.map((item) => (
-                  <HealthCard key={item.label} label={item.label} value={item.value} detail={item.detail} tone={item.tone} />
-                ))}
-              </div>
-            </Section>
+            <>
+              <Section id="system-health" title="Action queue" icon={<HeartPulse className="h-5 w-5" />} description="Data-quality checks for payments, venues, games, and notifications — guarded operator actions on flagged bookings are just below">
+                {operatorActionNotice && (
+                  <Panel className={`mb-3 p-4 ${operatorActionNotice.tone === 'good' ? 'border-success/25 bg-success/5' : operatorActionNotice.tone === 'warn' ? 'border-warning/25 bg-warning/5' : 'border-error/25 bg-error/5'}`}>
+                    <div className="flex items-start gap-3">
+                      {operatorActionNotice.tone === 'good' ? <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-success" /> : <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-warning" />}
+                      <div>
+                        <h3 className="text-sm font-semibold text-text-primary">{operatorActionNotice.title}</h3>
+                        <p className="mt-1 text-sm text-text-secondary">{operatorActionNotice.detail}</p>
+                      </div>
+                    </div>
+                  </Panel>
+                )}
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {dashboard.health.map((item) => (
+                    <HealthCard key={item.label} label={item.label} value={item.value} detail={item.detail} tone={item.tone} />
+                  ))}
+                </div>
+              </Section>
+              <Section
+                id="operator-actions"
+                title="Operator actions"
+                icon={<ShieldCheck className="h-5 w-5" />}
+                description="Guarded server actions on flagged bookings. Every attempt is audited in admin_actions."
+              >
+                <OperatorQueuePanel rows={dashboard.operatorQueue} canAction={admin.role !== 'support'} />
+              </Section>
+            </>
           )}
         </div>
       </div>
@@ -559,6 +603,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     deletionRequestsResult,
     legalDocumentsResult,
     venuesResult,
+    pushLogResult,
     totalClubs,
     totalPlayers,
     upcomingGames,
@@ -592,6 +637,9 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
       : unconfiguredRows('account_deletion_requests', 'Set SUPABASE_SERVICE_ROLE_KEY for the command centre to view and process deletion requests.', 100),
     safeRows('legal_documents', () => adminReader.from('legal_documents').select('*').order('created_at', { ascending: false }).limit(20), true, 20),
     safeRows('club_venues', () => adminReader.from('club_venues').select('*').limit(500), true, 500),
+    supabaseAdmin
+      ? safeRows('push_notification_log', () => supabaseAdmin.from('push_notification_log').select('id,notification_id,user_id,device_token,apns_status,apns_error,created_at').order('created_at', { ascending: false }).limit(600), true, 600)
+      : unconfiguredRows('push_notification_log', 'Set SUPABASE_SERVICE_ROLE_KEY to read per-device push delivery evidence.', 600),
     safeCount('clubs', () => adminReader.from('clubs').select('id', { count: 'exact', head: true })),
     safeCount('profiles', () => adminReader.from('profiles').select('id', { count: 'exact', head: true })),
     safeCount('upcoming games', () =>
@@ -625,6 +673,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     deletionRequestsResult,
     legalDocumentsResult,
     venuesResult,
+    pushLogResult,
     totalClubs,
     totalPlayers,
     upcomingGames,
@@ -649,6 +698,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
   const deletionRequests = deletionRequestsResult.data;
   const legalDocuments = legalDocumentsResult.data;
   const venues = venuesResult.data;
+  const pushLog = pushLogResult.data;
 
   const clubById = mapById(clubs);
   const profileById = mapById(profiles);
@@ -802,6 +852,8 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     .filter((payment) => include([payment.playerName, payment.clubName, payment.paymentIntent, payment.connectedAccount, payment.paymentStatus]))
     .slice(0, 80);
 
+  const pushLogByNotificationId = groupByKey(pushLog, 'notification_id');
+
   const notificationRows = notifications
     .map((notification) => {
       const profile = profileById.get(text(notification, 'user_id'));
@@ -810,7 +862,9 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
       const referenceGame = gameById.get(referenceId);
       const clubId = clubById.has(referenceId) ? referenceId : text(referenceGame, 'club_id');
       const club = clubId ? clubById.get(clubId) : undefined;
-      const signal = notificationSignal(notification);
+      const deliveries = pushLogByNotificationId.get(text(notification, 'id')) || [];
+      const failedDeliveries = deliveries.filter(isFailedPushLogRow).length;
+      const signal = notificationSignal(notification, deliveries);
       return {
         createdAt: formatDate(text(notification, 'created_at')),
         recipient: text(profile, 'full_name') || text(profile, 'email') || text(notification, 'user_id') || '-',
@@ -823,6 +877,13 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
         clubName: text(club, 'name') || 'Club File',
         read: bool(notification, 'read') ? 'read' : 'unread',
         readTone: (bool(notification, 'read') ? 'neutral' : 'warn') as StatusTone,
+        push:
+          deliveries.length === 0
+            ? 'no log'
+            : failedDeliveries > 0
+              ? `${deliveries.length - failedDeliveries}/${deliveries.length} devices`
+              : `${deliveries.length} device${deliveries.length === 1 ? '' : 's'}`,
+        pushTone: (deliveries.length === 0 ? 'neutral' : failedDeliveries > 0 ? 'bad' : 'good') as StatusTone,
         email: typeof emailSent === 'boolean' ? (emailSent ? 'sent' : 'not sent') : 'not tracked',
         emailTone: (typeof emailSent === 'boolean' ? (emailSent ? 'good' : 'neutral') : 'neutral') as StatusTone,
         reference: referenceId || '-',
@@ -833,10 +894,11 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     .slice(0, 120);
 
   const activeClubs = new Set(games.filter((game) => isUpcomingGame(game, now)).map((game) => text(game, 'club_id')).filter(Boolean)).size;
-  const failedNotifications = notifications.filter((notification) => {
-    const status = text(notification, 'delivery_status') || text(notification, 'send_status');
-    return status === 'failed' || status === 'error';
-  }).length;
+  // Real per-device delivery evidence from push_notification_log (apns_status /
+  // apns_error) — the notifications table has no delivery_status/send_status
+  // columns, so reading those produced a permanent false "all clear".
+  const failedPushRows = pushLog.filter(isFailedPushLogRow);
+  const failedNotifications = new Set(failedPushRows.map((row) => text(row, 'notification_id') || text(row, 'id'))).size;
   const notSentNotifications = notifications.filter((notification) => value(notification, 'email_sent') === false).length;
   const unreadNotifications = notifications.filter((notification) => !bool(notification, 'read')).length;
   const clubLinkedNotifications = notificationRows.filter((notification) => notification.clubId).length;
@@ -852,6 +914,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
   const upcomingGamesWithNoPlayers = emptyUpcomingGames(games, bookings, now);
   const paidGamesWithoutStripe = paidGamesMissingStripe(games, clubs, stripeAccounts);
   const clubsWithoutLocation = clubsMissingLocation(clubs, venueByClubId);
+  const operatorQueue = buildOperatorQueue(bookings, gameById, clubById, profileById, now);
   const paidBookingRows = bookings.filter((booking) => isPaidBooking(booking));
   const monthStart = startOfMonth(now);
   const previousMonthStart = new Date(monthStart);
@@ -1142,8 +1205,8 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     },
     {
       label: 'Failed notifications',
-      value: notificationsResult.configured ? formatCount(failedNotifications) : 'Not configured',
-      detail: 'Delivery failures if delivery status is tracked.',
+      value: pushLogResult.configured ? formatCount(failedNotifications) : 'Not configured',
+      detail: 'Per-device push send failures recorded in push_notification_log.',
       tone: failedNotifications > 0 ? 'bad' : 'good',
     },
   ];
@@ -1171,8 +1234,8 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     },
     {
       label: 'Failed notifications',
-      value: notificationsResult.configured ? formatCount(failedNotifications) : 'Not configured',
-      detail: notificationsResult.configured ? 'Delivery errors if notification status is tracked.' : 'Notification health is not exposed to this view.',
+      value: pushLogResult.configured ? formatCount(failedNotifications) : 'Not configured',
+      detail: pushLogResult.configured ? 'Per-device push send failures from push_notification_log.' : 'Push delivery evidence requires the service-role key.',
       tone: failedNotifications > 0 ? 'bad' : 'neutral',
       href: '/admin?tab=notifications',
     },
@@ -1550,9 +1613,9 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     notifications: notificationRows,
     notificationSignals: [
       {
-        label: 'Failed delivery',
-        value: notificationsResult.configured ? formatCount(failedNotifications) : 'Not configured',
-        detail: 'Rows with failed/error delivery status when tracked.',
+        label: 'Failed push delivery',
+        value: pushLogResult.configured ? formatCount(failedNotifications) : 'Not configured',
+        detail: 'Notifications with a failed per-device send in push_notification_log (apns_status / apns_error).',
         tone: failedNotifications > 0 ? 'bad' : 'good',
       },
       {
@@ -1602,6 +1665,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
       },
     },
     health,
+    operatorQueue,
   };
 }
 
@@ -1709,6 +1773,127 @@ function deletionNotice(
   };
 
   return notices[rawAction] || null;
+}
+
+function adminActionNotice(
+  rawAction: string | undefined,
+  rawMessage: string | undefined,
+): { title: string; detail: string; tone: 'good' | 'warn' | 'bad' } | null {
+  if (!rawAction) return null;
+  const message = rawMessage || '';
+  const notices: Record<string, { title: string; detail: string; tone: 'good' | 'warn' | 'bad' }> = {
+    note_added: { title: 'Note added', detail: 'The internal note was appended to the admin_actions audit log.', tone: 'good' },
+    marked_reviewed: { title: 'Issue marked reviewed', detail: 'The review stamp was appended to the admin_actions audit log.', tone: 'good' },
+    hold_resolved: {
+      title: 'Expired hold resolved',
+      detail: 'The pending hold was cancelled and the seat released. Any waitlist promotion ran via the canonical server path.',
+      tone: 'good',
+    },
+    hold_skipped: {
+      title: 'Hold not resolved',
+      detail: message
+        ? `The server refused the action: ${message}. Rows with payment evidence must go through retry reconciliation.`
+        : 'The server refused the action (already resolved, hold not expired, or payment evidence present).',
+      tone: 'warn',
+    },
+    reconciliation_confirmed: { title: 'Booking confirmed', detail: message || 'Stripe verified the payment and the hold was still live, so the booking confirmed.', tone: 'good' },
+    reconciliation_refunded: { title: 'Refund reconciled', detail: message || 'The reconciler issued or recorded the card refund.', tone: 'good' },
+    reconciliation_skipped: { title: 'Nothing to reconcile', detail: message || 'The reconciler found no safe action to take. Safe to retry later.', tone: 'warn' },
+    support_read_only: { title: 'Read-only admin role', detail: 'Support admins can add notes and mark issues reviewed, but owner or ops access is required for mutations.', tone: 'warn' },
+    missing_service_role: { title: 'Service role key missing', detail: 'Set SUPABASE_SERVICE_ROLE_KEY in the website environment before command centre actions can run.', tone: 'warn' },
+    denied: { title: 'Action denied', detail: 'Your account is not approved for this internal admin action.', tone: 'bad' },
+    invalid: { title: 'Invalid request', detail: 'The action input was invalid — nothing was changed.', tone: 'bad' },
+    failed: { title: 'Action failed', detail: message || 'The action failed on a transient error. Nothing was mutated beyond the audit row; safe to retry.', tone: 'bad' },
+  };
+  return notices[rawAction] || null;
+}
+
+function OperatorQueuePanel({ rows, canAction }: { rows: OperatorQueueRow[]; canAction: boolean }) {
+  if (rows.length === 0) {
+    return (
+      <Panel className="p-4">
+        <h3 className="text-sm font-semibold text-text-primary">No flagged bookings need operator action</h3>
+        <p className="mt-1 text-sm leading-5 text-text-secondary">
+          Expired unpaid holds, captured-but-unconfirmed payments, and stuck refund claims appear here. The per-minute crons self-heal
+          most of these — a persistently flagged row usually means the cron or webhook pipeline needs attention, not the row itself.
+        </p>
+      </Panel>
+    );
+  }
+  const inputClass =
+    'mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-xs font-normal text-text-primary outline-none focus:border-primary/40 focus:ring-4 focus:ring-primary/10';
+  return (
+    <div className="space-y-3">
+      {rows.map((row) => (
+        <Panel key={row.bookingId} className="p-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-[240px] max-w-xl">
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusPill label={row.stateLabel} tone={row.stateTone} />
+                <span className="text-sm font-semibold text-text-primary">{row.playerName}</span>
+              </div>
+              <p className="mt-1 text-xs text-text-secondary">
+                {row.gameTitle} ·{' '}
+                {row.clubId ? (
+                  <Link href={`/admin/clubs/${row.clubId}`} className="font-semibold text-info hover:text-primary">
+                    {row.clubName}
+                  </Link>
+                ) : (
+                  row.clubName
+                )}
+              </p>
+              <p className="mt-2 text-xs leading-4 text-text-secondary">{row.stateDetail}</p>
+            </div>
+            <div className="grid flex-1 grid-cols-1 gap-x-6 gap-y-1 text-[11px] text-text-secondary sm:grid-cols-2">
+              <div className="flex items-center justify-between gap-2 sm:col-span-2">
+                <span className="font-semibold uppercase tracking-wide text-text-tertiary">Booking</span>
+                <Mono value={row.bookingId} />
+              </div>
+              {row.lifecycle.map(([label, lifecycleValue]) => (
+                <div key={label} className="flex items-center justify-between gap-2">
+                  <span className="font-semibold uppercase tracking-wide text-text-tertiary">{label}</span>
+                  <Mono value={lifecycleValue} />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap items-end gap-x-4 gap-y-3 border-t border-border pt-3">
+            {canAction && row.action === 'resolve-hold' && (
+              <form method="post" action={`/api/admin/bookings/${row.bookingId}/resolve-hold`} className="flex min-w-[280px] flex-1 items-end gap-2">
+                <label className="block flex-1 text-[11px] font-semibold text-text-primary">
+                  Reason (optional, audited)
+                  <input name="reason" maxLength={2000} placeholder="Why this hold is being resolved" className={inputClass} />
+                </label>
+                <button className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white transition hover:bg-black">Resolve hold</button>
+              </form>
+            )}
+            {canAction && row.action === 'retry-reconciliation' && (
+              <form method="post" action={`/api/admin/bookings/${row.bookingId}/retry-reconciliation`} className="flex items-end">
+                <button className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white transition hover:bg-black">Retry reconciliation</button>
+              </form>
+            )}
+            <form method="post" action="/api/admin/actions/note" className="flex min-w-[260px] flex-1 items-end gap-2">
+              <input type="hidden" name="targetType" value="booking" />
+              <input type="hidden" name="targetId" value={row.bookingId} />
+              <input type="hidden" name="returnTab" value="issues" />
+              <label className="block flex-1 text-[11px] font-semibold text-text-primary">
+                Internal note
+                <input name="note" maxLength={2000} placeholder="Recorded in the audit log only" className={inputClass} />
+              </label>
+              <button className="rounded-lg border border-border bg-white px-3 py-2 text-xs font-semibold text-text-primary transition hover:bg-black/5">Add note</button>
+            </form>
+            <form method="post" action="/api/admin/actions/reviewed" className="flex items-end">
+              <input type="hidden" name="targetType" value="booking" />
+              <input type="hidden" name="targetId" value={row.bookingId} />
+              <input type="hidden" name="issueKey" value={row.issueKey} />
+              <input type="hidden" name="returnTab" value="issues" />
+              <button className="rounded-lg border border-border bg-white px-3 py-2 text-xs font-semibold text-text-primary transition hover:bg-black/5">Mark reviewed</button>
+            </form>
+          </div>
+        </Panel>
+      ))}
+    </div>
+  );
 }
 
 function AccessDenied({ email, reason }: { email: string | null; reason: string }) {
@@ -2775,11 +2960,120 @@ function refundStatus(booking: Row) {
   return { label: status, tone: 'warn' } as const;
 }
 
-function notificationSignal(notification: Row) {
-  const status = text(notification, 'delivery_status') || text(notification, 'send_status');
-  if (status === 'failed' || status === 'error') return { label: 'failed', tone: 'bad' as StatusTone, priority: 0 };
-  if (value(notification, 'email_sent') === false) return { label: 'not sent', tone: 'warn' as StatusTone, priority: 1 };
+// R2-lite derived payment lifecycle state. Drives which Phase 4A action (if
+// any) is offered on a flagged booking; the server re-derives everything under
+// lock, so this is a UX hint, never an authority.
+function derivedPaymentState(
+  booking: Row,
+  now: Date,
+): { state: string; tone: StatusTone; detail: string; action: OperatorQueueRow['action'] } | null {
+  const status = text(booking, 'status');
+  const refundId = text(booking, 'refund_id');
+  const captured = Boolean(text(booking, 'charge_captured_at') || text(booking, 'captured_payment_intent_id'));
+  const reconciledAtRaw = text(booking, 'charge_reconciled_at');
+  const holdRaw = text(booking, 'hold_expires_at');
+  const holdExpired = Boolean(holdRaw) && new Date(holdRaw).getTime() < now.getTime();
+  const paymentEvidence = captured || Boolean(text(booking, 'paid_at')) || bool(booking, 'fee_paid');
+
+  if (captured && status !== 'confirmed') {
+    if (refundId) return null; // reconciled — nothing to do
+    if (reconciledAtRaw) {
+      const stale = now.getTime() - new Date(reconciledAtRaw).getTime() > 15 * 60 * 1000;
+      if (stale) {
+        return {
+          state: 'stuck refund claim',
+          tone: 'bad',
+          detail: 'Refund claim was stamped over 15 minutes ago but no refund is recorded. Retry checks Stripe for an existing refund, else releases the claim and re-runs the reconciler.',
+          action: 'retry-reconciliation',
+        };
+      }
+      return {
+        state: 'refund in flight',
+        tone: 'warn',
+        detail: 'A reconciliation claim is in flight. The per-minute sweeper should complete it — no action needed yet.',
+        action: null,
+      };
+    }
+    return {
+      state: 'captured, unconfirmed',
+      tone: 'bad',
+      detail: 'Card captured but the booking never confirmed. Retry verifies Stripe first: a valid payment with a live hold may confirm; otherwise the reconciler refunds the card.',
+      action: 'retry-reconciliation',
+    };
+  }
+  if (status === 'pending_payment' && holdExpired) {
+    if (!paymentEvidence) {
+      return {
+        state: 'expired unpaid hold',
+        tone: 'bad',
+        detail: 'Unpaid pending_payment hold past expiry. Resolving cancels the hold, releases the seat, and may offer the spot to the next waitlisted player. It never marks the booking paid and never issues a refund.',
+        action: 'resolve-hold',
+      };
+    }
+    return {
+      state: 'expired hold with payment evidence',
+      tone: 'warn',
+      detail: 'The hold expired but payment evidence exists — resolve-hold refuses these rows. Use retry reconciliation so the server decides confirm vs refund from Stripe.',
+      action: 'retry-reconciliation',
+    };
+  }
+  return null;
+}
+
+function buildOperatorQueue(
+  bookings: Row[],
+  gameById: Map<string, Row>,
+  clubById: Map<string, Row>,
+  profileById: Map<string, Row>,
+  now: Date,
+): OperatorQueueRow[] {
+  return bookings
+    .map((booking) => {
+      const derived = derivedPaymentState(booking, now);
+      if (!derived) return null;
+      const game = gameById.get(text(booking, 'game_id'));
+      const club = game ? clubById.get(text(game, 'club_id')) : undefined;
+      const profile = profileById.get(text(booking, 'user_id'));
+      return {
+        bookingId: text(booking, 'id'),
+        stateLabel: derived.state,
+        stateTone: derived.tone,
+        stateDetail: derived.detail,
+        action: derived.action,
+        issueKey: `${derived.state.replace(/[^a-z0-9]+/gi, '_')}:${text(booking, 'id')}`,
+        playerName: text(profile, 'full_name') || text(profile, 'email') || 'Unknown player',
+        gameTitle: text(game, 'title') || 'Unknown game',
+        clubName: text(club, 'name') || 'Unknown club',
+        clubId: text(club, 'id'),
+        lifecycle: [
+          ['Status', text(booking, 'status') || '-'],
+          ['Hold expires', formatDate(text(booking, 'hold_expires_at'))],
+          ['Payment intent', text(booking, 'stripe_payment_intent_id') || '-'],
+          ['Captured intent', text(booking, 'captured_payment_intent_id') || '-'],
+          ['Captured at', formatDate(text(booking, 'charge_captured_at'))],
+          ['Claimed at', formatDate(text(booking, 'charge_reconciled_at'))],
+          ['Refund', text(booking, 'refund_id') || '-'],
+          ['Paid at', formatDate(text(booking, 'paid_at'))],
+        ] as [string, string][],
+      };
+    })
+    .filter((row): row is OperatorQueueRow => Boolean(row && row.bookingId))
+    .slice(0, 12);
+}
+
+function isFailedPushLogRow(row: Row) {
+  const status = number(row, 'apns_status');
+  return Boolean(text(row, 'apns_error')) || status < 200 || status >= 300;
+}
+
+function notificationSignal(notification: Row, deliveries: Row[]) {
+  const failed = deliveries.filter(isFailedPushLogRow).length;
+  if (failed > 0) {
+    return { label: failed === deliveries.length ? 'push failed' : 'push partial', tone: 'bad' as StatusTone, priority: 0 };
+  }
+  if (value(notification, 'email_sent') === false) return { label: 'email not sent', tone: 'warn' as StatusTone, priority: 1 };
   if (!bool(notification, 'read')) return { label: 'unread', tone: 'warn' as StatusTone, priority: 2 };
+  if (deliveries.length > 0) return { label: 'push delivered', tone: 'good' as StatusTone, priority: 3 };
   return { label: 'logged', tone: 'neutral' as StatusTone, priority: 9 };
 }
 

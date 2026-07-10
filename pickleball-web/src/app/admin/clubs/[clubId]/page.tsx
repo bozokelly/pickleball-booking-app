@@ -27,7 +27,7 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Club File - Bookadink Admin',
-  description: 'Read-only club operations file for Bookadink internal admin.',
+  description: 'Club operations file for Bookadink internal admin. Safe operator actions run from the command centre Action queue.',
 };
 
 type PageProps = { params: Promise<{ clubId: string }> };
@@ -114,7 +114,7 @@ export default async function ClubFilePage({ params }: PageProps) {
               </Link>
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <StatusPill label="Club file" tone="dark" />
-                <StatusPill label="Read-only" tone="neutral" />
+                <StatusPill label="No inline editing" tone="neutral" />
                 <StatusPill label={admin.role} tone="info" />
                 <StatusPill label={file.health.label} tone={file.health.tone} />
                 <StatusPill label={file.stripe.label} tone={file.stripe.tone} />
@@ -202,7 +202,7 @@ export default async function ClubFilePage({ params }: PageProps) {
             <Panel className="overflow-hidden p-0">
               <div className="border-b border-border px-4 py-3">
                 <h3 className="text-sm font-semibold text-text-primary">Action signals</h3>
-                <p className="mt-0.5 text-xs text-text-secondary">Read-only issues derived from existing club, game, payment, and notification data.</p>
+                <p className="mt-0.5 text-xs text-text-secondary">Issues derived from existing club, game, payment, and notification data. Act on flagged bookings from the command centre Action queue.</p>
               </div>
               {file.issues.length === 0 ? (
                 <p className="px-4 py-6 text-sm text-text-secondary">No club-specific issues found in the loaded preview.</p>
@@ -352,7 +352,7 @@ export default async function ClubFilePage({ params }: PageProps) {
             columns={['Created', 'Recipient', 'Type', 'Title', 'Read', 'Delivery']}
             rows={file.notifications.map((notification) => {
               const profile = file.profileById.get(text(notification, 'user_id'));
-              const delivery = notificationDelivery(notification);
+              const delivery = notificationDelivery(file.pushLogByNotificationId.get(text(notification, 'id')) || []);
               return [
                 formatDate(text(notification, 'created_at')),
                 text(profile, 'full_name') || text(profile, 'email') || text(notification, 'user_id') || '-',
@@ -365,7 +365,7 @@ export default async function ClubFilePage({ params }: PageProps) {
           />
         </Section>
 
-        <Section id="issues" title="Issues" icon={<AlertTriangle className="h-5 w-5" />} description="Derived warning flags only. No mutation actions are exposed.">
+        <Section id="issues" title="Issues" icon={<AlertTriangle className="h-5 w-5" />} description={<>Derived warning flags. Safe, audited actions on flagged bookings run from the <Link href="/admin?tab=issues" className="font-semibold text-info hover:text-primary">Action queue</Link>.</>}>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {file.issues.length === 0 ? (
               <Panel className="p-4">
@@ -379,18 +379,42 @@ export default async function ClubFilePage({ params }: PageProps) {
           </div>
         </Section>
 
-        <Section id="logs" title="Logs" icon={<FileText className="h-5 w-5" />} description="Operational logs are informational until an audit-log table is wired.">
-          <Panel className="p-4">
-            <div className="flex gap-3">
-              <Server className="mt-0.5 h-5 w-5 flex-shrink-0 text-text-tertiary" />
-              <div>
-                <h3 className="text-sm font-semibold text-text-primary">No club operational log table is wired yet</h3>
-                <p className="mt-1 text-sm leading-5 text-text-secondary">
-                  This Club File intentionally avoids inventing log data. A future admin_audit_logs or support_feedback table can populate this section once it exists.
-                </p>
+        <Section id="logs" title="Logs" icon={<FileText className="h-5 w-5" />} description="Admin actions recorded against this club's records (append-only admin_actions audit trail).">
+          {file.adminActionsConfigured ? (
+            <DataTable
+              caption="Admin action log"
+              note="Every command-centre mutation writes an audit row in the same transaction. Reads are service-role only."
+              empty="No admin actions have been recorded against this club's records yet."
+              columns={['When', 'Admin', 'Action', 'Result', 'Target', 'Reason / note']}
+              rows={file.adminActions.map((action) => {
+                const adminProfile = file.profileById.get(text(action, 'admin_user_id'));
+                return [
+                  formatDate(text(action, 'created_at')),
+                  text(adminProfile, 'full_name') || text(adminProfile, 'email') || text(action, 'admin_user_id') || '-',
+                  <StatusPill key="action" label={text(action, 'action') || '-'} tone="info" />,
+                  <StatusPill
+                    key="status"
+                    label={text(action, 'status') || '-'}
+                    tone={text(action, 'status') === 'succeeded' ? 'good' : text(action, 'status') === 'failed' ? 'bad' : 'warn'}
+                  />,
+                  <Mono key="target" value={`${text(action, 'target_type') || '-'} ${text(action, 'target_id') || ''}`.trim()} />,
+                  [text(action, 'reason'), text(action, 'note')].filter(Boolean).join(' — ') || '-',
+                ];
+              })}
+            />
+          ) : (
+            <Panel className="p-4">
+              <div className="flex gap-3">
+                <Server className="mt-0.5 h-5 w-5 flex-shrink-0 text-text-tertiary" />
+                <div>
+                  <h3 className="text-sm font-semibold text-text-primary">Admin action log is not available</h3>
+                  <p className="mt-1 text-sm leading-5 text-text-secondary">
+                    Reading the admin_actions audit table requires the service-role key (RLS exposes it to no client role).
+                  </p>
+                </div>
               </div>
-            </div>
-          </Panel>
+            </Panel>
+          )}
         </Section>
       </div>
     </main>
@@ -448,11 +472,30 @@ async function loadClubFile(
       : emptyRows('notifications', true, 120);
   if (notificationsResult.warning) warnings.push(notificationsResult.warning);
 
+  // Per-device push delivery evidence (service-role read; RLS blocks clients).
+  const notificationIds = notificationsResult.data.map((row) => text(row, 'id')).filter(Boolean);
+  const pushLogResult =
+    supabaseAdmin && notificationIds.length > 0
+      ? await safeRows('push_notification_log', () => supabaseAdmin.from('push_notification_log').select('id,notification_id,apns_status,apns_error,created_at').in('notification_id', notificationIds).limit(500), true, 500)
+      : emptyRows('push_notification_log', Boolean(supabaseAdmin), 500);
+  if (pushLogResult.warning) warnings.push(pushLogResult.warning);
+
+  // Phase 4A: admin_actions audit rows targeting this club's records populate
+  // the Logs tab (service-role read; the table has RLS with no client policies).
+  const bookingIds = bookingsResult.data.map((row) => text(row, 'id')).filter(Boolean);
+  const logTargetIds = unique([clubId, ...gameIds, ...bookingIds]).slice(0, 400);
+  const adminActionsResult =
+    supabaseAdmin && logTargetIds.length > 0
+      ? await safeRows('admin_actions', () => supabaseAdmin.from('admin_actions').select('*').in('target_id', logTargetIds).order('created_at', { ascending: false }).limit(100), true, 100)
+      : emptyRows('admin_actions', Boolean(supabaseAdmin), 100);
+  if (adminActionsResult.warning) warnings.push(adminActionsResult.warning);
+
   const userIds = unique([
     ...membersResult.data.map((row) => text(row, 'user_id')),
     ...adminsResult.data.map((row) => text(row, 'user_id')),
     ...bookingsResult.data.map((row) => text(row, 'user_id')),
     ...notificationsResult.data.map((row) => text(row, 'user_id')),
+    ...adminActionsResult.data.map((row) => text(row, 'admin_user_id')),
   ]);
   const profilesResult =
     userIds.length > 0
@@ -498,10 +541,12 @@ async function loadClubFile(
     const status = text(booking, 'refund_status');
     return status === 'succeeded' || status === 'refunded';
   });
-  const failedNotifications = notifications.filter((notification) => {
-    const status = text(notification, 'delivery_status') || text(notification, 'send_status');
-    return status === 'failed' || status === 'error';
-  });
+  // Real evidence from push_notification_log — the notifications table has no
+  // delivery_status/send_status columns (reading them was a false all-clear).
+  const pushLogByNotificationId = groupByKey(pushLogResult.data, 'notification_id');
+  const failedNotifications = notifications.filter((notification) =>
+    (pushLogByNotificationId.get(text(notification, 'id')) || []).some(isFailedPushLogRow),
+  );
   const paidBookings = bookings.filter((booking) => isPaidBooking(booking));
   const grossCents = paidBookings.reduce((sum, booking) => sum + bookingGrossCents(booking, gameById.get(text(booking, 'game_id'))), 0);
   const platformFeeCents = paidBookings.reduce((sum, booking) => sum + number(booking, 'platform_fee_cents'), 0);
@@ -607,6 +652,9 @@ async function loadClubFile(
     bookings,
     notifications,
     notificationsConfigured: notificationsResult.configured,
+    pushLogByNotificationId,
+    adminActions: adminActionsResult.data,
+    adminActionsConfigured: adminActionsResult.configured,
     profileById,
     gameById,
     bookingsByGameId,
@@ -772,7 +820,7 @@ function Section({
   id: string;
   title: string;
   icon: React.ReactNode;
-  description?: string;
+  description?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -1201,12 +1249,20 @@ function paymentAttentionRow(
   };
 }
 
-function notificationDelivery(notification: Row) {
-  const status = text(notification, 'delivery_status') || text(notification, 'send_status');
-  if (!status) return { label: 'not tracked', tone: 'neutral' } as const;
-  if (status === 'sent' || status === 'delivered' || status === 'success') return { label: status, tone: 'good' } as const;
-  if (status === 'failed' || status === 'error') return { label: status, tone: 'bad' } as const;
-  return { label: status, tone: 'warn' } as const;
+// Delivery evidence comes from push_notification_log rows (apns_status /
+// apns_error per device) — the notifications table itself carries no
+// delivery_status/send_status columns.
+function isFailedPushLogRow(row: Row) {
+  const status = number(row, 'apns_status');
+  return Boolean(text(row, 'apns_error')) || status < 200 || status >= 300;
+}
+
+function notificationDelivery(deliveries: Row[]) {
+  if (deliveries.length === 0) return { label: 'no push log', tone: 'neutral' } as const;
+  const failed = deliveries.filter(isFailedPushLogRow).length;
+  if (failed === deliveries.length) return { label: 'push failed', tone: 'bad' } as const;
+  if (failed > 0) return { label: `${deliveries.length - failed}/${deliveries.length} devices`, tone: 'bad' } as const;
+  return { label: `${deliveries.length} device${deliveries.length === 1 ? '' : 's'}`, tone: 'good' } as const;
 }
 
 function subscriptionStatusTone(status: string): StatusTone {
