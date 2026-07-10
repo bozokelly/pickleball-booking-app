@@ -143,6 +143,7 @@ type OperatorQueueRow = {
   clubName: string;
   clubId: string;
   lifecycle: [string, string][];
+  lastAction?: string;
 };
 
 export default async function AdminPage({ searchParams }: PageProps) {
@@ -291,6 +292,18 @@ export default async function AdminPage({ searchParams }: PageProps) {
                       <li key={warning}>{warning}</li>
                     ))}
                   </ul>
+                </div>
+              </div>
+            </Panel>
+          )}
+
+          {operatorActionNotice && (
+            <Panel className={`mb-4 p-4 ${operatorActionNotice.tone === 'good' ? 'border-success/25 bg-success/5' : operatorActionNotice.tone === 'warn' ? 'border-warning/25 bg-warning/5' : 'border-error/25 bg-error/5'}`}>
+              <div className="flex items-start gap-3">
+                {operatorActionNotice.tone === 'good' ? <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-success" /> : <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-warning" />}
+                <div>
+                  <h3 className="text-sm font-semibold text-text-primary">{operatorActionNotice.title}</h3>
+                  <p className="mt-1 text-sm text-text-secondary">{operatorActionNotice.detail}</p>
                 </div>
               </div>
             </Panel>
@@ -542,17 +555,6 @@ export default async function AdminPage({ searchParams }: PageProps) {
           {activeTab === 'issues' && (
             <>
               <Section id="system-health" title="Action queue" icon={<HeartPulse className="h-5 w-5" />} description="Data-quality checks for payments, venues, games, and notifications — guarded operator actions on flagged bookings are just below">
-                {operatorActionNotice && (
-                  <Panel className={`mb-3 p-4 ${operatorActionNotice.tone === 'good' ? 'border-success/25 bg-success/5' : operatorActionNotice.tone === 'warn' ? 'border-warning/25 bg-warning/5' : 'border-error/25 bg-error/5'}`}>
-                    <div className="flex items-start gap-3">
-                      {operatorActionNotice.tone === 'good' ? <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-success" /> : <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-warning" />}
-                      <div>
-                        <h3 className="text-sm font-semibold text-text-primary">{operatorActionNotice.title}</h3>
-                        <p className="mt-1 text-sm text-text-secondary">{operatorActionNotice.detail}</p>
-                      </div>
-                    </div>
-                  </Panel>
-                )}
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {dashboard.health.map((item) => (
                     <HealthCard key={item.label} label={item.label} value={item.value} detail={item.detail} tone={item.tone} />
@@ -565,7 +567,28 @@ export default async function AdminPage({ searchParams }: PageProps) {
                 icon={<ShieldCheck className="h-5 w-5" />}
                 description="Guarded server actions on flagged bookings. Every attempt is audited in admin_actions."
               >
-                <OperatorQueuePanel rows={dashboard.operatorQueue} canAction={admin.role !== 'support'} />
+                <OperatorQueuePanel rows={dashboard.operatorQueue} canAction={admin.role !== 'support'} configured={dashboard.operatorQueueConfigured} />
+              </Section>
+              <Section
+                id="admin-action-log"
+                title="Recent admin actions"
+                icon={<FileText className="h-5 w-5" />}
+                description="Append-only admin_actions audit trail — every command-centre mutation lands here, including skipped and failed attempts"
+              >
+                <DataTable
+                  caption="Latest 30 audit rows"
+                  note="Reads are service-role only; clients cannot query or write this table directly."
+                  empty={dashboard.adminActionsConfigured ? 'No admin actions have been recorded yet. Rows appear here the moment any operator action is attempted.' : 'Reading the audit log requires SUPABASE_SERVICE_ROLE_KEY to be configured.'}
+                  columns={['When', 'Admin', 'Action', 'Result', 'Target', 'Reason / note']}
+                  rows={dashboard.adminActionLog.map((entry) => [
+                    entry.createdAt,
+                    entry.admin,
+                    <StatusPill key="action" label={entry.action} tone="info" />,
+                    <StatusPill key="status" label={entry.status} tone={entry.statusTone} />,
+                    <Mono key="target" value={entry.target} />,
+                    entry.detail,
+                  ])}
+                />
               </Section>
             </>
           )}
@@ -604,6 +627,9 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     legalDocumentsResult,
     venuesResult,
     pushLogResult,
+    flaggedHoldsResult,
+    flaggedCapturedResult,
+    adminActionsResult,
     totalClubs,
     totalPlayers,
     upcomingGames,
@@ -640,6 +666,19 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     supabaseAdmin
       ? safeRows('push_notification_log', () => supabaseAdmin.from('push_notification_log').select('id,notification_id,user_id,device_token,apns_status,apns_error,created_at').order('created_at', { ascending: false }).limit(600), true, 600)
       : unconfiguredRows('push_notification_log', 'Set SUPABASE_SERVICE_ROLE_KEY to read per-device push delivery evidence.', 600),
+    // Operator-queue candidates queried directly (not derived from the
+    // 600-row preview) so old flagged rows cannot silently fall off the queue.
+    supabaseAdmin
+      ? safeRows('bookings (expired holds)', () => supabaseAdmin.from('bookings').select('*').eq('status', 'pending_payment').lt('hold_expires_at', nowIso).limit(100), true, 100)
+      : unconfiguredRows('bookings (expired holds)', 'Set SUPABASE_SERVICE_ROLE_KEY to detect expired payment holds server-side.', 100),
+    supabaseAdmin
+      ? safeRows('bookings (captured unconfirmed)', () =>
+          supabaseAdmin.from('bookings').select('*').not('charge_captured_at', 'is', null).neq('status', 'confirmed').is('refund_id', null).is('paid_at', null).is('stripe_payment_intent_id', null).limit(100),
+        true, 100)
+      : unconfiguredRows('bookings (captured unconfirmed)', 'Set SUPABASE_SERVICE_ROLE_KEY to detect captured-but-unconfirmed payments server-side.', 100),
+    supabaseAdmin
+      ? safeRows('admin_actions', () => supabaseAdmin.from('admin_actions').select('*').order('created_at', { ascending: false }).limit(30), true, 30)
+      : unconfiguredRows('admin_actions', 'Set SUPABASE_SERVICE_ROLE_KEY to read the admin action audit log.', 30),
     safeCount('clubs', () => adminReader.from('clubs').select('id', { count: 'exact', head: true })),
     safeCount('profiles', () => adminReader.from('profiles').select('id', { count: 'exact', head: true })),
     safeCount('upcoming games', () =>
@@ -674,6 +713,9 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     legalDocumentsResult,
     venuesResult,
     pushLogResult,
+    flaggedHoldsResult,
+    flaggedCapturedResult,
+    adminActionsResult,
     totalClubs,
     totalPlayers,
     upcomingGames,
@@ -914,7 +956,59 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
   const upcomingGamesWithNoPlayers = emptyUpcomingGames(games, bookings, now);
   const paidGamesWithoutStripe = paidGamesMissingStripe(games, clubs, stripeAccounts);
   const clubsWithoutLocation = clubsMissingLocation(clubs, venueByClubId);
-  const operatorQueue = buildOperatorQueue(bookings, gameById, clubById, profileById, now);
+
+  // Operator queue: recent-bookings preview PLUS the targeted service-role
+  // queries, deduped, so flagged rows older than the preview cap still appear.
+  const queueCandidateById = new Map<string, Row>();
+  [...bookings, ...flaggedHoldsResult.data, ...flaggedCapturedResult.data].forEach((row) => {
+    const id = text(row, 'id');
+    if (id) queueCandidateById.set(id, row);
+  });
+  const queueCandidates = Array.from(queueCandidateById.values());
+  const flaggedQueueBookings = queueCandidates.filter((booking) => derivedPaymentState(booking, now) !== null);
+
+  // Back-fill game/club/player context for flagged rows outside the previews.
+  const missingGameIds = Array.from(new Set(flaggedQueueBookings.map((b) => text(b, 'game_id')).filter((id) => id && !gameById.has(id))));
+  if (missingGameIds.length > 0) {
+    const extraGames = await safeRows('games (queue context)', () => adminReader.from('games').select('*').in('id', missingGameIds).limit(100), true, 100);
+    extraGames.data.forEach((game) => gameById.set(text(game, 'id'), game));
+    const missingClubIds = Array.from(new Set(extraGames.data.map((g) => text(g, 'club_id')).filter((id) => id && !clubById.has(id))));
+    if (missingClubIds.length > 0) {
+      const extraClubs = await safeRows('clubs (queue context)', () => adminReader.from('clubs').select('*').in('id', missingClubIds).limit(100), true, 100);
+      extraClubs.data.forEach((club) => clubById.set(text(club, 'id'), club));
+    }
+  }
+  const missingUserIds = Array.from(new Set(flaggedQueueBookings.map((b) => text(b, 'user_id')).filter((id) => id && !profileById.has(id))));
+  if (missingUserIds.length > 0) {
+    const extraProfiles = await safeRows('profiles (queue context)', () => adminReader.from('profiles').select('id,email,full_name').in('id', missingUserIds).limit(200), true, 200);
+    extraProfiles.data.forEach((profile) => profileById.set(text(profile, 'id'), profile));
+  }
+
+  const adminActionsByTarget = groupByKey(adminActionsResult.data, 'target_id');
+  const describeAdminAction = (action: Row | undefined) => {
+    if (!action) return '';
+    const adminProfile = profileById.get(text(action, 'admin_user_id'));
+    const who = text(adminProfile, 'full_name') || text(adminProfile, 'email') || 'admin';
+    return `${text(action, 'action')} (${text(action, 'status')}) by ${who}, ${formatDate(text(action, 'created_at'))}`;
+  };
+  const operatorQueue = buildOperatorQueue(queueCandidates, gameById, clubById, profileById, now).map((row) => ({
+    ...row,
+    lastAction: describeAdminAction((adminActionsByTarget.get(row.bookingId) || [])[0]),
+  }));
+
+  const adminActionLog = adminActionsResult.data.map((action) => {
+    const adminProfile = profileById.get(text(action, 'admin_user_id'));
+    const status = text(action, 'status');
+    return {
+      createdAt: formatDate(text(action, 'created_at')),
+      admin: text(adminProfile, 'full_name') || text(adminProfile, 'email') || text(action, 'admin_user_id') || '-',
+      action: text(action, 'action') || '-',
+      status: status || '-',
+      statusTone: (status === 'succeeded' ? 'good' : status === 'failed' ? 'bad' : 'warn') as StatusTone,
+      target: `${text(action, 'target_type')} ${text(action, 'target_id')}`.trim() || '-',
+      detail: [text(action, 'reason'), text(action, 'note')].filter(Boolean).join(' — ') || '-',
+    };
+  });
   const paidBookingRows = bookings.filter((booking) => isPaidBooking(booking));
   const monthStart = startOfMonth(now);
   const previousMonthStart = new Date(monthStart);
@@ -1176,7 +1270,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     {
       label: 'Expired active holds',
       value: formatCount(expiredActiveHolds.length),
-      detail: 'Active booking holds past expiry.',
+      detail: 'pending_payment holds past expiry — resolvable from Operator actions below.',
       tone: expiredActiveHolds.length > 0 ? 'bad' : 'good',
     },
     {
@@ -1409,7 +1503,7 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     ...failedPaymentBookings.slice(0, 2).map((booking) => actionForBooking(booking, gameById, clubById, profileById, 'Failed payment', 'Payment status indicates failure.', 'bad' as StatusTone)),
     ...failedRefundBookings.slice(0, 2).map((booking) => actionForBooking(booking, gameById, clubById, profileById, 'Failed refund', 'Refund status needs manual review.', 'bad' as StatusTone)),
     ...stuckPendingPayments.slice(0, 2).map((booking) => actionForBooking(booking, gameById, clubById, profileById, 'Pending payment', 'Stripe intent exists but booking is not marked paid.', 'warn' as StatusTone)),
-    ...expiredActiveHolds.slice(0, 2).map((booking) => actionForBooking(booking, gameById, clubById, profileById, 'Expired hold', 'Active hold appears to be past expiry.', 'bad' as StatusTone)),
+    ...expiredActiveHolds.slice(0, 2).map((booking) => actionForBooking(booking, gameById, clubById, profileById, 'Expired hold', 'Pending-payment hold past expiry — resolvable in the Action queue.', 'bad' as StatusTone)),
     ...(failedNotifications > 0
       ? [
           {
@@ -1666,6 +1760,9 @@ async function loadAdminDashboard(supabase: Awaited<ReturnType<typeof import('@/
     },
     health,
     operatorQueue,
+    operatorQueueConfigured: flaggedHoldsResult.configured && flaggedCapturedResult.configured,
+    adminActionLog,
+    adminActionsConfigured: adminActionsResult.configured,
   };
 }
 
@@ -1808,15 +1905,33 @@ function adminActionNotice(
   return notices[rawAction] || null;
 }
 
-function OperatorQueuePanel({ rows, canAction }: { rows: OperatorQueueRow[]; canAction: boolean }) {
+function OperatorQueuePanel({ rows, canAction, configured }: { rows: OperatorQueueRow[]; canAction: boolean; configured: boolean }) {
+  if (!configured) {
+    return (
+      <Panel className="border-warning/25 bg-warning/5 p-4">
+        <h3 className="text-sm font-semibold text-text-primary">Operator queue cannot verify flagged bookings</h3>
+        <p className="mt-1 text-sm leading-5 text-text-secondary">
+          SUPABASE_SERVICE_ROLE_KEY is not configured, so the server-side flagged-booking queries did not run. An empty queue here does
+          NOT mean all clear — configure the service role key to restore detection and actions.
+        </p>
+      </Panel>
+    );
+  }
   if (rows.length === 0) {
     return (
       <Panel className="p-4">
-        <h3 className="text-sm font-semibold text-text-primary">No flagged bookings need operator action</h3>
-        <p className="mt-1 text-sm leading-5 text-text-secondary">
-          Expired unpaid holds, captured-but-unconfirmed payments, and stuck refund claims appear here. The per-minute crons self-heal
-          most of these — a persistently flagged row usually means the cron or webhook pipeline needs attention, not the row itself.
-        </p>
+        <div className="flex items-start gap-3">
+          <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-success" />
+          <div>
+            <h3 className="text-sm font-semibold text-text-primary">All clear — no flagged bookings need operator action</h3>
+            <p className="mt-1 text-sm leading-5 text-text-secondary">
+              This is verified against the live bookings table (not just the dashboard preview): zero expired unpaid holds,
+              captured-but-unconfirmed payments, or stuck refund claims right now. Confirmed-then-cancelled bookings are deliberately
+              excluded — those follow app-credit rules, never a card refund. The per-minute crons self-heal most cases; a row that
+              persists here usually means the cron or webhook pipeline needs attention, not the row itself.
+            </p>
+          </div>
+        </div>
       </Panel>
     );
   }
@@ -1843,6 +1958,11 @@ function OperatorQueuePanel({ rows, canAction }: { rows: OperatorQueueRow[]; can
                 )}
               </p>
               <p className="mt-2 text-xs leading-4 text-text-secondary">{row.stateDetail}</p>
+              {row.lastAction && (
+                <p className="mt-2 text-[11px] leading-4 text-text-tertiary">
+                  <span className="font-semibold uppercase tracking-wide">Last admin action</span> {row.lastAction}
+                </p>
+              )}
             </div>
             <div className="grid flex-1 grid-cols-1 gap-x-6 gap-y-1 text-[11px] text-text-secondary sm:grid-cols-2">
               <div className="flex items-center justify-between gap-2 sm:col-span-2">
@@ -2613,15 +2733,41 @@ function DeletionRequestsPanel({
                 ) : (
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-text-primary">
-                      {request.canProcess ? 'Read-only access' : 'No action available'}
+                      {request.canProcess ? 'Processing requires owner/ops' : 'Not processable'}
                     </p>
                     <p className="text-xs leading-4 text-text-secondary">
                       {request.canProcess
-                        ? 'Owner or ops access is required to process deletion requests.'
-                        : 'Only pending or admin-review requests can be processed.'}
+                        ? 'Support can add notes and mark reviewed below; owner or ops access is required to run the processor.'
+                        : request.status === 'requires_admin_review'
+                          ? 'The user still owns or administers a club — resolve ownership first, then process.'
+                          : 'Only pending or admin-review requests can be processed. Completed, rejected, cancelled, and failed requests are status records.'}
                     </p>
                   </div>
                 )}
+                <div className="mt-3 space-y-2 border-t border-border pt-3">
+                  <form method="post" action="/api/admin/actions/note" className="flex items-end gap-2">
+                    <input type="hidden" name="targetType" value="deletion_request" />
+                    <input type="hidden" name="targetId" value={request.id} />
+                    <input type="hidden" name="returnTab" value="compliance" />
+                    <label className="block min-w-0 flex-1 text-[11px] font-semibold text-text-primary">
+                      Internal note
+                      <input
+                        name="note"
+                        maxLength={2000}
+                        placeholder="Audit log only"
+                        className="mt-1 w-full rounded-lg border border-border bg-white px-2.5 py-2 text-xs font-normal text-text-primary outline-none focus:border-primary/40 focus:ring-4 focus:ring-primary/10"
+                      />
+                    </label>
+                    <button className="rounded-lg border border-border bg-white px-2.5 py-2 text-xs font-semibold text-text-primary transition hover:bg-black/5">Add</button>
+                  </form>
+                  <form method="post" action="/api/admin/actions/reviewed">
+                    <input type="hidden" name="targetType" value="deletion_request" />
+                    <input type="hidden" name="targetId" value={request.id} />
+                    <input type="hidden" name="issueKey" value={`deletion_request:${request.status}`} />
+                    <input type="hidden" name="returnTab" value="compliance" />
+                    <button className="w-full rounded-lg border border-border bg-white px-2.5 py-2 text-xs font-semibold text-text-primary transition hover:bg-black/5">Mark reviewed</button>
+                  </form>
+                </div>
               </div>
             </div>
           ))}
@@ -2974,8 +3120,15 @@ function derivedPaymentState(
   const holdRaw = text(booking, 'hold_expires_at');
   const holdExpired = Boolean(holdRaw) && new Date(holdRaw).getTime() < now.getTime();
   const paymentEvidence = captured || Boolean(text(booking, 'paid_at')) || bool(booking, 'fee_paid');
+  // paid_at / stripe_payment_intent_id are written only by a successful
+  // confirmation and never cleared on cancel — either present means the
+  // booking WAS confirmed. A confirmed-then-cancelled booking follows
+  // app-credit rules, never a card refund: the reconciler skips it
+  // (previously_confirmed), so flagging it here offered a Retry button that
+  // could only ever return "skipped". Exclude it from the queue entirely.
+  const previouslyConfirmed = Boolean(text(booking, 'paid_at')) || Boolean(text(booking, 'stripe_payment_intent_id'));
 
-  if (captured && status !== 'confirmed') {
+  if (captured && status !== 'confirmed' && !previouslyConfirmed) {
     if (refundId) return null; // reconciled — nothing to do
     if (reconciledAtRaw) {
       const stale = now.getTime() - new Date(reconciledAtRaw).getTime() > 15 * 60 * 1000;
@@ -3177,9 +3330,12 @@ function pendingPaymentBookings(bookings: Row[]) {
 }
 
 function expiredHolds(bookings: Row[], now: Date) {
+  // Only pending_payment rows hold a seat pending payment. Confirmed bookings
+  // keep their historical hold_expires_at stamp, so matching on "not
+  // cancelled" flagged healthy confirmed bookings as critical (false alarm).
   return bookings.filter((booking) => {
     const expiresAt = text(booking, 'hold_expires_at');
-    return expiresAt && text(booking, 'status') !== 'cancelled' && new Date(expiresAt).getTime() < now.getTime();
+    return expiresAt && text(booking, 'status') === 'pending_payment' && new Date(expiresAt).getTime() < now.getTime();
   });
 }
 

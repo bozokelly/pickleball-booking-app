@@ -1204,9 +1204,12 @@ function isPaidBooking(booking: Row) {
 }
 
 function expiredHolds(bookings: Row[], now: Date) {
+  // Only pending_payment rows hold a seat pending payment. Confirmed bookings
+  // keep their historical hold_expires_at stamp — counting them was a false
+  // "expired hold" alarm.
   return bookings.filter((booking) => {
     const expiresAt = text(booking, 'hold_expires_at');
-    if (!expiresAt || text(booking, 'status') === 'cancelled') return false;
+    if (!expiresAt || text(booking, 'status') !== 'pending_payment') return false;
     const timestamp = new Date(expiresAt).getTime();
     return Number.isFinite(timestamp) && timestamp < now.getTime();
   });
