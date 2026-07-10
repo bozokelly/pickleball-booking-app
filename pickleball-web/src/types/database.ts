@@ -32,10 +32,14 @@ export interface ClubMember {
   id: string; club_id: string; user_id: string; status: MembershipStatus;
   requested_at: string; responded_at: string | null; responded_by: string | null;
 }
+export type GamePaymentMode = 'free' | 'online' | 'pay_on_arrival';
 export interface Game {
   id: string; club_id: string; title: string; description: string | null;
   date_time: string; duration_minutes: number; skill_level: SkillLevel;
   game_format: GameFormat; max_spots: number; fee_amount: number; fee_currency: string;
+  /** Canonical payment mode (games.payment_mode, server-enforced). Nullable on pre-migration cached rows. */
+  payment_mode?: GamePaymentMode | null;
+  is_free?: boolean | null;
   location: string | null; latitude: number | null; longitude: number | null;
   status: GameStatus; notes: string | null; requires_dupr: boolean;
   payment_deadline_hours: number;

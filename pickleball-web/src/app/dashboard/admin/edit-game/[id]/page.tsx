@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/Toast';
 import { Game, SkillLevel, GameFormat } from '@/types/database';
 import { SKILL_LEVEL_LABELS, SKILL_LEVEL_COLORS, GAME_FORMAT_LABELS } from '@/constants/theme';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { mapPaymentModeError } from '@/utils/gamePaymentMode';
 import { ArrowLeft, Loader2, Trash2 } from 'lucide-react';
 
 const skillLevels: SkillLevel[] = ['all', 'beginner', 'intermediate', 'advanced', 'pro'];
@@ -34,6 +35,7 @@ export default function EditGamePage({ params }: { params: Promise<{ id: string 
   const [longitude, setLongitude] = useState<number | null>(null);
   const [feeCurrency, setFeeCurrency] = useState('usd');
   const [feeAmount, setFeeAmount] = useState('');
+  const [paymentMode, setPaymentMode] = useState<'free' | 'online' | 'pay_on_arrival'>('free');
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState('upcoming');
@@ -63,6 +65,11 @@ export default function EditGamePage({ params }: { params: Promise<{ id: string 
       setLongitude(data.longitude ?? null);
       setFeeCurrency(data.fee_currency || 'usd');
       setFeeAmount(data.fee_amount > 0 ? data.fee_amount.toString() : '');
+      setPaymentMode(
+        data.payment_mode === 'online' || data.payment_mode === 'pay_on_arrival' || data.payment_mode === 'free'
+          ? data.payment_mode
+          : data.fee_amount > 0 ? 'online' : 'free',
+      );
       setDescription(data.description || '');
       setNotes(data.notes || '');
       setStatus(data.status);
@@ -75,6 +82,12 @@ export default function EditGamePage({ params }: { params: Promise<{ id: string 
     e.preventDefault();
     if (!title.trim() || !date || !time) {
       showToast('Please fill in all required fields', 'error');
+      return;
+    }
+
+    const parsedFee = feeAmount ? parseFloat(feeAmount) : 0;
+    if (paymentMode !== 'free' && !(parsedFee > 0)) {
+      showToast(paymentMode === 'pay_on_arrival' ? 'Enter the price players pay at the venue' : 'Enter a valid price', 'error');
       return;
     }
 
@@ -91,8 +104,10 @@ export default function EditGamePage({ params }: { params: Promise<{ id: string 
         location: location.trim() || null,
         latitude,
         longitude,
-        fee_amount: feeAmount ? parseFloat(feeAmount) : 0,
+        fee_amount: paymentMode === 'free' ? 0 : parsedFee,
         fee_currency: feeCurrency,
+        payment_mode: paymentMode,
+        is_free: paymentMode === 'free',
         description: description.trim() || null,
         notes: notes.trim() || null,
         status,
@@ -102,8 +117,7 @@ export default function EditGamePage({ params }: { params: Promise<{ id: string 
       showToast('Game updated!', 'success');
       router.push('/dashboard/admin');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to update game';
-      showToast(message, 'error');
+      showToast(mapPaymentModeError(err, 'Failed to update game'), 'error');
     } finally {
       setSaving(false);
     }
@@ -192,7 +206,35 @@ export default function EditGamePage({ params }: { params: Promise<{ id: string 
           </div>
 
           <AddressAutocomplete label="Location" value={location} onChange={(val, coords) => { setLocation(val); if (coords) { setLatitude(coords.lat); setLongitude(coords.lng); } }} placeholder="Court address" />
-          <Input label="Fee" type="number" value={feeAmount} onChange={(e) => setFeeAmount(e.target.value)} placeholder="0.00 (free)" hint="Leave empty for free games" />
+          {/* Payment mode — server-enforced on save (games payment_mode trigger). */}
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-2">Payment</label>
+            <div className="flex flex-wrap gap-2">
+              {([['free', 'Free'], ['online', 'Online payment'], ['pay_on_arrival', 'Pay on arrival']] as const).map(([mode, label]) => (
+                <button key={mode} type="button" onClick={() => { setPaymentMode(mode); if (mode === 'free') setFeeAmount(''); }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${paymentMode === mode ? 'bg-primary text-white' : 'bg-background text-text-secondary'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {paymentMode === 'pay_on_arrival' && (
+              <p className="mt-2 text-xs text-text-tertiary">
+                Players book without paying online — the club collects the advertised fee at the venue.
+              </p>
+            )}
+          </div>
+
+          {paymentMode !== 'free' && (
+            <Input
+              label={paymentMode === 'pay_on_arrival' ? 'Fee payable on arrival' : 'Fee'}
+              type="number"
+              value={feeAmount}
+              onChange={(e) => setFeeAmount(e.target.value)}
+              placeholder="15.00"
+              hint={paymentMode === 'pay_on_arrival' ? 'Collected by the club at the venue' : 'Charged online when players book'}
+            />
+          )}
 
           {/* Status */}
           <div>

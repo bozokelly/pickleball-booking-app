@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/Toast';
 import { SkillLevel, GameFormat } from '@/types/database';
 import { SKILL_LEVEL_LABELS, SKILL_LEVEL_COLORS, GAME_FORMAT_LABELS } from '@/constants/theme';
 import { getDefaultCurrency } from '@/utils/currency';
+import { mapPaymentModeError } from '@/utils/gamePaymentMode';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 
 const skillLevels: SkillLevel[] = ['all', 'beginner', 'intermediate', 'advanced', 'pro'];
@@ -50,6 +51,10 @@ function CreateGameForm() {
   const [longitude, setLongitude] = useState<number | null>(null);
   const [feeCurrency] = useState(() => getDefaultCurrency());
   const [feeAmount, setFeeAmount] = useState('');
+  const [paymentMode, setPaymentMode] = useState<'free' | 'online' | 'pay_on_arrival'>('free');
+  // 'unknown' fails open in the UI — the games payment_mode trigger is the
+  // authoritative gate and its structured errors are mapped on submit.
+  const [onlineEligibility, setOnlineEligibility] = useState<'unknown' | 'eligible' | 'upgrade_required' | 'stripe_setup_required'>('unknown');
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
   const [requiresDupr, setRequiresDupr] = useState(false);
@@ -66,6 +71,40 @@ function CreateGameForm() {
   useEffect(() => {
     fetchMyAdminClubs();
   }, [fetchMyAdminClubs]);
+
+  // Eligibility fast-fail for the Online payment option (server re-checks).
+  useEffect(() => {
+    if (!clubId) {
+      setOnlineEligibility('unknown');
+      return;
+    }
+    let cancelled = false;
+    async function checkEligibility() {
+      try {
+        const [{ data: ent }, { data: stripeRows }] = await Promise.all([
+          supabase.rpc('get_club_entitlements', { p_club_id: clubId }),
+          supabase.from('club_stripe_accounts').select('stripe_account_id,payouts_enabled,charges_enabled').eq('club_id', clubId).limit(1),
+        ]);
+        if (cancelled) return;
+        const entRow = Array.isArray(ent) ? ent[0] : ent;
+        if (entRow && entRow.can_accept_payments === false) {
+          setOnlineEligibility('upgrade_required');
+          return;
+        }
+        const stripeRow = stripeRows?.[0];
+        const stripeReady = Boolean(stripeRow?.stripe_account_id) && stripeRow?.payouts_enabled === true && stripeRow?.charges_enabled !== false;
+        if (entRow && !stripeReady) {
+          setOnlineEligibility('stripe_setup_required');
+          return;
+        }
+        setOnlineEligibility(entRow ? 'eligible' : 'unknown');
+      } catch {
+        if (!cancelled) setOnlineEligibility('unknown');
+      }
+    }
+    checkEligibility();
+    return () => { cancelled = true; };
+  }, [clubId]);
 
   // Pre-fill from duplicate game
   useEffect(() => {
@@ -90,6 +129,11 @@ function CreateGameForm() {
       setLatitude(data.latitude ?? null);
       setLongitude(data.longitude ?? null);
       setFeeAmount(data.fee_amount > 0 ? data.fee_amount.toString() : '');
+      setPaymentMode(
+        data.payment_mode === 'online' || data.payment_mode === 'pay_on_arrival' || data.payment_mode === 'free'
+          ? data.payment_mode
+          : data.fee_amount > 0 ? 'online' : 'free',
+      );
       setDescription(data.description || '');
       setNotes(data.notes || '');
       setRequiresDupr(data.requires_dupr || false);
@@ -108,6 +152,20 @@ function CreateGameForm() {
       return;
     }
 
+    const parsedFee = feeAmount ? parseFloat(feeAmount) : 0;
+    if (paymentMode !== 'free' && !(parsedFee > 0)) {
+      showToast(paymentMode === 'pay_on_arrival' ? 'Enter the price players pay at the venue' : 'Enter a valid price', 'error');
+      return;
+    }
+    if (paymentMode === 'online' && onlineEligibility === 'upgrade_required') {
+      showToast('This club’s plan does not include online payments. Upgrade the plan, or choose Pay on arrival.', 'error');
+      return;
+    }
+    if (paymentMode === 'online' && onlineEligibility === 'stripe_setup_required') {
+      showToast('Finish Stripe setup before publishing online-paid games, or choose Pay on arrival.', 'error');
+      return;
+    }
+
     setLoading(true);
     try {
       const userId = useAuthStore.getState().session?.user?.id;
@@ -123,8 +181,10 @@ function CreateGameForm() {
         location: location.trim() || null,
         latitude,
         longitude,
-        fee_amount: feeAmount ? parseFloat(feeAmount) : 0,
+        fee_amount: paymentMode === 'free' ? 0 : parsedFee,
         fee_currency: feeCurrency,
+        payment_mode: paymentMode,
+        is_free: paymentMode === 'free',
         description: description.trim() || null,
         notes: notes.trim() || null,
         requires_dupr: requiresDupr,
@@ -183,8 +243,7 @@ function CreateGameForm() {
       showToast(isRecurring ? `${totalGames} games created!` : 'Game created!', 'success');
       router.push('/dashboard/admin');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to create game';
-      showToast(message, 'error');
+      showToast(mapPaymentModeError(err, 'Failed to create game'), 'error');
     } finally {
       setLoading(false);
     }
@@ -275,7 +334,46 @@ function CreateGameForm() {
           </div>
 
           <AddressAutocomplete label="Location" placeholder="Court address" value={location} onChange={(val, coords) => { setLocation(val); if (coords) { setLatitude(coords.lat); setLongitude(coords.lng); } }} />
-          <Input label="Fee" type="number" placeholder="0.00 (free)" value={feeAmount} onChange={(e) => setFeeAmount(e.target.value)} hint="Leave empty for free games" />
+
+          {/* Payment mode */}
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-2">Payment</label>
+            <div className="flex flex-wrap gap-2">
+              {([['free', 'Free'], ['online', 'Online payment'], ['pay_on_arrival', 'Pay on arrival']] as const).map(([mode, label]) => (
+                <button key={mode} type="button" onClick={() => { setPaymentMode(mode); if (mode === 'free') setFeeAmount(''); }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${paymentMode === mode ? 'bg-primary text-white' : 'bg-background text-text-secondary'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {paymentMode === 'online' && onlineEligibility === 'upgrade_required' && (
+              <p className="mt-2 text-xs font-medium text-warning">
+                This club&apos;s plan does not include online payments. Upgrade the plan to publish online-paid games, or choose Pay on arrival.
+              </p>
+            )}
+            {paymentMode === 'online' && onlineEligibility === 'stripe_setup_required' && (
+              <p className="mt-2 text-xs font-medium text-warning">
+                Stripe Connect isn&apos;t payment-ready yet. Finish Stripe setup in club payment settings, or choose Pay on arrival.
+              </p>
+            )}
+            {paymentMode === 'pay_on_arrival' && (
+              <p className="mt-2 text-xs text-text-tertiary">
+                Players book without paying online — the club collects the advertised fee at the venue.
+              </p>
+            )}
+          </div>
+
+          {paymentMode !== 'free' && (
+            <Input
+              label={paymentMode === 'pay_on_arrival' ? 'Fee payable on arrival' : 'Fee'}
+              type="number"
+              placeholder="15.00"
+              value={feeAmount}
+              onChange={(e) => setFeeAmount(e.target.value)}
+              hint={paymentMode === 'pay_on_arrival' ? 'Collected by the club at the venue' : 'Charged online when players book'}
+            />
+          )}
 
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1.5">Description</label>

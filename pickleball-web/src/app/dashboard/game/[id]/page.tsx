@@ -93,13 +93,19 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
     handleBook(pendingBookPayment);
   };
 
+  // Only ONLINE-payment games enter the Stripe flow. pay_on_arrival games
+  // confirm without payment (the club collects at the venue) and the
+  // create-payment-intent Edge Function rejects them server-side anyway.
+  const isOnlinePaidGame = (g: Game) =>
+    (g.payment_mode ?? (g.fee_amount > 0 ? 'online' : 'free')) === 'online' && g.fee_amount > 0;
+
   const handleBook = async (withPayment: boolean = true) => {
     if (!game) return;
     adminFreeBookRef.current = !withPayment;
     setBooking(true);
     try {
       const result = await bookGame(game.id);
-      if (game.fee_amount > 0 && result.status === 'confirmed') {
+      if (isOnlinePaidGame(game) && result.status === 'confirmed') {
         if (withPayment) {
           try {
             await processBookingPayment(result.id, game.fee_amount, game.fee_currency);
@@ -260,7 +266,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
       {isBooked ? (
         <>
           {/* Payment required banner for promoted waitlist players */}
-          {userBooking.status === 'confirmed' && !userBooking.fee_paid && game.fee_amount > 0 && userBooking.promoted_at && (
+          {userBooking.status === 'confirmed' && !userBooking.fee_paid && isOnlinePaidGame(game) && userBooking.promoted_at && (
             <div className="bg-white rounded-2xl border border-[#FFE5B4] shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-5 space-y-3">
               <div className="flex items-start gap-3">
                 <div className="h-10 w-10 rounded-full bg-[#FFF3E0] flex items-center justify-center flex-shrink-0">
@@ -303,12 +309,12 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
               <Badge
                 label={
                   userBooking.status === 'confirmed'
-                    ? (!userBooking.fee_paid && game.fee_amount > 0 ? 'Awaiting Payment' : 'Confirmed')
+                    ? (!userBooking.fee_paid && isOnlinePaidGame(game) ? 'Awaiting Payment' : 'Confirmed')
                     : 'Waitlisted'
                 }
                 color={
                   userBooking.status === 'confirmed'
-                    ? (!userBooking.fee_paid && game.fee_amount > 0 ? '#FF9500' : '#34C759')
+                    ? (!userBooking.fee_paid && isOnlinePaidGame(game) ? '#FF9500' : '#34C759')
                     : '#FF9500'
                 }
               />
@@ -335,7 +341,7 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
             </div>
           </div>
         </>
-      ) : isAdminOfGameClub && game.fee_amount > 0 && !isFull ? (
+      ) : isAdminOfGameClub && isOnlinePaidGame(game) && !isFull ? (
         <div className="flex gap-3">
           <button
             onClick={() => attemptBook(false)}
@@ -363,9 +369,11 @@ export default function GameDetailPage({ params }: { params: Promise<{ id: strin
           {booking && <Loader2 className="h-5 w-5 animate-spin" />}
           {isFull
             ? 'Join Waitlist'
-            : game.fee_amount > 0
+            : isOnlinePaidGame(game)
               ? `Book Your Spot · $${game.fee_amount.toFixed(2)}`
-              : 'Book Your Spot'}
+              : game.payment_mode === 'pay_on_arrival' && game.fee_amount > 0
+                ? `Book now · Pay $${game.fee_amount.toFixed(2)} on arrival`
+                : 'Book Your Spot'}
         </button>
       ) : null}
 
