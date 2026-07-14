@@ -1,0 +1,32 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": [
+          "NHFZ8ACDU6.com.bookadink.app"
+        ],
+        "components": [
+          {
+            "/": "/verified"
+          },
+          {
+            "/": "/game/*"
+          },
+          {
+            "/": "/club/*"
+          },
+          {
+            "/": "/dashboard/game/*"
+          },
+          {
+            "/": "/dashboard/club/*"
+          },
+          {
+            "/": "/dashboard/*"
+          }
+        ]
+      }
+    ]
+  }
+}
