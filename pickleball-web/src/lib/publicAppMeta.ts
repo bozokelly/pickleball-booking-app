@@ -20,6 +20,14 @@ export function getAppStoreUrl(): string {
   return `https://apps.apple.com/app/id${appStoreId}`;
 }
 
+export function getGooglePlayUrl(): string {
+  const configuredUrl = process.env.NEXT_PUBLIC_GOOGLE_PLAY_URL?.trim();
+  if (configuredUrl) return configuredUrl;
+
+  const packageName = process.env.ANDROID_APP_PACKAGE?.trim() || 'com.bookadink.app';
+  return `https://play.google.com/store/apps/details?id=${encodeURIComponent(packageName)}`;
+}
+
 export function getAppleItunesMeta(appArgumentUrl: string): string | undefined {
   const appStoreId = getAppStoreId();
   if (!appStoreId) return undefined;

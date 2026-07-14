@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+const CURRENT_IOS_APP_ID = 'NHFZ8ACDU6.com.bookadink.app';
+
 function parseCsv(value: string | undefined): string[] {
   if (!value) return [];
   return value
@@ -11,30 +13,30 @@ function parseCsv(value: string | undefined): string[] {
 export async function GET() {
   const configuredAppIds = parseCsv(process.env.IOS_APP_IDS);
   const legacySingleId = process.env.IOS_APP_ID?.trim();
-  const appIDs = configuredAppIds.length > 0
+  const environmentAppIDs = configuredAppIds.length > 0
     ? configuredAppIds
     : legacySingleId
       ? [legacySingleId]
       : [];
+  const appIDs = [...new Set([CURRENT_IOS_APP_ID, ...environmentAppIDs])];
 
   const payload = {
     applinks: {
       apps: [],
-      details: appIDs.length > 0
-        ? [
-            {
-              appIDs,
-              // Keep this broad so shared https links can deep-link into app routes.
-              components: [
-                { '/': '/game/*' },
-                { '/': '/club/*' },
-                { '/': '/dashboard/game/*' },
-                { '/': '/dashboard/club/*' },
-                { '/': '/dashboard/*' },
-              ],
-            },
-          ]
-        : [],
+      details: [
+        {
+          appIDs,
+          // Keep this broad so shared https links can deep-link into app routes.
+          components: [
+            { '/': '/verified' },
+            { '/': '/game/*' },
+            { '/': '/club/*' },
+            { '/': '/dashboard/game/*' },
+            { '/': '/dashboard/club/*' },
+            { '/': '/dashboard/*' },
+          ],
+        },
+      ],
     },
   };
 
