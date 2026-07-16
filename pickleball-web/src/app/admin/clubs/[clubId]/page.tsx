@@ -337,10 +337,49 @@ export default async function ClubFilePage({ params }: PageProps) {
         </Section>
 
         <Section id="subscription" title="Subscription" icon={<Receipt className="h-5 w-5" />} description="Club access plan, subscription state, and Stripe Connect readiness.">
+          {file.subscription.pendingCancellation && file.subscription.effectiveAccessEnd && (
+            <Panel className="mb-3 border-warning/30 bg-warning/5 p-4">
+              <h3 className="text-sm font-semibold text-text-primary">{file.subscription.paidPlan} plan</h3>
+              <p className="mt-1 text-sm text-text-secondary">
+                Your subscription is scheduled to end on {file.subscription.effectiveAccessEnd}. You’ll keep {file.subscription.paidPlan} features until then.
+              </p>
+            </Panel>
+          )}
+          {file.subscription.hasEnded && file.subscription.effectiveAccessEnd && (
+            <Panel className="mb-3 p-4">
+              <p className="text-sm text-text-secondary">
+                Your {file.subscription.paidPlan} subscription ended on {file.subscription.effectiveAccessEnd}. Your club is now on the Free plan.
+              </p>
+            </Panel>
+          )}
           <div className="grid gap-3 lg:grid-cols-3">
             <InfoPanel title="Club plan" rows={file.subscription.rows} />
             <InfoPanel title="Stripe Connect" rows={file.stripe.rows} />
             <InfoPanel title="Venue/location" rows={file.locationRows} />
+          </div>
+          <div className="mt-3">
+            <DataTable
+              caption="Subscription timeline"
+              note="Immutable, sanitized lifecycle events. Actor names are shown only when correlation evidence verified them."
+              empty="No subscription lifecycle events are available yet."
+              columns={['Event time', 'Source', 'Actor', 'Transition', 'Effective end', 'Stripe reference', 'Result']}
+              rows={file.subscription.events.map((event) => {
+                const actor = file.profileById.get(text(event, 'actor_user_id'));
+                const actorLabel = actor
+                  ? `${text(actor, 'full_name') || text(actor, 'email') || 'Verified user'}${text(event, 'actor_role') ? ` (${text(event, 'actor_role')})` : ''}`
+                  : 'Unknown actor';
+                const transition = `${text(event, 'previous_plan') || '-'} / ${text(event, 'previous_status') || '-'} → ${text(event, 'resulting_plan') || '-'} / ${text(event, 'resulting_status') || '-'}`;
+                return [
+                  formatDate(text(event, 'stripe_event_created_at') || text(event, 'processed_at')),
+                  text(event, 'source') || 'unknown',
+                  actorLabel,
+                  transition,
+                  formatDate(text(event, 'effective_access_end')),
+                  <Mono key="stripe-event" value={text(event, 'stripe_event_id') || text(event, 'stripe_request_id') || text(event, 'request_id') || '-'} />,
+                  <StatusPill key="result" label={text(event, 'processing_result') || 'unknown'} tone={subscriptionEventTone(text(event, 'processing_result'))} />,
+                ];
+              })}
+            />
           </div>
         </Section>
 
@@ -444,16 +483,17 @@ async function loadClubFile(
     };
   }
 
-  const [membersResult, adminsResult, gamesResult, stripeResult, subscriptionResult, venuesResult] = await Promise.all([
+  const [membersResult, adminsResult, gamesResult, stripeResult, subscriptionResult, subscriptionEventsResult, venuesResult] = await Promise.all([
     safeRows('club_members', () => reader.from('club_members').select('*').eq('club_id', clubId).limit(500), true, 500),
     safeRows('club_admins', () => reader.from('club_admins').select('*').eq('club_id', clubId).limit(100), true, 100),
     safeRows('games', () => reader.from('games').select('*').eq('club_id', clubId).order('date_time', { ascending: false }).limit(240), false, 240),
     safeRows('club_stripe_accounts', () => reader.from('club_stripe_accounts').select('*').eq('club_id', clubId).limit(1), true, 1),
     safeRows('club_subscriptions', () => reader.from('club_subscriptions').select('*').eq('club_id', clubId).limit(1), true, 1),
+    safeRows('club_subscription_events', () => reader.from('club_subscription_events').select('*').eq('club_id', clubId).order('processed_at', { ascending: false }).limit(120), true, 120),
     safeRows('club_venues', () => reader.from('club_venues').select('*').eq('club_id', clubId).limit(50), true, 50),
   ]);
 
-  [membersResult, adminsResult, gamesResult, stripeResult, subscriptionResult, venuesResult].forEach((result) => {
+  [membersResult, adminsResult, gamesResult, stripeResult, subscriptionResult, subscriptionEventsResult, venuesResult].forEach((result) => {
     if (result.warning) warnings.push(result.warning);
   });
 
@@ -496,6 +536,7 @@ async function loadClubFile(
     ...bookingsResult.data.map((row) => text(row, 'user_id')),
     ...notificationsResult.data.map((row) => text(row, 'user_id')),
     ...adminActionsResult.data.map((row) => text(row, 'admin_user_id')),
+    ...subscriptionEventsResult.data.map((row) => text(row, 'actor_user_id')),
   ]);
   const profilesResult =
     userIds.length > 0
@@ -512,6 +553,7 @@ async function loadClubFile(
   const venues = venuesResult.data;
   const stripe = stripeResult.data[0];
   const subscription = subscriptionResult.data[0];
+  const subscriptionEvents = subscriptionEventsResult.data;
   const profileById = mapByKey(profiles, 'id');
   const gameById = mapByKey(games, 'id');
   const bookingsByGameId = groupByKey(bookings, 'game_id');
@@ -555,8 +597,19 @@ async function loadClubFile(
   const hasStripeAccount = Boolean(stripe && text(stripe, 'stripe_account_id'));
   const payoutsReady = Boolean(stripe && bool(stripe, 'payouts_enabled'));
   const location = clubLocation(club, venues);
-  const subscriptionPlan = text(club, 'subscription_tier') || text(subscription, 'plan_type') || text(subscription, 'tier') || text(subscription, 'plan') || 'not tracked';
-  const subscriptionStatus = text(subscription, 'status') || (subscription ? 'unknown' : 'none');
+  const subscriptionPlan = text(club, 'subscription_tier') || 'free';
+  const paidSubscriptionPlan = text(subscription, 'plan_type') || text(subscription, 'tier') || text(subscription, 'plan') || subscriptionPlan;
+  const rawSubscriptionStatus = text(subscription, 'status') || (subscription ? 'unknown' : 'none');
+  const effectiveEndRaw = text(subscription, 'ended_at') || text(subscription, 'cancel_at') || text(subscription, 'current_period_end');
+  const effectiveEndMs = effectiveEndRaw ? new Date(effectiveEndRaw).getTime() : Number.NaN;
+  const pendingCancellation = Boolean(subscription) && (
+    bool(subscription, 'cancel_at_period_end')
+    || (Boolean(text(subscription, 'cancel_at')) && Number.isFinite(effectiveEndMs) && effectiveEndMs > now.getTime())
+    || (rawSubscriptionStatus === 'canceled' && Number.isFinite(effectiveEndMs) && effectiveEndMs > now.getTime())
+  );
+  const subscriptionStatus = pendingCancellation ? 'scheduled to end' : rawSubscriptionStatus;
+  const hasEnded = rawSubscriptionStatus === 'canceled' && Number.isFinite(effectiveEndMs) && effectiveEndMs <= now.getTime();
+  const clubTimezone = text(club, 'timezone') || 'Australia/Perth';
   const zeroPlayerUpcomingGames = upcomingGames.filter((game) => (bookingCountsByGameId.get(text(game, 'id')) || 0) === 0);
   const issues: OperationalIssue[] = [
     ...(location === 'Missing location'
@@ -679,11 +732,18 @@ async function loadClubFile(
     subscription: {
       statusLabel: subscriptionStatus,
       statusTone: subscriptionStatusTone(subscriptionStatus),
+      pendingCancellation,
+      hasEnded,
+      paidPlan: paidSubscriptionPlan === 'pro' ? 'Pro' : paidSubscriptionPlan === 'starter' ? 'Starter' : 'Free',
+      effectiveAccessEnd: effectiveEndRaw ? formatClubDate(effectiveEndRaw, clubTimezone) : null,
+      events: subscriptionEvents,
       rows: [
         ['Plan', subscriptionPlan, 'Plan label from club/subscription records.'],
-        ['Status', subscriptionStatus, subscription ? 'Status from club_subscriptions.' : 'No subscription row was found for this club.'],
+        ['Stripe lifecycle', rawSubscriptionStatus, subscription ? 'Authoritative lifecycle status synchronized from Stripe.' : 'No subscription row was found for this club.'],
+        ['Entitlement', subscriptionPlan, pendingCancellation ? 'Paid access remains active until the effective end.' : 'Current application-access plan.'],
         ['Source', text(subscription, 'subscription_source') || '-', 'Billing source if tracked.'],
-        ['Current period end', formatDate(text(subscription, 'current_period_end')), 'Only shown when the subscription row stores it.'],
+        ['Effective access end', effectiveEndRaw ? formatClubDate(effectiveEndRaw, clubTimezone) : '-', 'Displayed in the club timezone; stored in UTC.'],
+        ['Last synchronized', formatDate(text(subscription, 'last_synced_at')), 'Most recent authoritative Stripe synchronization.'],
       ],
     },
     locationRows: [
@@ -1270,9 +1330,31 @@ function notificationDelivery(deliveries: Row[]) {
 
 function subscriptionStatusTone(status: string): StatusTone {
   if (status === 'active' || status === 'trialing') return 'good';
-  if (status === 'canceling' || status === 'cancelling' || status === 'cancel_at_period_end') return 'warn';
+  if (status === 'canceling' || status === 'cancelling' || status === 'cancel_at_period_end' || status === 'scheduled to end') return 'warn';
   if (status === 'past_due' || status === 'unpaid' || status === 'incomplete') return 'bad';
   return 'neutral';
+}
+
+function subscriptionEventTone(result: string): StatusTone {
+  if (result === 'applied' || result === 'stripe_accepted' || result === 'backfilled_requires_stripe_reconciliation') return 'good';
+  if (result === 'duplicate' || result === 'stale_ignored' || result === 'requested') return 'warn';
+  if (result.includes('failed') || result.includes('rejected')) return 'bad';
+  return 'neutral';
+}
+
+function formatClubDate(value: string, timezone: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  try {
+    return new Intl.DateTimeFormat('en-AU', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: timezone,
+    }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat('en-AU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Australia/Perth' }).format(date);
+  }
 }
 
 function formatGameFee(game: Row) {
