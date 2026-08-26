@@ -1,6 +1,5 @@
 {
   "applinks": {
-    "apps": [],
     "details": [
       {
         "appIDs": [
@@ -8,22 +7,7 @@
         ],
         "components": [
           {
-            "/": "/verified"
-          },
-          {
-            "/": "/game/*"
-          },
-          {
-            "/": "/club/*"
-          },
-          {
-            "/": "/dashboard/game/*"
-          },
-          {
-            "/": "/dashboard/club/*"
-          },
-          {
-            "/": "/dashboard/*"
+            "/": "/c/*"
           }
         ]
       }

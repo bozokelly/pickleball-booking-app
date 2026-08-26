@@ -1,4 +1,5 @@
-const DEFAULT_SITE_ORIGIN = 'https://bookadink.com';
+const DEFAULT_SITE_ORIGIN = 'https://www.bookadink.com';
+const CLUB_UNIVERSAL_LINK_ORIGIN = 'https://www.bookadink.com';
 
 function normalizeOrigin(origin: string): string {
   return origin.endsWith('/') ? origin.slice(0, -1) : origin;
@@ -6,6 +7,10 @@ function normalizeOrigin(origin: string): string {
 
 export function getSiteOrigin(): string {
   return normalizeOrigin(process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_ORIGIN);
+}
+
+export function getClubUniversalLink(clubId: string): string {
+  return `${CLUB_UNIVERSAL_LINK_ORIGIN}/c/${clubId}`;
 }
 
 export function getAppStoreId(): string | null {
