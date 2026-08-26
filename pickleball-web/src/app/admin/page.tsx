@@ -271,7 +271,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
                 <div>
                   <h2 className="text-sm font-semibold text-text-primary">Filtered admin view</h2>
                   <p className="mt-1 text-sm text-text-secondary">
-                    Showing records that match <span className="font-semibold text-text-primary">"{query}"</span>. Search applies to the loaded admin preview data and the revenue summary RPC when available.
+                    Showing records that match <span className="font-semibold text-text-primary">&quot;{query}&quot;</span>. Search applies to the loaded admin preview data and the revenue summary RPC when available.
                   </p>
                 </div>
                 <Link href={`/admin?tab=${activeTab}`} className="text-sm font-semibold text-info hover:text-primary">

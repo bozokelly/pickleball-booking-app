@@ -174,7 +174,7 @@ export default async function ClubFilePage({ params }: PageProps) {
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
                   <h3 className="text-sm font-semibold text-text-primary">Owner brief</h3>
-                  <p className="mt-1 text-xs text-text-secondary">Plain-English readout of this club's operating state.</p>
+                  <p className="mt-1 text-xs text-text-secondary">Plain-English readout of this club&apos;s operating state.</p>
                 </div>
                 <ShieldCheck className="h-5 w-5 text-text-tertiary" />
               </div>
