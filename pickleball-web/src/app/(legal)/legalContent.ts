@@ -3,7 +3,7 @@ export type LegalSection = {
   body: string[];
 };
 
-export const lastUpdated = '22 June 2026';
+export const lastUpdated = '7 September 2026';
 export const contactEmail = 'support@bookadink.com';
 export const accountDeletionPath = '/account-deletion';
 
@@ -171,6 +171,7 @@ export const privacySections: LegalSection[] = [
     title: '2. Account and profile information',
     body: [
       'Bookadink may collect account and profile information, such as your name, email, phone number, avatar or profile photo, date of birth or age eligibility information where collected, skill level, DUPR rating, emergency contact information where collected, notification preferences, push notification tokens, club membership status, and club roles or admin permissions.',
+      'If you join the website launch waitlist, we collect your name, normalised email address, signup time, source, and notification status. To limit automated abuse, we temporarily store a keyed one-way fingerprint derived from request network information; raw network addresses are not stored in the waitlist rate-limit table.',
       'Emergency contact information is not intended to be public and should only be used for safety, support, or operational purposes related to the relevant club or booking.',
     ],
   },
@@ -246,14 +247,22 @@ export const privacySections: LegalSection[] = [
     ],
   },
   {
-    title: '12. Security',
+    title: '12. Website cookies and preferences',
+    body: [
+      'The website uses essential Supabase authentication cookies when needed to keep signed-in sessions secure and working. Essential cookies are not disabled by the cookie preference controls because account sign-in cannot operate reliably without them.',
+      'The website does not currently load optional analytics, advertising, or marketing cookies. Cookie choices are stored in your browser local storage rather than in another cookie, and you can reopen Cookie preferences from any page to change your saved choice.',
+      'If optional cookie categories are introduced later, BookaDink will update this notice and ask for a new choice before those optional cookies load.',
+    ],
+  },
+  {
+    title: '13. Security',
     body: [
       'Bookadink uses technical and organisational safeguards designed to protect personal information, including encrypted network connections, provider security controls, access controls, and monitoring for reliability and abuse prevention.',
       'No online service can guarantee perfect security. If we become aware of a security issue that affects your information, we will take reasonable steps to respond and notify users or authorities where required by law.',
     ],
   },
   {
-    title: '13. Retention and deletion',
+    title: '14. Retention and deletion',
     body: [
       'We keep account and profile information while your account is active or as needed to provide Bookadink, meet legal or accounting obligations, resolve disputes, prevent abuse, and maintain reliable booking, payment, membership, safety, and audit records.',
       'Booking, payment, audit, fraud-prevention, safety, tax, dispute, chargeback, and club administration records may be retained after account deletion where required or reasonably needed for those purposes.',
@@ -262,26 +271,26 @@ export const privacySections: LegalSection[] = [
     ],
   },
   {
-    title: '14. Children',
+    title: '15. Children',
     body: [
       'Bookadink is not directed to children under 16. If you believe a child has provided personal information without appropriate permission, contact us so we can review and take appropriate action.',
     ],
   },
   {
-    title: '15. International processing',
+    title: '16. International processing',
     body: [
       'Bookadink and its service providers may process information in Australia and other countries where our infrastructure, support, payment, notification, analytics, crash reporting, email, or storage providers operate.',
     ],
   },
   {
-    title: '16. Australian privacy context',
+    title: '17. Australian privacy context',
     body: [
       'Bookadink is operated for Australian users and clubs. We aim to handle personal information consistently with applicable Australian privacy principles and consumer protection obligations.',
       'If you are outside Australia, your information may still be processed using the providers and infrastructure needed to operate Bookadink.',
     ],
   },
   {
-    title: '17. Contact',
+    title: '18. Contact',
     body: [`Questions or privacy requests can be sent to ${contactEmail}.`],
   },
 ];

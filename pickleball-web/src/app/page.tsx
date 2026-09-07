@@ -216,12 +216,12 @@ export default function MarketingHomePage() {
               Book a Dink helps players book games, join waitlists, chat with clubs, pay, track results, and stay updated. Clubs get the tools to run sessions without spreadsheet chaos.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <a
-                href={mailto('Book a Dink iPhone beta access')}
+              <Link
+                href="/waitlist"
                 className="inline-flex h-[52px] items-center justify-center rounded-2xl bg-[#101214] px-6 text-base font-semibold text-white shadow-[0_18px_45px_rgba(16,18,20,0.22)] transition hover:-translate-y-0.5 hover:bg-black"
               >
-                Download on iPhone
-              </a>
+                Join the waitlist
+              </Link>
               <a
                 href={mailto('Book a Dink Android beta access')}
                 className="inline-flex h-[52px] items-center justify-center rounded-2xl border border-[#101214]/12 bg-white px-6 text-base font-semibold text-[#101214] shadow-sm transition hover:-translate-y-0.5 hover:border-[#101214]/30"
@@ -573,6 +573,7 @@ function PublicNav() {
           </div>
         </Link>
         <nav className="hidden items-center gap-7 text-sm font-semibold text-[#58616D] lg:flex" aria-label="Public navigation">
+          <Link href="/waitlist" className="transition hover:text-[#101214]">Waitlist</Link>
           <a href="#features" className="transition hover:text-[#101214]">Features</a>
           <a href="#players" className="transition hover:text-[#101214]">For Players</a>
           <a href="#clubs" className="transition hover:text-[#101214]">For Clubs</a>
@@ -667,6 +668,7 @@ function SiteFooter() {
         <FooterGroup
           title="Product"
           links={[
+            ['Waitlist', '/waitlist'],
             ['Features', '#features'],
             ['For Players', '#players'],
             ['For Clubs', '#clubs'],
@@ -694,6 +696,7 @@ function SiteFooter() {
         <div className="mx-auto flex max-w-7xl flex-col gap-3 text-sm text-[#66707C] sm:flex-row sm:items-center sm:justify-between">
           <p>&copy; {year} Book a Dink. All rights reserved.</p>
           <div className="flex gap-4">
+            <Link href="/waitlist" className="transition hover:text-[#101214]">Waitlist</Link>
             <Link href="/privacy" className="transition hover:text-[#101214]">Privacy</Link>
             <Link href="/terms" className="transition hover:text-[#101214]">Terms</Link>
           </div>
