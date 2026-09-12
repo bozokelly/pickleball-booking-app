@@ -178,11 +178,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   deleteAccount: async () => {
     const session = get().session;
     if (!session) throw new Error('Not authenticated');
-    const { data, error } = await supabase.functions.invoke('delete-account', {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
+    const { data, error } = await supabase.rpc('request_account_deletion', { p_reason: null });
     if (error) throw new Error(error.message);
-    if (data?.error) throw new Error(data.error);
+    const result = Array.isArray(data) && data.length === 1 ? data[0] : null;
+    if (!result || !['pending', 'processing', 'requires_admin_review'].includes(result.out_status)
+      || typeof result.out_request_id !== 'string' || !result.out_request_id) {
+      throw new Error('Could not confirm your deletion request. Please try again.');
+    }
     try {
       await supabase.auth.signOut();
     } finally {
