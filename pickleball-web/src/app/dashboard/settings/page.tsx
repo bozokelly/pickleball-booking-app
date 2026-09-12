@@ -83,7 +83,7 @@ export default function SettingsPage() {
       await deleteAccount();
       router.push('/login');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to delete account';
+      const message = err instanceof Error ? err.message : 'Failed to request account deletion';
       showToast(message, 'error');
     } finally {
       setDeleting(false);
@@ -169,7 +169,7 @@ export default function SettingsPage() {
       <Card className="p-6 border-error/30">
         <h3 className="text-sm font-semibold text-error mb-2">Danger Zone</h3>
         <p className="text-sm text-text-secondary mb-4">
-          Permanently delete your account and all associated data. This cannot be undone.
+          Request account deletion and de-identification. Financial and audit history is retained; club ownership may require review.
         </p>
         <Button
           variant="danger"
@@ -185,7 +185,7 @@ export default function SettingsPage() {
       <ConfirmDialog
         open={showDeleteDialog}
         title="Delete Account"
-        message="Are you sure you want to permanently delete your account? All your bookings, memberships, and data will be removed. This action cannot be undone."
+        message="Request account deletion? You will be signed out after your request is accepted. Your personal information will be de-identified after review, while required booking, payment, credit, and audit history is retained."
         confirmLabel="Delete My Account"
         variant="danger"
         onConfirm={handleDeleteAccount}
