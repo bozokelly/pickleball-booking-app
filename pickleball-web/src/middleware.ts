@@ -1,7 +1,25 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { billingReturnSecurityHeaders } from './lib/billingReturn';
 
 export async function middleware(request: NextRequest) {
+  // Public return page. Skip the session lookup so a Stripe redirect does not
+  // depend on authentication or a Supabase round trip.
+  if (request.nextUrl.pathname === '/billing/return') {
+    const url = request.nextUrl.clone();
+    url.search = '';
+    // Internal rewrite only. The page does not read the query string, and the
+    // browser is not redirected. Next.js still records the address-bar URL in
+    // its router bootstrap, so the configured return URL must not carry secrets.
+    const response = request.nextUrl.search
+      ? NextResponse.rewrite(url)
+      : NextResponse.next();
+    for (const header of billingReturnSecurityHeaders) {
+      response.headers.set(header.key, header.value);
+    }
+    return response;
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
