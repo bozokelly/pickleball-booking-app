@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { billingReturnSecurityHeaders } from "./src/lib/billingReturn";
 
 const nextConfig: NextConfig = {
   async headers() {
@@ -11,6 +12,10 @@ const nextConfig: NextConfig = {
             value: 'application/json',
           },
         ],
+      },
+      {
+        source: '/billing/return',
+        headers: [...billingReturnSecurityHeaders],
       },
     ];
   },

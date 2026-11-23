@@ -4,9 +4,9 @@
 
 - Production waitlist: `https://www.bookadink.com/waitlist`
 - Staging billing return: `https://staging.bookadink.com/billing/return`
-- Production billing return is intentionally unavailable and returns `404`.
+- Production billing return: `https://www.bookadink.com/billing/return`
 
-The billing return page is informational only. It does not read Stripe query parameters, fetch billing records, or process payments.
+The billing return page is informational only. It does not read Stripe query parameters, fetch billing records, or process payments. Production tells the owner to close the window and refresh club billing in the app. It does not report payment or subscription success. Staging keeps its existing staging copy. The apex host `bookadink.com` uses that same production page when a request reaches the app; Vercel redirects the apex to `www`.
 
 ## Supabase deployment
 
@@ -42,9 +42,9 @@ Required website environment variables:
 4. At the DNS provider for `bookadink.com`, add the exact CNAME or A record Vercel displays for `staging.bookadink.com`. Remove any conflicting record first.
 5. Wait for Vercel to show **Valid Configuration** and issue the TLS certificate.
 6. Set the Stripe Billing Portal return URL in the Stripe **test/sandbox** configuration to `https://staging.bookadink.com/billing/return`.
-7. Verify the URL over HTTPS. Verify `https://www.bookadink.com/billing/return` returns `404`.
+7. Verify the staging URL over HTTPS and confirm it still shows the staging page. Verify `https://www.bookadink.com/billing/return` returns the production return page. Do not point the production secret at the staging URL.
 
-The hostname check is server-side and permits only the canonical staging host, local development, and Vercel preview hosts. Do not point the staging hostname at a deployment configured with production Supabase or Stripe credentials.
+The hostname check is server-side. It serves staging copy on the canonical staging host, local development, and Vercel preview hosts. It serves production copy on `www.bookadink.com` and `bookadink.com`. Every other host returns 404. Do not point the staging hostname at a deployment configured with production Supabase or Stripe credentials.
 
 ## Cookie behavior
 
